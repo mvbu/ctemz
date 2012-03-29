@@ -159,10 +159,7 @@ c     Length and volume of cell in plasma proper frame
 c     Time step in observer's frame in days
       dtfact=(1.0d0-betad*clos)/(betad*clos)
       dtime=1190.0*zsize*dtfact*zred1
-c      itlast=20.0/dtime
-      itlast=2.0/dtime
-      print *, 'itlast = ', itlast
-      print *, 'dtime = ', dtime
+      itlast=2.0/dtime ! 20.0/dtime originally: using fewer timesteps for testing
       mdrang=0.5*(1.0/dtfact+1.0)
 c     Distance of shock from axis and apex of conical jet
       tanop=dtan(opang)
@@ -253,8 +250,7 @@ cccccc  END TEST
 c     Set up variation of energy density according to PSD; see Done et al.,
 c       1992, ApJ, 400, 138, eq. B1
       tinc=dtime
-      !call psdsim(16384,-psdslp,-psdslp,1.0,tinc,spsd)
-      call psdsim(8192,-psdslp,-psdslp,1.0,tinc,spsd)
+      call psdsim(8192,-psdslp,-psdslp,1.0,tinc,spsd) ! first arg used to be 16384, which is way larger than allowed
       psdsum=0.0
       do 4998 ip=1,8192
       spexp=1.0/(0.5*expon+1.0)
@@ -267,7 +263,7 @@ c      if(ip.lt.100)write(5,9996)spsd(ip)
 c      write(5,9935)ip,spsd(ip)
 c 9935 format(i8,1pe11.3)
  4999 spsd(ip)=amppsd*spsd(ip)/psdsum
-      ip0=rand(0)*5000
+      ip0=0 !rand(0)*5000  setting this to zero instead so that we can call psdsim with an allowed value of N
       it=0
  1000 continue
 c     Set parameters of each cell at initial time

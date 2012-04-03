@@ -29,7 +29,7 @@ void BlzRand::rnstnr(double r[], int n)
 
 void BlzRand::rnecuy(double u[], int n) 
 {
-   const int M1=2147483563,M1MIN1=2147483562,IA1=40014, IQ1=53668,IR1=12211;
+  const int M1=2147483563,M1MIN1=2147483562,IA1=40014, IQ1=53668,IR1=12211;
   const int M2=2147483399,IA2=40692,IQ2=52774,IR2=2791;
   const double XM1INV=4.656613E-10;
   BlzLog::psychoScalar("before IX1", IX1);

@@ -31,6 +31,8 @@ class BlzSim {
   BlzSim();
   ~BlzSim();
 
+  // Instance of structure to store shared variables, serving same purpose
+  // as the COMMON variables in the Fortran code
   BlzSimCommon common;
 
   // code is ported from Fortran psdsim() in temz.f from Ritaban Chatterjee
@@ -39,8 +41,10 @@ class BlzSim {
   // N=number of data points in the lc, should be an integer power of 2, N<=8192
   // t_incre1=increment in time in each step while resampling the simulated data.
   // This must be larger than the smallest interval between successive data points in the input light curve
-  void psdsim(const int N, const float beta1, const float beta2, const float nu_break, const float t_incre1, 
-              float *lc_sim);
+  void psdsim(const int N, const float beta1, const float beta2, const float nu_break, 
+              const float t_incre1, float *lc_sim);
+
+  double seedph(double f);
 
 };
     

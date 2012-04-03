@@ -76,7 +76,19 @@ void BlzSim::psdsim(const int N, const float beta1, const float beta2, const flo
   }
 }
 
+double BlzSim::seedph(double f)
+{
+  double sn1, sn2;
+  sn1 = common.dsnth1;
+  sn2 = common.dsnth2;
+  common.freq = f;
+  double ans = BlzMath::qg5(sn1, sn2, sdgran, &common);
+  // Multiply by 2pi, but then divide by 4pi to get intensity
+  double retVal = 0.5 * ans;
+  return retVal;
+}
 
+// Non-member function
 double sdgran(double sn, void *pObject)
 {
   BlzSimCommon* pcm = (BlzSimCommon*)pObject;

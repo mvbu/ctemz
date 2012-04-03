@@ -96,6 +96,23 @@ int main()
   qgresult = BlzMath::qg5(0.74151808435155919, 0.99292683212516131, sdgran, &common);
   BlzLog::debugScalar("qgresult", qgresult);
   BlzLog::debugScalar("expected", 2.97223149e-11);
+
+  // Test seedph()
+  double seedphResult;
+  double freq = 4.65842962e+11;
+  pSim = new BlzSim();
+  pSim->common.tdust = 1200.;
+  pSim->common.gammad = 11.473015869669796;
+  pSim->common.betad = 0.99619423459093981;
+  pSim->common.freq = 4.65842962e+11;
+  pSim->common.dsnth1 = 0.74151808435155919;
+  pSim->common.dsnth2 = 0.99292683212516131;
+  seedphResult = pSim->seedph(freq);
+
+  BlzLog::debugScalar("seedphResult", seedphResult);
+  BlzLog::debugScalar("expected", 9.51800444e-12);
+  delete pSim;
+  
 }
 
 

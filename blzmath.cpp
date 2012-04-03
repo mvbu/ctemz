@@ -67,3 +67,33 @@ void BlzMath::fourier(double data[], int nn, int isign)
     mmax=istep;
   } // end while(n > mmax)
 }
+
+
+// Returns the integral of the function func between a and  b, by 5-point Gauss-Legendre integration:
+// the function is evaluated exactly five times at interior points in the range of integration.
+// pObject is passed to (*pFunction)()
+double BlzMath::qg5(double a, double b, QgFunctionPtr pFunction, void *pObject) 
+{
+  double retVal = 0.0;
+  int j;
+  double xm, xr;
+  // save w,x <--The Fortran version does this, meaning values in w and x should be retained
+  // between calls. But w and x values never get changed from the initial values below, so until
+  // I figure out a/the reason why they have to be saved, I'm leaving that part out. -msv April2012
+  // The abscissas and weights:
+  double w[5] = {.236926885,.478628670,.568888889,.47862867, .236926885 };
+  double x[5] = {-.906179846,-.538469310,0.0,.53846931,.906179846 };
+  xm=0.5*(a+b);
+  xr=0.5*(b-a);
+
+  for(j=0; j<5; j++) {
+    retVal=retVal+w[j]*(*pFunction)(xm+x[j]*xr, pObject);
+  }
+
+  // Scale the answer to the range of integration.
+  retVal=xr*retVal;
+  return retVal;
+}
+
+
+

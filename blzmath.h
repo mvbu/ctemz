@@ -14,12 +14,26 @@ static const double MIN_PER_HOUR = 60.;
 static const double MIN_PER_DAY = 1440.;
 static const double HOUR_PER_DAY = 24.;
 
+// Function pointer type to pass into the Gaussian integration routines
+typedef double (*QgFunctionPtr)(double, void *pObject);
+
 class BlzMath {
 	// General math routines
 
  public:
+  // Replaces data[0:2*nn-1] by its discrete Fourier transform,  if isign is input as 1
+  // or replaces data[0:2*nn-1] by nn times its inverse discrete Fourier transform, if isign is input as -1.
+  // data is a double array of length 2*nn, representing a complex array of length nn.
+  // nn MUST be an integer power of 2 (this is not checked!) TODO: check for this
 	// Based on four1() routine in temz.f
   static void fourier(double data[], int nn, int isign);
+
+  // Returns as ss the integral of the function func between a and  b, 
+  // by 5-point Gauss-Legendre integration: the function is evaluated exactly 5
+  // times at interior points in the range of integration. Based on qg5() from temz.f
+  // which is apparently based on routine from Numerical Recipes
+  // pObject is passed to (*pFunction)(). pFunction will know what kind of object it is.
+  static double qg5(double a, double b, QgFunctionPtr pFunction, void *pObject);
 
  private:
   BlzMath();

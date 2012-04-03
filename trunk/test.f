@@ -7,13 +7,12 @@
       stp = 6.28318530717959d0/dble(8-1d0)
       ISEED1=58
       ISEED2=256871
-      !print *, 'ISEED1, ISEED2: ', ISEED1, ISEED2
-      !print *, 'N: ', N
+      print *, 'ISEED1, ISEED2: ', ISEED1, ISEED2
       call RNE2IN(ISEED1,ISEED2)
-      !print *, 'ISEED1, ISEED2: ', ISEED1, ISEED2
+      print *, 'ISEED1, ISEED2: ', ISEED1, ISEED2
       call RNSTNR(R,N/2)
       call RNE2OT(ISEED1,ISEED2)
-      !print *, 'ISEED1, ISEED2: ', ISEED1, ISEED2
+      print *, 'ISEED1, ISEED2: ', ISEED1, ISEED2
       !print *, 'R: ', R
       !print *, 'R[2048]', R(2048)
       !print *, 'R[4096]', R(4096)
@@ -193,10 +192,11 @@ C This must be larger than the smallest interval between successive data points 
       ISEED1=58
       ISEED2=256871
       call RNE2IN(ISEED1,ISEED2)
+        print *, '1) ISEED1 ', ISEED1, ' ISEED2 ', ISEED2
 
         call RNSTNR(R,N/2)
         call RNE2OT(ISEED1,ISEED2)
-        print *, '1) ISEED1 ', ISEED1, ' ISEED2 ', ISEED2
+        print *, '2) ISEED1 ', ISEED1, ' ISEED2 ', ISEED2
         do j=1,N/2  
             nu(j)= j*fac_norm/86400.                      
             if (nu(j) .le. nu_break) then
@@ -210,7 +210,7 @@ C This must be larger than the smallest interval between successive data points 
         end do
         call RNSTNR(R,N/2)
         call RNE2OT(ISEED1,ISEED2)
-        print *, '2) ISEED1 ', ISEED1, ' ISEED2 ', ISEED2
+        print *, '3) ISEED1 ', ISEED1, ' ISEED2 ', ISEED2
 
         do j=1,N/2
             dataim(j)=dsqrt(0.5*fac_norm2*flux_s(j))*R(j)

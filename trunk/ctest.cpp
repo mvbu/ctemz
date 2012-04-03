@@ -18,15 +18,15 @@ int main()
   double r[32678];
   int ISEED1=58;
   int ISEED2=256871;
-  //BlzLog::debugScalar("ISEED1", ISEED1);
-  //BlzLog::debugScalar("ISEED2", ISEED2);
+  BlzLog::debugScalar("ISEED1", ISEED1);
+  BlzLog::debugScalar("ISEED2", ISEED2);
   BlzRand::setIX(ISEED1, ISEED2);
-  //BlzLog::debugScalar("ISEED1", ISEED1);
-  //BlzLog::debugScalar("ISEED2", ISEED2);
+  BlzLog::debugScalar("ISEED1", ISEED1);
+  BlzLog::debugScalar("ISEED2", ISEED2);
   BlzRand::rnstnr(r, N/2);
   BlzRand::getIX(&ISEED1, &ISEED2);
-  //BlzLog::debugScalar("ISEED1", ISEED1);
-  //BlzLog::debugScalar("ISEED2", ISEED2);
+  BlzLog::debugScalar("ISEED1", ISEED1);
+  BlzLog::debugScalar("ISEED2", ISEED2);
   int i;
   for(i=3; i>=0; i--) {
     stringstream ss;
@@ -53,11 +53,14 @@ int main()
   BlzMath::fourier(data, NN, 1);
   //BlzLog::debugComplexVector("data", data, NN);
 
+	// DUMMY COMMENT
+
   // Now test psdsim
   float spsd[BLZSIM_DIM16384]; // where to put the output light curve
   float psdslp = 1.7; // psd slope
   float tinc= 1.93893981; 
-  BlzSim::psdsim(BLZSIM_DIM16384, -psdslp, -psdslp, 1.0, tinc, spsd);
+  BlzSim::psdsim(8192, -psdslp, -psdslp, 1.0, tinc, spsd);
+  BlzLog::debugScalarPair("spsd[0]", spsd[0], spsd[1]);
   for(i=3; i>=0; i--) {
     stringstream ss;
     string msg = "spsd[";

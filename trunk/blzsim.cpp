@@ -7,7 +7,7 @@
 /* Output/result parameter lc_sim must be of dimension BLZSIM_DIM_16384 */
 void BlzSim::psdsim(const int N, const float beta1, const float beta2, const float nu_break, const float t_incre1, float *lc_sim)
 {
-	// This code is ported from Fortran routine temz.f:psdsim() by R. Chatterjee
+  // This code is ported from Fortran routine temz.f:psdsim() by R. Chatterjee
   double nu[BLZSIM_DIM16384],dat[BLZSIM_DIM16384],R[BLZSIM_DIM32768];
   double dataim[BLZSIM_DIM16384],datareal[BLZSIM_DIM16384],flux_s[BLZSIM_DIM16384];
   double fac_norm,fac_norm2;
@@ -20,9 +20,10 @@ void BlzSim::psdsim(const int N, const float beta1, const float beta2, const flo
   ISEED1=58;
   ISEED2=256871;
   BlzRand::setIX(ISEED1,ISEED2);
+  BlzLog::debugScalarPair("1) ISEED1/ISEED2", ISEED1, ISEED2);
   BlzRand::rnstnr(R,N/2);
   BlzRand::getIX(&ISEED1,&ISEED2);
-  BlzLog::debugScalarPair("1) ISEED1/ISEED2", ISEED1, ISEED2);
+  BlzLog::debugScalarPair("2) ISEED1/ISEED2", ISEED1, ISEED2);
   for(j=1; j<=N/2; j++) {
     nu[j-1] = j*fac_norm/86400.;
     if(nu[j-1] <= nu_break) {
@@ -37,7 +38,7 @@ void BlzSim::psdsim(const int N, const float beta1, const float beta2, const flo
   }
   BlzRand::rnstnr(R,N/2);
   BlzRand::getIX(&ISEED1,&ISEED2);
-  BlzLog::debugScalarPair("2) ISEED1/ISEED2", ISEED1, ISEED2);
+  BlzLog::debugScalarPair("3) ISEED1/ISEED2", ISEED1, ISEED2);
 
   for(j=1; j<=N/2; j++) {
     dataim[j-1]=sqrt(0.5*fac_norm2*flux_s[j-1])*R[j-1];

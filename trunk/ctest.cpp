@@ -11,6 +11,10 @@
 
 using namespace std;
 
+double dummyFunction(double d, void* pObject) {
+  return d*5. + 6;
+}
+
 int main()
 {
   BlzLog::setLevel(DEBUG);
@@ -59,7 +63,9 @@ int main()
   float spsd[BLZSIM_DIM16384]; // where to put the output light curve
   float psdslp = 1.7; // psd slope
   float tinc= 1.93893981; 
-  BlzSim::psdsim(8192, -psdslp, -psdslp, 1.0, tinc, spsd);
+  BlzSim* pSim = new BlzSim();
+  pSim->psdsim(8192, -psdslp, -psdslp, 1.0, tinc, spsd);
+  delete pSim;
   BlzLog::debugScalarPair("spsd[0]", spsd[0], spsd[1]);
   for(i=3; i>=0; i--) {
     stringstream ss;
@@ -73,6 +79,23 @@ int main()
     else
       BlzLog::debugScalarPair(msg, spsd[ii], spsd[ii-1]);
   }
+
+  BlzSimCommon common;
+  double qgresult;
+  common.tdust = 1200.;
+  common.gammad = 11.473015869669796;
+  common.betad = 0.99619423459093981;
+  common.freq = 4.65842962e+11;
+
+  // Test qg5() and sdgran()
+  qgresult = BlzMath::qg5(0.74151808435155919, 0.99292683212516131, sdgran, &common);
+  BlzLog::debugScalar("qgresult", qgresult);
+  BlzLog::debugScalar("expected", 1.90360089e-11);
+
+  common.freq = 5.86461544e+11;
+  qgresult = BlzMath::qg5(0.74151808435155919, 0.99292683212516131, sdgran, &common);
+  BlzLog::debugScalar("qgresult", qgresult);
+  BlzLog::debugScalar("expected", 2.97223149e-11);
 }
 
 

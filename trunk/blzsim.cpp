@@ -4,6 +4,12 @@
 #include "blzrand.h"
 #include "blzsim.h"
 
+BlzSim::BlzSim() {
+}
+
+BlzSim::~BlzSim() {
+}
+
 /* Output/result parameter lc_sim must be of dimension BLZSIM_DIM_16384 */
 void BlzSim::psdsim(const int N, const float beta1, const float beta2, const float nu_break, const float t_incre1, float *lc_sim)
 {
@@ -68,4 +74,33 @@ void BlzSim::psdsim(const int N, const float beta1, const float beta2, const flo
     lc_sim[j-1]=dat[i-1]/ann; // taking the real part
     j=j+1;
   }
+}
+
+
+double sdgran(double sn, void *pObject)
+{
+  BlzSimCommon* pcm = (BlzSimCommon*)pObject;
+  const double HOK = 4.80e-11;
+  double retVal = 0.0;
+  double cs = sqrt((double)(1.0-sn*sn));
+  double tdel=1.0/(pcm->gammad*(1.0D-pcm->betad*cs));
+  double f = pcm->freq/tdel;
+  double expon= HOK * f/pcm->tdust;
+  double val = 0.0;
+
+  // The Fortran code has a bunch of goto statements. The structure
+  // below implements the same logic, I think :-)
+  if(expon <= .01) {
+    val=(2.76e-16*f)*pcm->tdust*(f/9.0e20);
+  }
+  else if(expon > 5.0) {
+    if(expon > 15.0)
+      return retVal; // seems odd but this is what the Fortran code does
+    val=(1.33e-26*f)*f/((9.0e20/f)*exp(expon));
+  }
+  else {
+    val=(1.33e-26*f)*f/((9.0e20/f)*(exp(expon)-1.0));
+  }
+  retVal = val*tdel*tdel;
+  return retVal;
 }

@@ -43,6 +43,8 @@
       print *, 'spsd[8192]', spsd(8192)
       print *, 'spsd[16384]', spsd(16384)
 
+      ! Test ajnu()
+
       end
 
 C*******************************************
@@ -252,4 +254,50 @@ C           write(8,*)lc_sim(j)
          print *, dat(2*i-1), dat(2*i)
       end do
       return
+      end
+
+c
+c     Subroutine to calculate synchrotron emission coefficient
+      function ajnu(anu)
+      common/cparm/zred1,bfield,b
+      common/cdist/gam,edist
+      dimension gam(44),edist(44)
+      real*8 gam
+      ajnu=0.0
+      if(b.lt.1.0e-5)go to 1000
+      xfact=2.38e-7*anu/b
+      x=xfact/(gam(1)*gam(1))
+      if(x.gt.0.01)go to 10
+      rfact=1.5*x**0.33333333
+      go to 20
+   10 rfact=0.0
+      if(x.lt.25.0)rfact=(1.08895*x**0.20949-
+     , 2.35861e-3/x**0.79051)/exp(x)
+   20 gran1=edist(1)*rfact
+      do 100 i=2,44
+      x=xfact/(gam(i)*gam(i))
+      if(x.gt.0.01)go to 30
+      rfact=1.5*x**0.33333333
+      go to 40
+   30 rfact=0.0
+      if(x.lt.25.0)rfact=(1.08895*x**0.20949-
+     , 2.35861e-3/x**0.79051)/exp(x)
+   40 gran2=edist(i)*rfact
+      if(gran1.eq.0.0.or.gran2.eq.0.0)go to 45
+      grat=gam(i)/gam(i-1)
+      alg=alog10(grat)
+      if(alg.eq.0.0)go to 45
+      a=1.0+alog10(gran2/gran1)/alg
+      if(a.gt.5.0.or.a.lt.-5.0)go to 45
+      if(a.lt.0.01)go to 45
+      addit=gran1*(grat**a-1.0)*gam(i-1)/a
+      go to 46
+   45 addit=0.5*(gran1+gran2)*(gam(i)-gam(i-1))
+   46 ajnu=ajnu+addit
+c      if(anu.gt.9.0e11.and.anu.lt.1.1e12)write(5,1111)
+c     , anu,b,x,gam(i),edist(i),gran1,gran2,a,addit,ajnu,rfact
+      gran1=gran2
+  100 continue
+ 1111 format(1p14e11.4)
+ 1000 return
       end

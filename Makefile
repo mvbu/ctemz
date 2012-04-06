@@ -12,7 +12,7 @@ CTEST_OBJFILES = $(COMMON_OBJFILES) ctest.o
 COMMON_HEADER_FILES = blzlog.h blzrand.h blzmath.h blzsim.h
 
 FCOMPILER=gfortran
-FCOMPILER_OPTS=-g
+FCOMPILER_OPTS=-g -ffixed-line-length-none
 
 all: clean temz ctemz
 

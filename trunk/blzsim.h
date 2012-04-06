@@ -9,16 +9,26 @@ static const int BLZSIM_DIM32768 = 32768;
 
 // These are variables in the TEMZ (Fortran) "common" blocks. Putting
 // them here in a structure for now, to expedited porting to C++.
-// Can come up with a better way later
-typedef struct {
+// Can come up with a better way later.
+class BlzSimCommon {
+ public:
+  static const int CDIST_SIZE = 44;
+  static const int CSEED_SIZE = 22;
+  static const int CSSC_SIZE = 68;
+
   double bdx, bdy, bdz, gammad, betad; // cvel
   double zred1, bfld, bperpp; // cparm
   double dcsth1, dcsth2, dsnth1, dsnth2, dsang, tdust; // cdust
-  double snu[68], ssseed[68], nuhi; // cssc
-  double ggam[44], edist[44]; // cdist
-  double dustnu[22],dusti[22]; // cseed
+  double snu[CSSC_SIZE], ssseed[CSSC_SIZE], nuhi; // cssc
+  double ggam[CDIST_SIZE], edist[CDIST_SIZE]; // cdist
+  double dustnu[CSEED_SIZE],dusti[CSEED_SIZE]; // cseed
   double freq; // cfreq
-} BlzSimCommon;
+
+  BlzSimCommon();
+  ~BlzSimCommon();
+  void setGgam(const double gam[CDIST_SIZE]);
+  void setEdist(const double _edist[CDIST_SIZE]);
+};
 
 double sdgran(double sn, void *pObject);
 
@@ -45,7 +55,10 @@ class BlzSim {
               const float t_incre1, float *lc_sim);
 
   double seedph(double f);
+  double ajnu(double anu);
 
+ private:
+  static const double ONETHIRD = .33333333;
 };
     
 #endif // _INCL_BLZSIM_H_

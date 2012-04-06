@@ -4,6 +4,11 @@
 #include "blzrand.h"
 #include "blzsim.h"
 
+BlzSimCommon::BlzSimCommon() {}
+BlzSimCommon::~BlzSimCommon() {}
+void BlzSimCommon::setGgam(const double gam[CDIST_SIZE]) { for(int i=0; i < CDIST_SIZE; i++)  ggam[i] = gam[i]; }
+void BlzSimCommon::setEdist(const double _edist[CDIST_SIZE]) { for(int i=0; i < CDIST_SIZE; i++)  edist[i] = _edist[i]; }
+
 BlzSim::BlzSim() {
 }
 
@@ -116,3 +121,63 @@ double sdgran(double sn, void *pObject)
   retVal = val*tdel*tdel;
   return retVal;
 }
+
+double BlzSim::ajnu(double anu) 
+{
+  double retVal = 0.0;
+  double b = common.bperpp;
+
+  if(b >= 1.0e-5) {
+    int i;
+    double* gam = common.ggam;
+    double* edist = common.edist;
+    double a, alg, rfact, gran1, gran2, grat, addit=0.0;
+    double xfact = 2.38e-7*anu/b;
+    double x = xfact/gam[0]*gam[0];
+    if(x > .01) {
+      rfact = 0.0;
+      if(x < 25.0) 
+        rfact=(1.08895*::pow(x, (double)0.20949) - 2.35861e-3/::pow(x, (double)0.79051))/exp(x);
+    }
+    else {
+      rfact=1.5*::pow(x, ONETHIRD);
+    }
+
+    gran1 = edist[0] * rfact;
+
+    for(i=2; i<=44; i++) {
+      x = xfact/(gam[i-1]*gam[i-1]);
+      if(x > .01) {
+        rfact = 0.0;
+        if(x < 25.0) 
+          rfact=(1.08895*::pow(x, (double)0.20949) - 2.35861e-3/::pow(x, (double)0.79051))/exp(x);
+      }
+      else {
+        rfact=1.5*::pow(x, ONETHIRD);
+      }
+
+      gran2 = edist[i-1] * rfact;
+      addit = .5 * (gran1+gran2) * (gam[i-1]-gam[i-2]);
+
+      // This block is to implement a bunch of goto logic from the Fortran code
+      // Basically, we're deciding if we want the alternate calculation of addit
+      if((gran1!=0.0) && (gran2!=0.0)) {
+        grat = gam[i-1]/gam[i-2];
+        alg = log10(grat);
+        if(alg != 0.0) {
+          a = 1.0 + log10(gran2/gran1)/alg;
+          if((a <= 5.0) && (a >= -5.0)) {
+            if(a >= .01)
+              addit = gran1 * (::pow(grat,a) - 1.0) * gam[i-2]/a;
+          }
+        }
+      }
+    
+      retVal = retVal + addit;
+      gran1 = gran2;
+    } // for(i=2; i<=44; i++) 
+  }
+  
+  return retVal;
+}
+

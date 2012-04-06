@@ -30,6 +30,7 @@ class BlzSimCommon {
   void setEdist(const double _edist[CDIST_SIZE]);
 };
 
+// Callback function passed to BlzMath::qg5()
 double sdgran(double sn, void *pObject);
 
 /**
@@ -54,8 +55,9 @@ class BlzSim {
   void psdsim(const int N, const float beta1, const float beta2, const float nu_break, 
               const float t_incre1, float *lc_sim);
 
-  double seedph(double f);
-  double ajnu(double anu);
+  double seedph(const double f);
+  double ajnu(const double anu);
+  double akapnu(const double anu);
 
  private:
   static const double ONETHIRD = .33333333;

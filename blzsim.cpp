@@ -81,7 +81,7 @@ void BlzSim::psdsim(const int N, const float beta1, const float beta2, const flo
   }
 }
 
-double BlzSim::seedph(double f)
+double BlzSim::seedph(const double f)
 {
   double sn1, sn2;
   sn1 = common.dsnth1;
@@ -122,7 +122,7 @@ double sdgran(double sn, void *pObject)
   return retVal;
 }
 
-double BlzSim::ajnu(double anu) 
+double BlzSim::ajnu(const double anu) 
 {
   double retVal = 0.0;
   double b = common.bperpp;
@@ -133,7 +133,7 @@ double BlzSim::ajnu(double anu)
     double* edist = common.edist;
     double a, alg, rfact, gran1, gran2, grat, addit=0.0;
     double xfact = 2.38e-7*anu/b;
-    double x = xfact/gam[0]*gam[0];
+    double x = xfact/(gam[0]*gam[0]);
     if(x > .01) {
       rfact = 0.0;
       if(x < 25.0) 
@@ -145,7 +145,7 @@ double BlzSim::ajnu(double anu)
 
     gran1 = edist[0] * rfact;
 
-    for(i=2; i<=44; i++) {
+    for(i=2; i<=BlzSimCommon::CDIST_SIZE; i++) {
       x = xfact/(gam[i-1]*gam[i-1]);
       if(x > .01) {
         rfact = 0.0;
@@ -181,3 +181,52 @@ double BlzSim::ajnu(double anu)
   return retVal;
 }
 
+double BlzSim::akapnu(const double anu)
+{
+  int i;
+  double retVal = 0.0;
+  double b = common.bperpp;
+  double* gam = common.ggam;
+  double* edist = common.edist;
+  double xfact = 2.38e-7*anu/b;
+  double x = xfact/(gam[0]*gam[0]);
+  double f1 = 0.0, f2 = 0.0, addit = 0.0;
+  double gran1, gran2, grat, alg, a;
+
+  if(x <= 25.0)
+    f1 = 1.8 * ::pow(x, (double).3)/exp(x);
+
+  gran1 = f1 * edist[0]/gam[0];
+
+  for(i=2; i<= BlzSimCommon::CDIST_SIZE; i++) {
+    x = xfact / (gam[i-1]*gam[i-1]);
+    gran2 = 0.0;
+    addit = 0.5 *(gran1+gran2)*(gam[i-1]-gam[i-2]);
+
+    // This block is to implement a bunch of goto logic from the Fortran code
+    // Basically, we're deciding if we want the alternate calculation of addit
+    if(x <= 25.0) {
+      f2 = 1.8 * ::pow(x, (double).3)/exp(x);
+      gran2 = f2 * edist[i-1] / gam[i-1];
+      // Have to re-calculate addit, since we potentially changed gran2
+      addit = 0.5 *(gran1+gran2)*(gam[i-1]-gam[i-2]);
+
+      if((gran1!=0.0) && (gran2!=0.0)) {
+        grat = gam[i-1]/gam[i-2];
+        alg = log10(grat);
+        if(alg != 0.0) {
+          a = 1.0 + log10(gran2/gran1)/alg;
+          if((a <= 5.0) && (a >= -5.0)) {
+            if(a >= .01)
+              addit = gran1 * (::pow(grat,a) - 1.0) * gam[i-2]/a;
+          }
+        }
+      }
+    } // if(x <= 25.0)
+
+    retVal = retVal + addit;
+    gran1 = gran2;
+  } // for(i=2; i<= EDIST_SIZE; i++)
+  
+  return retVal;
+}

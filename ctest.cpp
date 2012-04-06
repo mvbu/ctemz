@@ -121,13 +121,27 @@ int main()
 
   pSim = new BlzSim();
   double anu = 1e10;
-	pSim->common.bperpp = 8.03727818;
+  pSim->common.bperpp = 8.03727818;
   pSim->common.setGgam(gam);
   pSim->common.setEdist(edist);
   double ajnuResult = pSim->ajnu(anu);
   BlzLog::debugScalar("ajnuResult", ajnuResult);
   BlzLog::debugScalar("expected", 26.3672028);
   delete pSim;
+
+  // Test akapnu()
+  static const double edist2[] = {207.588089, 100.368889, 38.4794807, 14.7522821, 5.65573835, 2.16830015, 0.831283987, 0.318698138, 0.122182652, 0.0468424521, 0.0179584846, 0.00688493345, 0.00650044205, 0.00613163831, 0.00577794248, 0.0054388023, 0.00511366921, 0.00480203005, 0.00450337958, 0.0042172363, 0.0039431327, 0.00368061941, 0.00342926243, 0.00318864221, 0.0029583571, 0.00273801689, 0.00252724718, 0.00232568663, 0.00213298434, 0.00194880483, 0.00177282514, 0.00160473085, 0.00144422159, 0.00129100704, 0.00114480685, 0.00100535038, 0.000872378412, 0.000745639321, 0.000624891079, 0.000509901613, 0.000400445395, 0.000296305661, 0.000197275149, 0.000103152641};
+
+  pSim = new BlzSim();
+  anu = 1e10; // same as before, at the moment 
+  pSim->common.bperpp = 12.7397528;
+  pSim->common.setGgam(gam);
+  pSim->common.setEdist(edist2);
+  double akapnuResult = pSim->akapnu(anu);
+  BlzLog::debugScalar("akapnuResult", akapnuResult);
+  BlzLog::debugScalar("expected", 1.16971385);
+  delete pSim;
+
 }
 
 

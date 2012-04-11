@@ -1,5 +1,6 @@
       dimension spsd(16384)
-      dimension edist(44), ggam(44)
+      dimension edist(44), ggam(44), dustnu(22), dusti(22)
+      dimension ggam_ecdust(44), edist_ecdust(44)
       real*8 R(32768)
       real*8 stp, angle
       real*8 dat(16)
@@ -8,6 +9,7 @@
       integer i
       common/cparm/zred1,bfield,b
       common/cdist/ggam,edist
+      common/cseed/dustnu, dusti
       data ggam  / 1.123009204864502, 1.6150462627410889, 2.6083743572235107, 4.2126455307006836, 6.803617000579834, 10.988156318664551, 17.746381759643555, 28.661226272583008, 46.289207458496094, 74.759208679199219, 120.73958587646484, 195.00001525878906, 196.69918823242188, 198.41317749023438, 200.14210510253906, 201.88607788085938, 203.645263671875, 205.41976928710938, 207.20974731445312, 209.01531982421875, 210.83662414550781, 212.67379760742188, 214.5269775390625, 216.39631652832031, 218.28193664550781, 220.18399047851562, 222.10261535644531, 224.03794860839844, 225.99015808105469, 227.95938110351562, 229.94575500488281, 231.94944763183594, 233.97059631347656, 236.00935363769531, 238.06587219238281, 240.14031982421875, 242.23283386230469, 244.34358215332031, 246.47273254394531, 248.62042236328125, 250.78683471679688, 252.97213745117188, 255.17646789550781, 257.39999389648438 /
       data edist / 207.588089, 100.368889, 38.4794807, 14.7522821, 5.65573835, 2.16830015, 0.831283987, 0.318698138, 0.122182652, 0.0468424521, 0.0179584846, 0.00688493345, 0.00650044205, 0.00613163831, 0.00577794248, 0.0054388023, 0.00511366921, 0.00480203005, 0.00450337958, 0.0042172363, 0.0039431327, 0.00368061941, 0.00342926243, 0.00318864221, 0.0029583571, 0.00273801689, 0.00252724718, 0.00232568663, 0.00213298434, 0.00194880483, 0.00177282514, 0.00160473085, 0.00144422159, 0.00129100704, 0.00114480685, 0.00100535038, 0.000872378412, 0.000745639321, 0.000624891079, 0.000509901613, 0.000400445395, 0.000296305661, 0.000197275149, 0.000103152641 /
       N = 16384
@@ -51,6 +53,25 @@
       akapnuResult = akapnu(anu);
       print *, 'akapnuResult', akapnuResult
       print *, 'expected',  1.16971385
+
+      ! Test ecdust()
+      data ggam_ecdust / 0.87952703237533569, 1.6948215961456299, 3.2668538093566895, 6.297025203704834, 12.137832641601562, 23.396284103393555, 45.097515106201172, 86.927726745605469, 167.55757141113281, 322.97564697265625, 622.55181884765625, 1200, 1219.662841796875, 1239.6478271484375, 1259.9603271484375, 1280.6055908203125, 1301.5892333984375, 1322.9166259765625, 1344.5936279296875, 1366.6256103515625, 1389.018798828125, 1411.77880859375, 1434.9117431640625, 1458.423828125, 1482.321044921875, 1506.60986328125, 1531.2967529296875, 1556.3880615234375, 1581.890625, 1607.8109130859375, 1634.156005859375, 1660.932861328125, 1688.1483154296875, 1715.809814453125, 1743.924560546875, 1772.5, 1801.5435791015625, 1831.0631103515625, 1861.0662841796875, 1891.5611572265625, 1922.5556640625, 1954.05810546875, 1986.07666015625, 2018.619873046875 /
+      data edist_ecdust / 54.3787384, 14.6458302, 3.94187236, 1.06094074, 0.285548359, 0.0768543035, 0.0206850581, 0.00556730898, 0.00149842107, 0.000403294631, 0.00010854529, 2.92145687e-05, 2.6896425e-05, 2.47395292e-05, 2.27332275e-05, 2.0867581e-05, 1.91332601e-05, 1.75215719e-05, 1.60243453e-05, 1.46339853e-05, 1.33433377e-05, 1.21457533e-05, 1.10349883e-05, 1.00052102e-05, 9.05097568e-06, 8.16718057e-06, 7.34905689e-06, 6.59215675e-06, 5.89230831e-06, 5.24562711e-06, 4.64846926e-06, 4.09743552e-06, 3.58935517e-06, 3.12125439e-06, 2.69036309e-06, 2.29409102e-06, 1.93002074e-06, 1.5958916e-06, 1.28959528e-06, 1.00916122e-06, 7.52751987e-07, 5.18650722e-07, 3.05256975e-07, 1.11075792e-07 /
+      data dustnu / 1.4985991e+11, 1.88662448e+11, 2.37511967e+11, 2.99009901e+11, 3.76431051e+11, 4.73898648e+11, 5.96603109e+11, 7.51078736e+11, 9.45552163e+11, 1.19037965e+12, 1.49859913e+12, 1.88662468e+12, 2.3751198e+12, 2.99009861e+12, 3.76431051e+12, 4.7389868e+12, 5.96603096e+12, 7.51078788e+12, 9.45552255e+12, 1.19037955e+13, 1.49859913e+13, 1.8866252e+13 /
+      data dusti / 9.51800444e-12, 1.48611574e-11, 2.31122291e-11, 3.57641555e-11, 5.49886907e-11, 8.38589476e-11, 1.26555683e-10, 1.88442997e-10, 2.75783063e-10, 3.94694805e-10, 5.4881516e-10, 7.35197514e-10, 9.38718325e-10, 1.12717435e-09, 1.25207189e-09, 1.26118194e-09, 1.12446863e-09, 8.61036353e-10, 5.45080592e-10, 2.72187495e-10, 1.00743747e-10, 2.54984783e-11 /
+
+      ! data statement only works once for a given variable
+      ! so have to create new arrays and copy them into the common block
+      do i=1,44
+         ggam(i) = ggam_ecdust(i)
+         edist(i) = edist_ecdust(i)
+      end do
+
+      anuf = 1.70602292e+14
+      ecdustResult = ecdust(anuf)
+      print *, 'ecdustResult', ecdustResult
+      print *, 'expected',  2.84165187e-7
+
       end
 
 C*******************************************
@@ -348,3 +369,181 @@ c     , anu,b,x,gam(i),edist(i),gran1,gran2,a,addit,ajnu,rfact
  1000 return
       end
 
+      function ecdust(anuf)
+      common/cparm/zred1,bfield,bperp ! Not used as far as I can tell
+      common/cdust/dcsth1,dcsth2,dsnth1,dsnth2,dsang,tdust ! Not used AFAICT
+      common/cdist/gam,edist
+      common/cvel/bdx,bdy,bdz,gammad,betad ! Not used AFAICT
+      common/cseed/dnu,di
+      dimension gam(44),edist(44),dnu(22),di(22)
+      real*8 gam,bdx,bdy,bdz,gammad,betad,dcsth1,dcsth2,dsnth1,
+     ,  dsnth2
+      ecdust=0.0
+      gran=0.0
+c     Flux will be in mJy, so set x-section as (3e26/32)sigt
+      s0=6.237
+c     In this version, approximate that plasma velocity is along jet axis
+c       and that Doppler factor of dust torus is the mean over its solid angle
+c       as viewed in the plasma frame
+c      tdel=1.0/(gammad*(1.0d0-betad*dcsth1))
+      g1=gam(1)
+      vala=s0*edist(1)/(g1*g1)
+c     Loop to integration over electron Lorentz factors (gam)
+      do 3000 ie=1,43
+      g2=gam(ie+1)
+      valb=s0*edist(ie+1)/(g2*g2)
+      val1=0.0
+      val2=0.0
+      gran1=0.0
+      addit=0.0
+c     Set up loop 1 to integrate over incident photon frequency anui
+      anumax=amin1(anuf,dnu(22))
+      di1=di(1)
+      id=2
+      anumin=0.25*anuf/(g1*g1)
+      if(anumin.gt.anumax)go to 601
+      if(anumin.gt.dnu(1))go to 2
+      anumin=dnu(1)
+      go to 5
+    2 continue
+      do 3 id=2,22
+    3 if(anumin.le.dnu(id))go to 4
+      id=22
+    4 continue
+      a=alog10(di(id-1)/di(id))/alog10(dnu(id-1)/dnu(id))
+      di1=di(id-1)*(anumin/dnu(id-1))**a
+    5 ide=22
+      if(anumax.ge.dnu(22))go to 8
+      do 6 idd=id,22
+    6 if(anumax.le.dnu(idd))go to 7
+    7 a=alog10(di(idd-1)/di(idd))/alog10(dnu(idd-1)/dnu(idd))
+      die=di(idd-1)*(anumax/dnu(idd-1))**a
+      ide=idd
+      go to 9
+    8 die=di(22)
+    9 continue
+      anui1=anumin
+      rat=anuf/(anui1*g1*g1)
+      ratr=0.25*rat
+   25 val1=(8.0+2.0*rat-rat*rat+4.0*rat*alog(ratr))*
+     , (1.0e20/anui1)*(anuf/anui1)*di1*vala
+      if(val1.lt.0.0)val1=0.0
+c     Loop 1 to integrate over incoming photon frequency anui for lower gam value
+      do 600 nu=id,ide
+      anui2=dnu(nu)
+      di2=di(nu)
+      if(nu.lt.ide)go to 30
+      anui2=anumax
+      di2=die
+   30 rat=anuf/(anui2*g1*g1)
+      ratr=0.25*rat
+  525 val2=(8.0+2.0*rat-rat*rat+4.0*rat*alog(ratr))*
+     , (1.0e20/anui2)*(anuf/anui2)*di2*vala
+      if(val2.lt.0.0)val2=0.0
+      if(val1.eq.0.0.or.val2.eq.0.0)go to 845
+      test=abs((anui1-anui2)/anui1)
+      if(test.lt.0.001)go to 847
+      ratnu=anui2/anui1
+      a=1.0+alog10(val2/val1)/alog10(ratnu)
+      if(abs(a).lt.0.01.or.abs(a).gt.5.0)go to 845
+      addit=val1*(ratnu**a-1.0)*anui1/a
+      go to 846
+  845 addit=0.5*(val1+val2)*(anui2-anui1)
+  846 gran1=gran1+addit
+  847 anui1=anui2
+      val1=val2
+      di1=di2
+  600 continue
+c     End anui loop 1
+  601 continue
+      ratg=g2/g1
+      ratgl=alog10(ratg)
+      valb=s0*edist(ie+1)/(g2*g2)
+      val1=0.0
+      val2=0.0
+      gran2=0.0
+c     Set up loop 2 to integrate over incident photon frequency anui
+      anumax=amin1(anuf,dnu(22))
+      di1=di(1)
+      id=2
+      anumin=0.25*anuf/(g1*g1)
+      if(anumin.gt.anumax)go to 1601
+      if(anumin.gt.dnu(1))go to 1002
+      anumin=dnu(1)
+      go to 1005
+ 1002 continue
+      do 1003 id=2,22
+ 1003 if(anumin.le.dnu(id))go to 1004
+      id=22
+ 1004 continue
+      a=alog10(di(id-1)/di(id))/alog10(dnu(id-1)/dnu(id))
+      di1=di(id-1)*(anumin/dnu(id-1))**a
+ 1005 ide=22
+      if(anumax.ge.dnu(22))go to 1008
+      do 1006 idd=id,22
+ 1006 if(anumax.le.dnu(idd))go to 1007
+ 1007 a=alog10(di(idd-1)/di(idd))/alog10(dnu(idd-1)/dnu(idd))
+      die=di(idd-1)*(anumax/dnu(idd-1))**a
+      ide=idd
+      go to 1009
+ 1008 die=di(22)
+ 1009 continue
+      anui1=anumin
+      rat=anuf/(anui1*g2*g2)
+      ratr=0.25*rat
+ 1025 val1=(8.0+2.0*rat-rat*rat+4.0*rat*alog(ratr))*
+     , (1.0e20/anui1)*(anuf/anui1)*di1*valb
+      if(val1.lt.0.0)val1=0.0
+      gran2=0.0
+c     Loop 2 to integrate over incoming photon frequency anui for upper gam value
+      do 1600 nu=id,ide
+      anui2=dnu(nu)
+      di2=di(nu)
+      if(nu.lt.ide)go to 1030
+      anui2=anumax
+      di2=die
+ 1030 rat=anuf/(anui2*g2*g2)
+      ratr=0.25*rat
+ 1525 val2=(8.0d0+2.0d0*rat-rat*rat+4.0d0*rat*alog(ratr))*
+     , (1.0e20/anui2)*(anuf/anui2)*di2*valb
+      if(val2.lt.0.0)val2=0.0
+      if(val1.eq.0.0.or.val2.eq.0.0)go to 1845
+      test=abs((anui1-anui2)/anui1)
+      if(test.lt.0.001)go to 1847
+      ratnu=anui2/anui1
+      a=1.0+alog10(val2/val1)/alog10(ratnu)
+      if(abs(a).lt.0.01.or.abs(a).gt.5.0)go to 1845
+      addit=val1*(ratnu**a-1.0)*anui1/a
+      go to 1846
+ 1845 addit=0.5*(val1+val2)*(anui2-anui1)
+ 1846 gran2=gran2+addit
+ 1847 continue
+c      if(anuf.gt.1.0e20.and.anuf.lt.2.0e20)
+c     ,write(5,9050)anuf,gran2,val1,val2,di1,di2,anui1,anui2,
+c     , rat,addit
+      anui1=anui2
+      val1=val2
+      di1=di2
+ 1600 continue
+c     End anui loop 2
+ 1601 continue
+      if(gran1.eq.0.0.or.gran2.eq.0.0)go to 2845
+      a=1.0+alog10(gran2/gran1)/ratgl
+      if(abs(a).lt.0.01.or.abs(a).gt.5.0)go to 2845
+      addit=gran1*(ratg**a-1.0)*g1/a
+      go to 2846
+ 2845 addit=0.5*(gran1+gran2)*(g2-g1)
+ 2846 gran=gran+addit
+c      if(anuf.gt.1.0e20)
+c     , write(5,9050)gran1,val1,val2,di1,di2,anui1,anui2,anuf,
+c     , rat,addit
+      g1=g2
+      vala=valb
+ 3000 continue
+c     End gam loop
+      ecdust=gran*1.0e-20
+c      if(anuf.gt.1.0e20.and.anuf.lt.2.0e20)
+c     ,write(5,9050)anuf,gran,rat,addit
+ 9050 format(1p15e9.2)
+ 4000 return
+      end

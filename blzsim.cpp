@@ -278,7 +278,7 @@ double BlzSim::ecdust(const double anuf)
         // code explicitly sets id to 22 in this case, but I don't see why - id will already
         // have the value 22
         double a = log10(di[id-2]/di[id-1])/log10(dnu[id-2]/dnu[id-1]);
-        double di1 = di[id-2]*::pow(anumin/dnu[id-2], a);
+        di1 = di[id-2]*::pow(anumin/dnu[id-2], a);
         
       }
       int ide = 22;
@@ -298,7 +298,7 @@ double BlzSim::ecdust(const double anuf)
       double anui1 = anumin;
       double rat = anuf/(anui1*g1*g1);
       double ratr = 0.25 * rat;
-      double val1=(8.0+2.0*rat-rat*rat+4.0*rat*log(ratr))*(1.0e20/anui1)*(anuf/anui1)*di1*vala;
+      val1=(8.0+2.0*rat-rat*rat+4.0*rat*log(ratr))*(1.0e20/anui1)*(anuf/anui1)*di1*vala;
       if(val1 < 0.0)
         val1 = 0.0;
       //
@@ -371,7 +371,7 @@ double BlzSim::ecdust(const double anuf)
         // code explicitly sets id to 22 in this case, but I don't see why - id will already
         // have the value 22
         double a = log10(di[id-2]/di[id-1])/log10(dnu[id-2]/dnu[id-1]);
-        double di1 = di[id-2]*::pow(anumin/dnu[id-2], a);
+        di1 = di[id-2]*::pow(anumin/dnu[id-2], a);
         
       }
       int ide = 22;
@@ -391,7 +391,7 @@ double BlzSim::ecdust(const double anuf)
       double anui1 = anumin;
       double rat = anuf/(anui1*g2*g2);
       double ratr = 0.25 * rat;
-      double val1=(8.0+2.0*rat-rat*rat+4.0*rat*log(ratr))*(1.0e20/anui1)*(anuf/anui1)*di1*valb;
+      val1=(8.0+2.0*rat-rat*rat+4.0*rat*log(ratr))*(1.0e20/anui1)*(anuf/anui1)*di1*valb;
       if(val1 < 0.0)
         val1 = 0.0;
       //

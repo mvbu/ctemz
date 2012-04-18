@@ -10,6 +10,8 @@ void BlzSimCommon::setGgam(const double gam[CDIST_SIZE]) { for(int i=0; i < CDIS
 void BlzSimCommon::setEdist(const double _edist[CDIST_SIZE]) { for(int i=0; i < CDIST_SIZE; i++)  edist[i] = _edist[i]; }
 void BlzSimCommon::setDustnu(const double dnu[CSEED_SIZE]) { for(int i=0; i < CSEED_SIZE; i++)  dustnu[i] = dnu[i]; }
 void BlzSimCommon::setDusti(const double di[CSEED_SIZE]) { for(int i=0; i < CSEED_SIZE; i++)  dusti[i] = di[i]; }
+void BlzSimCommon::setSnu(const double _snu[CSSC_SIZE]) { for(int i=0; i < CSSC_SIZE; i++)  snu[i] = _snu[i]; }
+void BlzSimCommon::setSsseed(const double _ssseed[CSSC_SIZE]) { for(int i=0; i < CSSC_SIZE; i++)  ssseed[i] = _ssseed[i]; }
 
 BlzSim::BlzSim() {
 }
@@ -240,7 +242,6 @@ double BlzSim::ecdust(const double anuf)
   double* dnu = common.dustnu;
   double* di = common.dusti;
   double retVal = 0.0, gran = 0.0;
-  const double S0 = 6.237;
   // (MSV: this is from the Fortran and the line of code is 
   // commented out in the Fortran, so including it all here for reference)
   // In this version, approximate that plasma velocity is along jet axis
@@ -452,3 +453,239 @@ double BlzSim::ecdust(const double anuf)
   retVal = gran * 1e-20;
   return retVal;
  }
+
+double BlzSim::ssc(const double anuf)
+{
+  double* gam = common.ggam;
+  double* edist = common.edist;
+  double* dnu = common.snu;
+  double* di = common.ssseed;
+  double retVal = 0.0, gran = 0.0;
+  // (MSV: this is from the Fortran and the line of code is 
+  // commented out in the Fortran, so including it all here for reference)
+  // In this version, approximate that plasma velocity is along jet axis
+  // and that Doppler factor of dust torus is the mean over its solid angle
+  // as viewed in the plasma frame 
+  // tdel=1.0/(gammad*(1.0d0-betad*dcsth1))
+  double g1=gam[0];
+  double vala=S0*edist[0]/(g1*g1);
+  int ie;
+
+  // prevent underflows
+  if(di[common.nuhi-1] < 1.0e-25)
+    common.nuhi--;
+
+  //
+  // Top-level loop to integrate over electron Lorentz factors (gam)
+  //
+  for(ie=1; ie<=BlzSimCommon::CDIST_SIZE-1; ie++) {
+    double g2 = gam[ie], die;
+    double valb = S0 * edist[ie]/(g2*g2);
+    double val1=0.0, val2=0.0, gran1=0.0, addit=0.0;
+    // Set up loop 1 to integrate over incident photon frequency anui
+    double anumax=min(anuf,dnu[common.nuhi-1]);
+    double di1=di[0];
+    int id=2;
+    double anumin=0.25*anuf/(g1*g1);
+    // skip over loop 1 entirely if this condition is not satisfied
+    if(anumin <= anumax) {
+      if(anumin <= dnu[0]) {
+        anumin = dnu[0];
+      }
+      else {
+        for(id=2; id<=common.nuhi; id++) {
+          if(anumin <= dnu[id-1])
+            break;
+        }
+        // if (anumin <= dnu[id-1]) is satisfied before id=common.nuhi, then id will be set
+        // to that number. Otherwise it will get to common.nuhi (e.g. 16). The Fortran
+        // code explicitly sets id to common.nuhi in this case, but I don't see why - id will already
+        // have the value common.nuhi
+        di1 = 0.0;
+        if((di[id-1]>=1.0e-25) && (di[id-2]>=1.0e-25)) {
+          double a = log10(di[id-1]/di[id-2])/log10(dnu[id-1]/dnu[id-2]);
+          di1 = di[id-1]*::pow(anumin/dnu[id-1], a);
+        }
+      }
+      int ide = common.nuhi;
+      if(anumax < dnu[common.nuhi-1]) {
+        int idd;
+        for(idd=id; idd<=common.nuhi; idd++) {
+          if(anumax <= dnu[idd-1])
+             break;
+        }
+        double a = log10(di[idd-2]/di[idd-1])/log10(dnu[idd-2]/dnu[idd-1]);
+        die = di[idd-2]*::pow(anumax/dnu[idd-2], a);
+        ide = idd;
+      }
+      else {
+        die = di[common.nuhi-1];
+      }
+      double anui1 = anumin;
+      double rat = anuf/(anui1*g1*g1);
+      double ratr = 0.25 * rat;
+      val1=(8.0+2.0*rat-rat*rat+4.0*rat*log(ratr))*(1.0e20/anui1)*(anuf/anui1)*di1*vala;
+      if(val1 < 1.0e-28)
+        val1 = 0.0;
+      //
+      // Loop 1 to integrate over incoming photon frequency anui for lower gam value
+      //
+      for(int nu=id; nu<=ide; nu++) {
+        double anui2 = dnu[nu-1];
+        double di2 = di[nu-1];
+        if(nu >= ide) {
+          anui2=anumax;
+          di2=die;
+        }
+        rat = anuf/(anui2*g1*g1);
+        ratr = 0.25 * rat;
+        val2=(8.0+2.0*rat-rat*rat+4.0*rat*log(ratr))*(1.0e20/anui2)*(anuf/anui2)*di2*vala;
+        if(val2 < 1.0e-28)
+          val2=0.0;
+
+        if((val1==0.0) || (val2==0.0)) {
+          addit=0.5*(val1+val2)*(anui2-anui1);
+          gran1 = gran1 + addit;
+        }
+        else {
+          double test=abs((anui1-anui2)/anui1);
+          if(test >= 0.001) {
+            double ratnu = anui2/anui1;
+            double a=1.0+log10(val2/val1)/log10(ratnu);
+            double aa = abs(a);
+            if((aa < 0.01) || (aa > 5.0)) {
+              addit=0.5*(val1+val2)*(anui2-anui1);
+            }
+            else {
+              addit=val1*(::pow(ratnu, a)-1.0) * anui1/a;
+            }
+            gran1 = gran1 + addit;
+          }
+        }
+
+        anui1=anui2;
+        val1=val2;
+        di1=di2;
+      } // End Loop 1 to integrate over incoming photon frequency anui for lower gam value
+    } // if(anumin > anumax)
+
+    double ratg = g2/g1;
+    double ratgl = log10(ratg);
+    valb = S0 * edist[ie]/(g2*g2);
+    val1 = 0.0;
+    val2 = 0.0;
+    double gran2 = 0.0;
+    //
+    // Set up loop 2 to integrate over incident photon frequency anui
+    //
+    anumax=min(anuf,dnu[common.nuhi-1]);
+    di1=di[0];
+    id=2;
+    anumin=0.25*anuf/(g1*g1);
+    // skip over loop 2 entirely if this condition is not satisfied
+    if(anumin <= anumax) {
+      if(anumin <= dnu[0]) {
+        anumin = dnu[0];
+      }
+      else {
+        for(id=2; id<=common.nuhi; id++) {
+          if(anumin <= dnu[id-1])
+            break;
+        }
+        // if (anumin <= dnu[id-1]) is satisfied before id=common.nuhi, then id will be set
+        // to that number. Otherwise it will get to common.nuhi (e.g. 16). The Fortran
+        // code explicitly sets id to common.nuhi in this case, but I don't see why - id will already
+        // have the value common.nuhi
+        di1 = 0.0;
+        addit = 0.0; // this doesn't occur in the 1st loop?
+        if((di[id-1]>=1.0e-25) && (di[id-2]>=1.0e-25)) {
+            double a = log10(di[id-1]/di[id-2])/log10(dnu[id-1]/dnu[id-2]);
+            di1 = di[id-1]*::pow(anumin/dnu[id-1], a);
+        }
+      }
+      int ide = common.nuhi;
+      if(anumax < dnu[common.nuhi-1]) {
+        int idd;
+        for(idd=id; idd<=common.nuhi; idd++) {
+          if(anumax <= dnu[idd-1])
+             break;
+        }
+        double a = log10(di[idd-2]/di[idd-1])/log10(dnu[idd-2]/dnu[idd-1]);
+        die = di[idd-2]*::pow(anumax/dnu[idd-2], a);
+        ide = idd;
+      }
+      else {
+        die = di[common.nuhi-1];
+      }
+      double anui1 = anumin;
+      double rat = anuf/(anui1*g2*g2);
+      double ratr = 0.25 * rat;
+      val1=(8.0+2.0*rat-rat*rat+4.0*rat*log(ratr))*(1.0e20/anui1)*(anuf/anui1)*di1*valb;
+      if(val1 < 1.0e-28)
+        val1 = 0.0;
+      //
+      // Loop 2 to integrate over incoming photon frequency anui for lower gam value
+      //
+      for(int nu=id; nu<=ide; nu++) {
+        double anui2 = dnu[nu-1];
+        double di2 = di[nu-1];
+        if(nu >= ide) {
+          anui2=anumax;
+          di2=die;
+        }
+        rat = anuf/(anui2*g2*g2);
+        ratr = 0.25 * rat;
+        val2=(8.0+2.0*rat-rat*rat+4.0*rat*log(ratr))*(1.0e20/anui2)*(anuf/anui2)*di2*valb;
+        if(val2 < 1.0e-28)
+          val2=0.0;
+
+        if((val1==0.0) || (val2==0.0)) {
+          addit=0.5*(val1+val2)*(anui2-anui1);
+          gran1 = gran1 + addit;
+        }
+        else {
+          double test=abs((anui1-anui2)/anui1);
+          if(test >= 0.001) {
+            double ratnu = anui2/anui1;
+            double a=1.0+log10(val2/val1)/log10(ratnu);
+            double aa = abs(a);
+            if((aa < 0.01) || (aa > 5.0)) {
+              addit=0.5*(val1+val2)*(anui2-anui1);
+            }
+            else {
+              addit=val1*(::pow(ratnu, a)-1.0) * anui1/a;
+            }
+            gran2 = gran2 + addit;
+          }
+        }
+
+        // The Fortran code does a goto to the next line *after* Loop 2, so a break should do the same here
+        if(val2 < 1.0e-28)
+          break;
+
+        anui1=anui2;
+        val1=val2;
+        di1=di2;
+      } // End Loop 2 to integrate over incoming photon frequency anui for lower gam value
+    } // if(anumin > anumax) Loop 2
+
+    addit = 0.5 * (gran1 + gran2) * (g2 -g1);
+    if((gran1>=1.0e-28) && (gran2>=1.0e-28)) {
+      double a = 1.0 + log10(gran2/gran1)/ratgl;
+      double aa = abs(a);
+      if((aa>=.01) && (aa<=5.0)) {
+        addit = gran1 * (::pow(ratg,a)-1.0)*g1/a;
+      }
+    }
+    gran = gran + addit;
+    g1 = g2;
+    vala = valb;
+  } // End loop over ie
+
+  double ssca = gran * 1e-20;
+  if(ssca > 1.0e-30)
+    retVal = ssca;
+
+  return retVal;
+ }
+

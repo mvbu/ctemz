@@ -19,9 +19,11 @@ class BlzSimCommon {
   double bdx, bdy, bdz, gammad, betad; // cvel
   double zred1, bfld, bperpp; // cparm
   double dcsth1, dcsth2, dsnth1, dsnth2, dsang, tdust; // cdust
-  double snu[CSSC_SIZE], ssseed[CSSC_SIZE], nuhi; // cssc
+  // The first two entries in the next two lines are both referred to in the Fortran as dnu, di
+  double snu[CSSC_SIZE], ssseed[CSSC_SIZE]; // cssc 
+  double dustnu[CSEED_SIZE],dusti[CSEED_SIZE];    // cseed
+  int    nuhi; // cssc
   double ggam[CDIST_SIZE], edist[CDIST_SIZE]; // cdist
-  double dustnu[CSEED_SIZE],dusti[CSEED_SIZE]; // cseed
   double freq; // cfreq
 
   BlzSimCommon();
@@ -30,6 +32,8 @@ class BlzSimCommon {
   void setEdist(const double _edist[CDIST_SIZE]);
   void setDustnu(const double dnu[CSEED_SIZE]);
   void setDusti(const double di[CSEED_SIZE]);
+  void setSnu(const double _snu[CSSC_SIZE]);
+  void setSsseed(const double _ssseed[CSSC_SIZE]);
 };
 
 // Callback function passed to BlzMath::qg5()
@@ -61,9 +65,11 @@ class BlzSim {
   double ajnu(const double anu);
   double akapnu(const double anu);
   double ecdust(const double anuf);
+  double ssc(const double anuf);
 
  private:
   static const double ONETHIRD = .33333333;
+  static const double S0 = 6.237;
 };
     
 #endif // _INCL_BLZSIM_H_

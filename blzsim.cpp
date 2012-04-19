@@ -237,6 +237,10 @@ double BlzSim::akapnu(const double anu)
 
 double BlzSim::ecdust(const double anuf)
 {
+  // This function (like its original Fortran counterpart) contains two loops that 
+  // are nearly identical. Hence this C++ version has the same "flaw" just to port it more
+  // quickly. Eventually can write one function that is called for both loops. Hopefully 
+  // this function is general enough to be called for both loops in ecdust(), as well.
   double* gam = common.ggam;
   double* edist = common.edist;
   double* dnu = common.dustnu;
@@ -456,10 +460,14 @@ double BlzSim::ecdust(const double anuf)
 
 double BlzSim::ssc(const double anuf)
 {
+  // The Fortran is just a copy of ecdust() with some fairly minor modifications,
+  // mainly the use of nuhi instead of BlzCommon::CDIST_SIZE. For expediency of porting, 
+  // this C++ is likewise a copy of ecdust() above. At some point will consolidate
+  // all this common code.
   double* gam = common.ggam;
   double* edist = common.edist;
-  double* dnu = common.snu;
-  double* di = common.ssseed;
+  double* dnu = common.snu; // Note: this is different from ecdust()
+  double* di = common.ssseed; // Note: this is different from ecdust()
   double retVal = 0.0, gran = 0.0;
   // (MSV: this is from the Fortran and the line of code is 
   // commented out in the Fortran, so including it all here for reference)

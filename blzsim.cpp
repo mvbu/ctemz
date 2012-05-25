@@ -697,3 +697,22 @@ double BlzSim::ssc(const double anuf)
   return retVal;
  }
 
+double BlzSim::polcalc(const double b, const double bx, const double by, const double bz, 
+                       const double clos, const double slos)
+{
+  double chi = 0.0;
+  double bxh=bx/b;
+  double byh=by/b;
+  double bzh=bz/b;
+  double bdx = common.bdx;
+  double bdy = common.bdy;
+  double bdz = common.bdz;
+  double term=byh+(bdy*bxh-bdx*byh)*slos+(bdy*bzh-bdz*byh)*clos;
+  double ndq=(bxh+(bdx*bzh-bdz*bxh)*clos)*slos + (bzh+(bdz*bxh-bdx*bzh)*slos)*clos;
+  double q2=::pow(bxh+(bdx*bzh-bdz*bxh)*clos, 2.0) +  ::pow(byh+(bdy*bxh-bdx*byh)*slos+(bdy*bzh-bdz*byh)*clos, 2.0) +
+    ::pow(bzh+(bdz*bxh-bdx*bzh)*slos, 2.0);
+  double coschi=term/sqrt(q2-ndq*ndq);
+  chi=acos(coschi);
+  return chi;
+}
+

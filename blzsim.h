@@ -66,7 +66,8 @@ class BlzSim {
   double akapnu(const double anu);
   double ecdust(const double anuf);
   double ssc(const double anuf);
-
+  double polcalc(const double b, const double bx, const double by, const double bz, 
+                 const double clos, const double slos);
  private:
   static const double ONETHIRD = .33333333;
   static const double S0 = 6.237;

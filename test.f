@@ -7,11 +7,14 @@
       real*8 dat(16)
       real*4 anu
       real*8 ggam
+      real*8 clos, slos
       integer i
       common/cparm/zred1,bfield,b
       common/cdist/ggam,edist
       common/cseed/dustnu, dusti
       common/cssc/snu, ssseed, nuhi
+      common/cvel/bdx,bdy,bdz,gammad,betad
+      real*8 bdx,bdy,bdz,gammad,betad
       data ggam  / 1.123009204864502, 1.6150462627410889, 2.6083743572235107, 4.2126455307006836, 6.803617000579834, 10.988156318664551, 17.746381759643555, 28.661226272583008, 46.289207458496094, 74.759208679199219, 120.73958587646484, 195.00001525878906, 196.69918823242188, 198.41317749023438, 200.14210510253906, 201.88607788085938, 203.645263671875, 205.41976928710938, 207.20974731445312, 209.01531982421875, 210.83662414550781, 212.67379760742188, 214.5269775390625, 216.39631652832031, 218.28193664550781, 220.18399047851562, 222.10261535644531, 224.03794860839844, 225.99015808105469, 227.95938110351562, 229.94575500488281, 231.94944763183594, 233.97059631347656, 236.00935363769531, 238.06587219238281, 240.14031982421875, 242.23283386230469, 244.34358215332031, 246.47273254394531, 248.62042236328125, 250.78683471679688, 252.97213745117188, 255.17646789550781, 257.39999389648438 /
       data edist / 207.588089, 100.368889, 38.4794807, 14.7522821, 5.65573835, 2.16830015, 0.831283987, 0.318698138, 0.122182652, 0.0468424521, 0.0179584846, 0.00688493345, 0.00650044205, 0.00613163831, 0.00577794248, 0.0054388023, 0.00511366921, 0.00480203005, 0.00450337958, 0.0042172363, 0.0039431327, 0.00368061941, 0.00342926243, 0.00318864221, 0.0029583571, 0.00273801689, 0.00252724718, 0.00232568663, 0.00213298434, 0.00194880483, 0.00177282514, 0.00160473085, 0.00144422159, 0.00129100704, 0.00114480685, 0.00100535038, 0.000872378412, 0.000745639321, 0.000624891079, 0.000509901613, 0.000400445395, 0.000296305661, 0.000197275149, 0.000103152641 /
       N = 16384
@@ -91,6 +94,21 @@
       print *, 'ecdustResult', ecdustResult
       print *, 'expected',  2.84165187e-7
 
+      ! test polcalc()
+      b = 1.05397856
+      bx = 0.898704171
+      by = -.54515934
+      bz = -.0774780065
+      clos = 0.9999862922696503
+      slos = 0.0052359595870788813
+      bdx = 0.021429364179171097
+      bdy = 0.033405057415456803
+      bdz = 0.99540335416720571
+      expectedChi = 2.61113882
+      call polcalc(b, bx, by, bz, clos, slos, chi)
+      print *, 'polcalcResult', chi
+      print *, 'expected',  expectedChi
+      
       end
 
 C*******************************************
@@ -756,4 +774,27 @@ c      if(anuf.gt.1.0e20.and.anuf.lt.2.0e20)
 c     ,write(5,9050)anuf,gran,rat,addit
  9050 format('***',2i5,2x,1p15e9.2)
  4000 return
+      end
+c
+c     polcalc computes the polarization angle chi based on relations
+c       derived by Lyutikov et al. 2005, MNRAS, 360, 869
+c
+      Subroutine polcalc(b,bx,by,bz,clos,slos,chi)
+      common/cvel/bdx,bdy,bdz,gammad,betad
+      real*8 clos,slos,bdx,bdy,bdz,gammad,betad,term,ndq,q2
+      bxh=bx/b
+      byh=by/b
+      bzh=bz/b
+      term=byh+(bdy*bxh-bdx*byh)*slos+(bdy*bzh-bdz*byh)*clos 
+      ndq=(bxh+(bdx*bzh-bdz*bxh)*clos)*slos +
+     ,  (bzh+(bdz*bxh-bdx*bzh)*slos)*clos
+      q2=(bxh+(bdx*bzh-bdz*bxh)*clos)**2+
+     ,   (byh+(bdy*bxh-bdx*byh)*slos+(bdy*bzh-bdz*byh)*clos)**2 +
+     ,   (bzh+(bdz*bxh-bdx*bzh)*slos)**2
+      coschi=term/dsqrt(q2-ndq*ndq)
+      chi=acos(coschi)
+c      write(5,9999)b,bx,by,bz,clos,slos,bdx,bdy,bdz,
+c     ,   gammad,term,ndq,q2,coschi,chi
+c 9999 format(1p15e10.2)
+      return
       end

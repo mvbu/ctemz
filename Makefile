@@ -36,10 +36,13 @@ temz2: temz2.f
 
 # Remove the output files (temz program crashes if you don't do this)
 rmo: 
-	rm temzspec.txt temzlc.txt temzcheck.txt 
+	rm temzspec.txt temzlc.txt temzcheck.txt temzpol.txt
 
 test: test.f
 	$(FCOMPILER) $(FCOMPILER_OPTS) -o test test.f
+
+randtest: randtest.f
+	$(FCOMPILER) $(FCOMPILER_OPTS) -o randtest randtest.f
 
 # Copy stuff to Dropbox directory
 dropbox:

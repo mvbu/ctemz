@@ -8,8 +8,8 @@ c       cross the shock, as well as longer-term variations according to a given 
 c     Includes synchrotron radiation and IC of seed photons from a dust torus
 c       and from a Mach disk
       dimension itarra(3),
-c     polc(100,1140,35,250),pac(100,1140,35,250),pq(100,1140,35,250),
-c     , pu(100,1140,35,250),pqcum(35),pucum(35),ai2cum(35),
+c     polc(100,1140,35,250),pac(100,1140,35,250),pqcum(35),pucum(35),
+     , pq(100,1140,68),pu(100,1140,68),fpol(100,1140,68),
      , flux(100,1141,68),gammin(100,1141),
      , gammax(100,1141),xcell(1141),gmax0(100,1141),
      , phcell(1141),rcell(1141),ycell(1141),cosph(1141),
@@ -56,7 +56,7 @@ c      common/ci/i,j
      , status='new')
       open (4,iostat=ios, err=9000, file='temzlc.txt',
      , status='new')
-      open (5,iostat=ios, err=9000, file='temzcheck.txt',
+      open (5,iostat=ios, err=9000, file='temzpol.txt',
      , status='new')
 c     Input file format: 1st line characters, then zred, dgpc, alpha, p,
 c       bavg, n0mean, rsize, gmaxmn, gmrat, gmin
@@ -74,7 +74,7 @@ c     icells along axial direction, jcells along transverse direction
       jcells=3*nend*(nend-1)+1
       ancol=2*nend-1
       rbound=ancol*rsize
-      mdmax=1000
+      mdmax=4000
 c     An SED will be printed out every ispecs time steps
       ispecs=1
       ispec=1
@@ -155,11 +155,11 @@ c     Length and volume of cell in plasma proper frame
       volcp=volc/gammad
       svmd=sqrt(vmd)
       delobs=1.0d0/(gammad*(1.0d0-betad*clos))
-      dstart=mdmax+(icells+100)*delobs+25
+      dstart=mdmax+(icells+100)*delobs+2500
 c     Time step in observer's frame in days
       dtfact=(1.0d0-betad*clos)/(betad*clos)
       dtime=1190.0*zsize*dtfact*zred1
-      itlast=2.0/dtime ! 20.0/dtime originally: using fewer timesteps for testing
+      itlast=20.0/dtime ! originally 2000.0/dtime ; just for testing, use 20.0/dtime
       mdrang=0.5*(1.0/dtfact+1.0)
 c     Distance of shock from axis and apex of conical jet
       tanop=dtan(opang)
@@ -199,8 +199,8 @@ c     If too far downstream, dust torus angles are in 2nd quadrant; need to corr
       if(dusti(inu).lt.0.0)dusti(inu)=-dusti(inu)
     3 dustii(id,inu)=dusti(inu)
   333 continue
-      dflux=0.0
       do 336 id=1,icells+nend
+      dflux=0.0
       do 6 inu=2,22
       if(dustii(id,inu-1).le.0.0.or.dustii(id,inu).le.0.0)go to 4
       a=alog10(dustii(id,inu)/dustii(id,inu-1))/
@@ -212,8 +212,8 @@ c     If too far downstream, dust torus angles are in 2nd quadrant; need to corr
      ,  (dustnu(inu)-dustnu(inu-1))
     5 continue
       zdist=zdist0+(id-nend)*zsize+zshock
-      if(inu.eq.10.or.inu.eq.18)
-     ,  write(5,9996)zdist,dustnu(inu),dustii(id,inu),seedpk(id)
+c      if(inu.eq.10.or.inu.eq.18)
+c     ,  write(5,9996)zdist,dustnu(inu),dustii(id,inu),seedpk(id)
     6 continue
       useed(id)=dflux/c
   336 continue
@@ -233,6 +233,9 @@ cccccc  END TEST
       write(4,6665)zred, dgpc, alpha, p, bave, uratio, rsize, gmaxmn,
      , gmrat, gmin, betaup, (zeta*rad), (thlos*rad), (opang*rad),
      , tdust, dtdist,dtrad,zdist0,useed(5),psdslp,vmd
+      write(5,6665)zred, dgpc, alpha, p, bave, uratio, rsize, gmaxmn,
+     , gmrat, gmin, betaup, (zeta*rad), (thlos*rad), (opang*rad),
+     , tdust, dtdist,dtrad,zdist0,useed(5),psdslp,vmd
  6665 format('#redshift: ',f5.3,2x,'Distance in Gpc: ',f5.3/
      ,  '#spectral index: ',f4.2,2x,'filling factor exponent: ',f4.2/
      ,  '#mean unshocked magnetic field: ',f4.2,2x,'ratio of electron ',
@@ -250,20 +253,18 @@ cccccc  END TEST
 c     Set up variation of energy density according to PSD; see Done et al.,
 c       1992, ApJ, 400, 138, eq. B1
       tinc=dtime
-      call psdsim(8192,-psdslp,-psdslp,1.0,tinc,spsd) ! first arg used to be 16384, which is way larger than allowed
+      call psdsim(16384,-psdslp,-psdslp,1.0,tinc,spsd)
       psdsum=0.0
-      do 4998 ip=1,8192
+      do 4998 ip=1,16384
       spexp=1.0/(0.5*expon+1.0)
       spsd(ip)=abs(spsd(ip))**(spexp)
 c      spsd(ip)=1.0
       psdsum=psdsum+spsd(ip)/16384.0
  4998 continue
-      do 4999 ip=1,8192
-c      if(ip.lt.100)write(5,9996)spsd(ip)
-c      write(5,9935)ip,spsd(ip)
-c 9935 format(i8,1pe11.3)
+      do 4999 ip=1,16384
+c      if(ip.lt.100)write(3,9996)spsd(ip)
  4999 spsd(ip)=amppsd*spsd(ip)/psdsum
-      ip0=0 !rand(0)*5000  setting this to zero instead so that we can call psdsim with an allowed value of N
+      ip0=rand(0)*5000
       it=0
  1000 continue
 c     Set parameters of each cell at initial time
@@ -272,6 +273,7 @@ c     The central cell is a Mach disk with low velocity; its observed radiation
 c      is ignored, but it is an  important source of IC seed photons
       write(3,6666)
       write(4,6667)
+      write(5,6668)
       i=1
       j=0
       do 999 nrow=-(nend-1),(nend-1)
@@ -320,11 +322,11 @@ c     Compute time delay (no. of time steps) between when plasma passes Mach dis
 c       and when it passes reference point of conical shock at column 30, in plasma frame
       zmd=zrf-zshock
       idelmd=zmd/(zsize/betad)
-      write(5,9595)mdmax,dstart,idelmd,ip0,zshock,rshock,zrf,zmd,
-     , zsize
- 9595 format('mdmax = ',i7,' dstart = ',i7,' idelmd = ',i7,
-     ,  '  ip0 = ',i7/'zshock, rshock, zrf, zmd, zsize ',
-     ,     1p5e10.2)
+c      write(5,9595)mdmax,dstart,idelmd,ip0,zshock,rshock,zrf,zmd,
+c     , zsize
+c 9595 format('mdmax = ',i7,' dstart = ',i7,' idelmd = ',i7,
+c     ,  '  ip0 = ',i7/'zshock, rshock, zrf, zmd, zsize ',
+c     ,     1p5e10.2)
       betadx(jcells)=0.0
       betady(jcells)=0.0
       betadz(jcells)=1.0d0/3.0d0
@@ -348,7 +350,7 @@ c     Determine B vector of MD assuming random magnetic field orientation
       cosphb=cos(phi)
 c     Compute B field components downstream of Mach disk shock
       idelay=dstart-mdmax+md-idelmd
-      if(idelay.lt.1.or.idelay.gt.(8192-ip0))
+      if(idelay.lt.1.or.idelay.gt.(16384-ip0))
      ,  write(5,9222)idelay,i,j,md,ip0,zshock,zcell(i,j)
       bavg=bave*sqrt(spsd(idelay+ip0))
       n0mean=n0ave*spsd(idelay+ip0)
@@ -412,8 +414,8 @@ c     Use 0.99 instead of 1 to avoid singularity of N(gamma) at gmax0
       gmratm=dlog10(gminmd/glow)/11.0
       ibreak=0
       if(gamb.le.glow)ibreak=1
-      write(5,9996)bfield(j),n0(i,j),gmax0(i,j),uphmd,ustob,tlfact,
-     ,  bmdtot(mdi),delt,gamb,glow
+c      write(5,9996)bfield(j),n0(i,j),gmax0(i,j),uphmd,ustob,tlfact,
+c     ,  bmdtot(mdi),delt,gamb,glow
       do 124 ie=1,44
       egam(i,j,ie)=gminmd*10.0**(gmratl*(ie-12))
       if(ie.lt.12)egam(i,j,ie)=glow*10.0**(gmratm*(ie-1))
@@ -955,6 +957,14 @@ c     Start loop over observed frequencies
       ssabs=1.02e4*(sen+2.0)*akapnu(restnu)*bperpp/
      ,   nu(inu)**2/delta(i,j)
       ssabs=ssabs*parsec*zsize*delta(i,j)
+c     Attenuate Mach disk emission from synchrotron absorption on way to cell
+      ssabsm=ssabs*dmd(j)/zsize
+      if(ssabsm.ge.10.0)ssseed(inu)=0.0
+      if(ssabsm.lt.10.0.and.ssabsm.gt.0.1)ssseed(inu)=
+     ,     ssseed(inu)/exp(ssabsm)
+c     Return to absorption within cell
+c     Use rsize instead of zsize because of aberration
+      ssabs=ssabs*rsize/zsize
       if(ssabs.le.(0.1/ancol))ithin=1
       srcfn=fsync2(inu)/ssabs
       if(ssabs.gt.5.0)fsync2(inu)=srcfn
@@ -966,6 +976,7 @@ c     Start loop over observed frequencies
       if(thlos.eq.0.0)tauexp=nouter(j)*ssabs
 c      if(tauexp.gt.15.0)fsync2(inu)=0.0
 c      if(tauexp.le.15.0)fsync2(inu)=fsync2(inu)/exp(tauexp)
+      specin=alpha
    91 if(inu.eq.1)go to 92
       if(emold.gt.0.0.and.fsync2(inu).gt.0.0)specin=
      ,  alog10(emold/fsync2(inu))/alog10(nu(inu)/nu(inu-1))
@@ -975,6 +986,21 @@ c     ,  ggam,edist,restnu,bperpp
       flsync(i,j,inu)=fsync2(inu)*(volc/zsize)*zred1/
      ,  (1.0e18*amjy*dgpc**2)*fgeom
       flux(i,j,inu)=flsync(i,j,inu)
+      if(inu.eq.1)call polcalc(bfield(j),bx(i,j),by(i,j),bz(i,j),
+     ,    clos,slos,chipol)
+      if(specin.lt.alpha)specin=alpha
+      poldeg=(specin+1.0)/(specin+5.0/3.0)
+      if(ssabs.gt.1.0)poldeg=3.0/(12.0*specin+19)
+      fpol(i,j,inu)=poldeg*flsync(i,j,inu)
+      signbx=1.0
+      signby=1.0
+      if(bx(i,j).ne.0.0)signbx=bx(i,j)/abs(bx(i,j))
+      if(by(i,j).ne.0.0)signby=by(i,j)/abs(by(i,j))
+      pq(i,j,inu)=fpol(i,j,inu)*cos(2.0*chipol)*signbx*signby
+      pu(i,j,inu)=fpol(i,j,inu)*sin(2.0*chipol)
+c      write(5,9996)bfield(j),bx(i,j),by(i,j),bz(i,j),
+c     ,    clos,slos,chipol,fpol(i,j,inu),pq(i,j,inu),
+c     ,    pu(i,j,inu)
 c      if(inu.eq.19)write(5,9989)i,j,idelay,restnu,n0(i,j),bperpp,
 c     ,  gammax(i,j),gammin(i,j),edist(30),edist(40)
       if(restnu.lt.1.0e14)go to 94
@@ -1055,7 +1081,7 @@ c     iend is the last slice of cells with energetic electrons
       icelmx(j)=i
       ncells=ncells+1
       if(it.gt.1)go to 110
-      zcell(i,j)=zshock-(rcell(j)-rsize)/tanz
+      zcell(i,j)=(i-1)*zsize+zshock-(rcell(j)-rsize)/tanz
 c     Determine Doppler factor relative to the observer
       psiup=opang
       betacs=betad*(dsin(psiup-xi)*cosph(j)*slos+dcos(psiup-xi)*clos)
@@ -1335,19 +1361,28 @@ c     calculate flux in mJy from cell
       ssabs=1.02e4*(sen+2.0)*akapnu(restnu)*bperpp/
      ,   nu(inu)**2/delta(i,j)
       ssabs=ssabs*parsec*zsize
-      ssabs=ssabs*parsec*zsize
+c     Attenuate Mach disk emission from synchrotron absorption on way to cell
+      ssabsm=ssabs*dmd(j)/zsize
+      if(ssabsm.ge.10.0)ssseed(inu)=0.0
+      if(ssabsm.lt.10.0.and.ssabsm.gt.0.1)ssseed(inu)=
+     ,     ssseed(inu)/exp(ssabsm)
+c     Return to absorption within cell
+c     Use rsize instead of zsize because of aberration
+      ssabs=ssabs*rsize/zsize
       if(ssabs.le.(0.1/ancol))ithin=1
       srcfn=fsync2(inu)/ssabs
       if(ssabs.gt.5.0)fsync2(inu)=srcfn
       if(ssabs.gt.0.1.and.ssabs.le.5.0)fsync2(inu)=
      ,  srcfn*(1.0-exp(-ssabs))
-c     Absorption by other cells; zero if viewing angle >0 and cell on outer boundary
-      tauexp=(nouter(j)-i)*ssabs
-      if(rcell(j).gt.(0.98*rbound).and.xcell(j).le.0.0)
-     ,         tauexp=0.0
-      if(thlos.eq.0.0)tauexp=(nouter(j)-i)*ssabs
+c     Attenuation from downstream cells along l.o.s. IF significant
+      tauexp=0.0
+c      tauexp=nouter(j)*ssabs
+c      if(rcell(j).gt.(0.98*rbound).and.xcell(j).le.0.0)
+c     ,         tauexp=0.0
+      if(thlos.eq.0.0)tauexp=nouter(j)*ssabs
 c      if(tauexp.gt.15.0)fsync2(inu)=0.0
 c      if(tauexp.le.15.0)fsync2(inu)=fsync2(inu)/exp(tauexp)
+      specin=alpha
   191 if(inu.eq.1)go to 192
       if(emold.gt.0.0.and.fsync2(inu).gt.0.0)specin=
      ,  alog10(emold/fsync2(inu))/alog10(nu(inu)/nu(inu-1))
@@ -1355,6 +1390,21 @@ c      if(tauexp.le.15.0)fsync2(inu)=fsync2(inu)/exp(tauexp)
       flsync(i,j,inu)=fsync2(inu)*(volc/zsize)*zred1/
      ,  (1.0e18*amjy*dgpc**2)*fgeom
       flux(i,j,inu)=flsync(i,j,inu)
+      if(inu.eq.1)call polcalc(bfield(j),bx(i,j),by(i,j),bz(i,j),
+     ,    clos,slos,chipol)
+      if(specin.lt.alpha)specin=alpha
+      poldeg=(specin+1.0)/(specin+5.0/3.0)
+      if(ssabs.gt.1.0)poldeg=3.0/(12.0*specin+19)
+      fpol(i,j,inu)=poldeg*flsync(i,j,inu)
+      signbx=1.0
+      signby=1.0
+      if(bx(i,j).ne.0.0)signbx=bx(i,j)/abs(bx(i,j))
+      if(by(i,j).ne.0.0)signby=by(i,j)/abs(by(i,j))
+      pq(i,j,inu)=fpol(i,j,inu)*cos(2.0*chipol)*signbx*signby
+      pu(i,j,inu)=fpol(i,j,inu)*sin(2.0*chipol)
+c      write(5,9996)bfield(j),bx(i,j),by(i,j),bz(i,j),
+c     ,    clos,slos,chipol,fpol(i,j,inu),pq(i,j,inu),
+c     ,    pu(i,j,inu)
       if(restnu.lt.1.0e14)go to 194
       spxec=0.0001
       spxssc=0.0001
@@ -1425,8 +1475,12 @@ c 7999 write(5,9993)gcnt(ig),igcnt(ig)
       tecfl=0.0
       tsscfl=0.0
       alph=0.0
+      qcum=0.0
+      ucum=0.0
       do 300 j=1,(jcells-1)
       do 300 i=1,icelmx(j)
+      qcum=qcum+pq(i,j,inu)
+      ucum=ucum+pu(i,j,inu)
       tflux=tflux+flux(i,j,inu)
       tsflux=tsflux+flsync(i,j,inu)
       tcflux=tcflux+flcomp(i,j,inu)
@@ -1443,6 +1497,9 @@ c     , ((6.63e-27*nu(inu))*c*volc*jcells*zred1)
       if(tflold.eq.0.0.or.tflux.eq.0.0)go to 390
       if(inu.gt.1)alph=alog10(tflold/tflux)/
      ,alog10(nu(inu)/nu(inu-1))
+      poldeg=0.0
+      if(tflux.gt.0.0)poldeg=sqrt(qcum**2+ucum**2)/tflux
+      pang=0.5*atan2(ucum,qcum)*rad
       tflux=0.001*nu(inu)*tflux
       tsflux=0.001*nu(inu)*tsflux
       tcflux=0.001*nu(inu)*tcflux
@@ -1474,6 +1531,20 @@ c     Write SED to file
       if(inu.eq.53)tfssc=tsscfl
       if(inu.eq.11)tfl11=tflux
       tflold=1000.0*tflux/nu(inu)
+      if(inu.eq.9)pdeg9=100.0*poldeg
+      if(inu.eq.9)pang9=pang
+      if(inu.eq.13)pdeg13=100.0*poldeg
+      if(inu.eq.13)pang13=pang
+      if(inu.eq.17)pdeg17=100.0*poldeg
+      if(inu.eq.17)pang17=pang
+      if(inu.eq.21)pdeg21=100.0*poldeg
+      if(inu.eq.21)pang21=pang
+      if(inu.eq.25)pdeg25=100.0*poldeg
+      if(inu.eq.25)pang25=pang
+      if(inu.eq.29)pdeg29=100.0*poldeg
+      if(inu.eq.29)pang29=pang
+      if(inu.eq.33)pdeg33=100.0*poldeg
+      if(inu.eq.33)pang33=pang
   500 continue
       alp20a=0.0
       alp20b=0.0
@@ -1501,6 +1572,11 @@ c     Write light curve points to file
       write(4,9991)it,timeo,nu(20),tfl20,alph20,tfsyno,nu(33),
      ,  tfl33,alph33,tfcomx,nu(53),tfl53,alph53,tfcomp,tfec,
      ,  tfssc,nu(11),tfl11,ncells
+c     Write selected polarization data to file
+      write(5,9988)it,timeo,nu(9),pdeg9,pang9,nu(13),pdeg13,pang13,
+     ,  nu(17),pdeg17,pang17,nu(21),pdeg21,pang21,
+     ,  nu(25),pdeg25,pang25,nu(29),pdeg29,pang29,
+     ,  nu(33),pdeg33,pang33
 c     Set up next time step by shifting physical conditions 1 slice down jet
       if(it.eq.itlast)go to 9000
       do 598 j=1,jcells
@@ -1531,11 +1607,16 @@ c     Move cells in time array to make room for next time step
      ,   ' freq(Hz)  F(Jy Hz)  alpha     F(muJy) ',
      ,   '  freq(Hz)  F(Jy Hz)   alpha     F(nJy)    F(EC)   ',
      ,      '  F(SSC)  no. of live cells')
+ 6668 format('#'/'#     time(d)  freq(Hz)   p(%)   chi(deg) ',
+     ,   '  freq      p      chi     freq       p      chi  ',
+     ,   '   freq      p       chi     freq       p      chi  ',
+     ,   '    freq       p      chi    freq       p       chi')
  8888 format(i5,f9.2)
  8889 format(/)
  9111 format(a10/f5.3/f5.3/f4.2/f4.2/f4.2/f3.1/e7.1/f5.3/f7.1/
      ,f5.1/f6.1/d9.5/d6.1/d5.1/d6.2/f6.1/f3.1/f3.1/f3.1/e7.2)
  9222 format('idelay out of bounds ',5i6,1p3e11.3)
+ 9988 format(i5,f8.2,2x,7(1pe8.2,1x,0pf7.3,1x,f8.3,1x))
  9989 format(i6,2x,i6,2x,i6,1p16e10.2)
  9990 format(///'Time = ',f8.2,' days'/'  freq(Hz))',2x,
      , 'Ftot(Jy Hz)  sp. index    Fsynch',4x,'     F(EC)',
@@ -1934,7 +2015,7 @@ C This must be larger than the smallest interval between successive data points 
 
       implicit none
 
-      real*8 nu(16384),flux_s1(16384),dat(16384),R(32768)
+      real*8 nu(16384),flux_s1(16384),dat(32768),R(32768)
       real*8 dataim_s1(16384),datareal_s1(16384),amp(16384)
       real*8 flux_s2(16384),dataim_s2(16384),datareal_s2(16384)
       real*8 dataim(16384),datareal(16384),flux_s(16384)
@@ -1953,14 +2034,14 @@ C This must be larger than the smallest interval between successive data points 
         call RNE2OT(ISEED1,ISEED2)
         do j=1,N/2  
             nu(j)= j*fac_norm/86400.                      
-            if (nu(j) .gt. nu_break) go to 10
+            if (nu(j) .le. nu_break) then
               flux_s(j)=nu(j)**beta1
               datareal(j)=dsqrt(fac_norm2*0.5*flux_s(j))*R(j)
-            go to 20
-   10       flux_s(j)=(nu(j)**beta2)
+            else
+              flux_s(j)=(nu(j)**beta2)
      >                      *((nu_break**beta1)/(nu_break**beta2))
               datareal(j)=dsqrt(fac_norm2*0.5*flux_s(j))*R(j)
-   20 continue
+            endif
         end do
         call RNSTNR(R,N/2)
         call RNE2OT(ISEED1,ISEED2)
@@ -2152,8 +2233,6 @@ c     Set up loop 1 to integrate over incident photon frequency anui
       di1=di(1)
       id=2
       anumin=0.25*anuf/(g1*g1)
-c      write(5,6667)g1,anuf,dnu(nuhi),anumin,anumax
-c 6667 format('g1, anuf, dnu(nuhi), anumin, anumax: ',1p5e9.2)
       if(anumin.ge.anumax)go to 601
       if(anumin.gt.dnu(1))go to 2
       anumin=dnu(1)
@@ -2306,3 +2385,27 @@ c     ,write(5,9050)anuf,gran,rat,addit
  9050 format('***',2i5,2x,1p15e9.2)
  4000 return
       end
+c
+c     polcalc computes the polarization angle chi based on relations
+c       derived by Lyutikov et al. 2005, MNRAS, 360, 869
+c
+      Subroutine polcalc(b,bx,by,bz,clos,slos,chi)
+      common/cvel/bdx,bdy,bdz,gammad,betad
+      real*8 clos,slos,bdx,bdy,bdz,gammad,betad,term,ndq,q2
+      bxh=bx/b
+      byh=by/b
+      bzh=bz/b
+      term=byh+(bdy*bxh-bdx*byh)*slos+(bdy*bzh-bdz*byh)*clos 
+      ndq=(bxh+(bdx*bzh-bdz*bxh)*clos)*slos +
+     ,  (bzh+(bdz*bxh-bdx*bzh)*slos)*clos
+      q2=(bxh+(bdx*bzh-bdz*bxh)*clos)**2+
+     ,   (byh+(bdy*bxh-bdx*byh)*slos+(bdy*bzh-bdz*byh)*clos)**2 +
+     ,   (bzh+(bdz*bxh-bdx*bzh)*slos)**2
+      coschi=term/dsqrt(q2-ndq*ndq)
+      chi=acos(coschi)
+c      write(5,9999)b,bx,by,bz,clos,slos,bdx,bdy,bdz,
+c     ,   gammad,term,ndq,q2,coschi,chi
+c 9999 format(1p15e10.2)
+      return
+      end
+      

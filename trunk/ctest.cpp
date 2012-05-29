@@ -43,6 +43,27 @@ int main()
     //BlzLog::debugScalar(msg, r[ii]);
   }
 
+  // Test BlzRand::rand()
+  cout << "BlzRand::rand()" << endl;
+  for(i=0; i<44; i++) {
+    double r = randObj.rand(0);
+    cout << r << ", ";
+  }
+  cout << endl;
+  cout << "BlzRand::rand() test data" << endl;
+  randObj.setRandTestMode(true);
+  for(i=0; i<100000; i++) {
+    double r = randObj.rand(0);
+    if(i>99997)  cout << r << ", ";
+  }
+  cout << endl;
+  for(i=0; i<44; i++) {
+    double r = randObj.rand(0);
+    cout << r << ", ";
+  }
+  cout << endl;
+  randObj.setRandTestMode(false);
+
   // Test the Fourier routine
   const int NN = 8;
   double step = TWOPI/(double)(NN-1);

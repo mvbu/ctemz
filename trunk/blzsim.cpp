@@ -32,12 +32,13 @@ void BlzSim::psdsim(const int N, const float beta1, const float beta2, const flo
   fac_norm=1./(N*t_incre1);
   fac_norm2=pow((double)N,2)/(2.*N*t_incre1);
 
+  // randObj is an instance of BlzRand inside this BlzSim instance
   ISEED1=58;
   ISEED2=256871;
-  BlzRand::setIX(ISEED1,ISEED2);
+  randObj.setIX(ISEED1,ISEED2);
   BlzLog::debugScalarPair("1) ISEED1/ISEED2", ISEED1, ISEED2);
-  BlzRand::rnstnr(R,N/2);
-  BlzRand::getIX(&ISEED1,&ISEED2);
+  randObj.rnstnr(R,N/2);
+  randObj.getIX(&ISEED1,&ISEED2);
   BlzLog::debugScalarPair("2) ISEED1/ISEED2", ISEED1, ISEED2);
   for(j=1; j<=N/2; j++) {
     nu[j-1] = j*fac_norm/86400.;
@@ -51,8 +52,8 @@ void BlzSim::psdsim(const int N, const float beta1, const float beta2, const flo
       datareal[j-1] = sqrt((double)(fac_norm2*0.5*flux_s[j-1]))*R[j-1];
     }
   }
-  BlzRand::rnstnr(R,N/2);
-  BlzRand::getIX(&ISEED1,&ISEED2);
+  randObj.rnstnr(R,N/2);
+  randObj.getIX(&ISEED1,&ISEED2);
   BlzLog::debugScalarPair("3) ISEED1/ISEED2", ISEED1, ISEED2);
 
   for(j=1; j<=N/2; j++) {

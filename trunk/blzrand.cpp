@@ -3,8 +3,15 @@
 #include "blzlog.h"
 #include "blzrand.h"
 
-int BlzRand::IX1 = 123456;
-int BlzRand::IX2 = 654321;
+BlzRand::BlzRand() 
+{
+  IX1 = 123456;
+  IX2 = 654321;
+}
+
+BlzRand::~BlzRand()
+{
+}
 
 void BlzRand::rnstnr(double r[], int n)
 {

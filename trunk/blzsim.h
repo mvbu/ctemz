@@ -48,9 +48,13 @@ class BlzSim {
   BlzSim();
   ~BlzSim();
 
+  // Most of these methods will eventually become private or protected.
+
   // Instance of structure to store shared variables, serving same purpose
   // as the COMMON variables in the Fortran code
   BlzSimCommon common;
+  // Instance of the BlzRand object common to this sim instance
+  BlzRand randObj;
 
   // code is ported from Fortran psdsim() in temz.f from Ritaban Chatterjee
   // to create variations according to an input PSD with slopes beta1 and beta2 at

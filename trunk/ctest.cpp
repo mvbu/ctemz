@@ -22,13 +22,14 @@ int main()
   double r[32678];
   int ISEED1=58;
   int ISEED2=256871;
+  BlzRand randObj;
   BlzLog::debugScalar("ISEED1", ISEED1);
   BlzLog::debugScalar("ISEED2", ISEED2);
-  BlzRand::setIX(ISEED1, ISEED2);
+  randObj.setIX(ISEED1, ISEED2);
   BlzLog::debugScalar("ISEED1", ISEED1);
   BlzLog::debugScalar("ISEED2", ISEED2);
-  BlzRand::rnstnr(r, N/2);
-  BlzRand::getIX(&ISEED1, &ISEED2);
+  randObj.rnstnr(r, N/2);
+  randObj.getIX(&ISEED1, &ISEED2);
   BlzLog::debugScalar("ISEED1", ISEED1);
   BlzLog::debugScalar("ISEED2", ISEED2);
   int i;

@@ -86,7 +86,7 @@ int main()
   float psdslp = 1.7; // psd slope
   float tinc= 1.93893981; 
   BlzSim* pSim = new BlzSim();
-  pSim->psdsim(8192, -psdslp, -psdslp, 1.0, tinc, spsd);
+  pSim->psdsim(16384, -psdslp, -psdslp, 1.0, tinc, spsd);
   delete pSim;
   BlzLog::debugScalarPair("spsd[0]", spsd[0], spsd[1]);
   for(i=3; i>=0; i--) {

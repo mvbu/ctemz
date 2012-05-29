@@ -23,7 +23,7 @@ BlzSim::~BlzSim() {
 void BlzSim::psdsim(const int N, const float beta1, const float beta2, const float nu_break, const float t_incre1, float *lc_sim)
 {
   // This code is ported from Fortran routine temz.f:psdsim() by R. Chatterjee
-  double nu[BLZSIM_DIM16384],dat[BLZSIM_DIM16384],R[BLZSIM_DIM32768];
+  double nu[BLZSIM_DIM16384],dat[BLZSIM_DIM32768],R[BLZSIM_DIM32768];
   double dataim[BLZSIM_DIM16384],datareal[BLZSIM_DIM16384],flux_s[BLZSIM_DIM16384];
   double fac_norm,fac_norm2;
   float  ann;

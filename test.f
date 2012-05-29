@@ -44,8 +44,8 @@
       ! Now test psdsim
       psdslp = 1.7
       tinc= 1.93893981
-      !call psdsim(16384,-psdslp,-psdslp,1.0,tinc,spsd)
-      call psdsim(8192,-psdslp,-psdslp,1.0,tinc,spsd)
+      call psdsim(16384,-psdslp,-psdslp,1.0,tinc,spsd)
+      !call psdsim(8192,-psdslp,-psdslp,1.0,tinc,spsd)
       print *, 'spsd[   1]', spsd(1)
       print *, 'spsd[2048]', spsd(2048)
       print *, 'spsd[4096]', spsd(4096)
@@ -244,7 +244,7 @@ C This must be larger than the smallest interval between successive data points 
 
       implicit none
 
-      real*8 nu(16384),flux_s1(16384),dat(16384),R(32768)
+      real*8 nu(16384),flux_s1(16384),dat(32768),R(32768)
       real*8 dataim_s1(16384),datareal_s1(16384),amp(16384)
       real*8 fluxs2(16384),dataim_s2(16384),datareal_s2(16384)
       real*8 dataim(16384),datareal(16384),flux_s(16384)

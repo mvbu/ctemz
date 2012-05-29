@@ -36,7 +36,7 @@ temz2: temz2.f
 
 # Remove the output files (temz program crashes if you don't do this)
 rmo: 
-	rm temzspec.txt temzlc.txt temzcheck.txt temzpol.txt
+	rm temzspec.txt temzlc.txt temzpol.txt
 
 test: test.f
 	$(FCOMPILER) $(FCOMPILER_OPTS) -o test test.f

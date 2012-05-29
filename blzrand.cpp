@@ -1,4 +1,6 @@
+#include <cstdlib>
 #include <iostream>
+#include <fstream>
 #include <cmath>
 #include "blzlog.h"
 #include "blzrand.h"
@@ -7,6 +9,9 @@ BlzRand::BlzRand()
 {
   IX1 = 123456;
   IX2 = 654321;
+  randTestMode = false;
+  randTestFileOpened = false;
+  randTestCounter = 0;
 }
 
 BlzRand::~BlzRand()
@@ -63,4 +68,38 @@ void BlzRand::rnecuy(double u[], int n)
 
   BlzLog::psychoScalar("after IX1", IX1);
   BlzLog::psychoScalar("after IX2", IX2);
+}
+
+void BlzRand::setRandTestMode(bool _randTestMode) { randTestMode = _randTestMode; }
+
+double BlzRand::rand(int seed)
+{
+  double retVal = 0.0;
+
+  if(randTestMode) {
+    if(!randTestFileOpened) {
+      ifstream fileStream("fixedrand.dat");
+      if(!fileStream.is_open()) {
+        throw new exception();
+      }
+
+      int i;
+      for(i=0; i<100000; i++) {
+        fileStream >> randTestData[i];
+      }
+      randTestFileOpened = true;
+      randTestCounter = 0;
+    }
+    retVal = randTestData[randTestCounter];
+    randTestCounter = (randTestCounter >= 99999 ?  0: randTestCounter+1);
+
+  }
+  else {
+    // Normal mode. Behave like Fortran's rand() function (which returns value between 0 and 1
+    // and will re-seed the generator if seed is not equal to zero
+    if(seed != 0)
+      srand(seed);
+    retVal = static_cast<double>(::rand())/static_cast<double>(RAND_MAX);
+  }
+  return retVal;
 }

@@ -20,9 +20,21 @@ class BlzRand {
   void rnecuy(double u[], int n);
   void rnstnr(double r[], int n);
 
- public:
+  // A wrapper around the basic rand() function. 
+  double rand(int seed);
+  // If this mode is on, rand() above will return numbers from a pre-generated text file
+  void setRandTestMode(bool _randTestMode);
+
   BlzRand();
   ~BlzRand();
+
+ private:
+  bool randTestMode;
+  bool randTestFileOpened;
+  int randTestCounter;
+  double randTestData[100000];
+  
+
 };
     
 #endif // _INCL_BLZRAND_H_

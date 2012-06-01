@@ -95,16 +95,17 @@
       print *, 'expected',  2.84165187e-7
 
       ! test polcalc()
-      b = 1.05397856
-      bx = 0.898704171
-      by = -.54515934
-      bz = -.0774780065
-      clos = 0.9999862922696503
-      slos = 0.0052359595870788813
-      bdx = 0.021429364179171097
-      bdy = 0.033405057415456803
-      bdz = 0.99540335416720571
-      expectedChi = 2.61113882
+      b = 0.316276222
+      bx = 0.150767073
+      by = 0.240987927
+      bz = -0.138653368
+      clos = 0.99098321431122793
+      slos = 0.13398607746100638
+      bdx = 0.042337138162786593
+      bdy = 0.073330036710039445
+      bdz = 0.97277779711713219
+      gammad = 4.6357107942851155
+      expectedChi = 0.94032985
       call polcalc(b, bx, by, bz, clos, slos, chi)
       print *, 'polcalcResult', chi
       print *, 'expected',  expectedChi
@@ -781,20 +782,31 @@ c       derived by Lyutikov et al. 2005, MNRAS, 360, 869
 c
       Subroutine polcalc(b,bx,by,bz,clos,slos,chi)
       common/cvel/bdx,bdy,bdz,gammad,betad
-      real*8 clos,slos,bdx,bdy,bdz,gammad,betad,term,ndq,q2
+      real*8 clos,slos,bdx,bdy,bdz,gammad,betad,term,ndq,q2,
+     ,  qx,qy,qz,ex,ey,ez,term1,term2,term3
       bxh=bx/b
       byh=by/b
       bzh=bz/b
-      term=byh+(bdy*bxh-bdx*byh)*slos+(bdy*bzh-bdz*byh)*clos 
-      ndq=(bxh+(bdx*bzh-bdz*bxh)*clos)*slos +
-     ,  (bzh+(bdz*bxh-bdx*bzh)*slos)*clos
-      q2=(bxh+(bdx*bzh-bdz*bxh)*clos)**2+
-     ,   (byh+(bdy*bxh-bdx*byh)*slos+(bdy*bzh-bdz*byh)*clos)**2 +
-     ,   (bzh+(bdz*bxh-bdx*bzh)*slos)**2
-      coschi=term/dsqrt(q2-ndq*ndq)
+      term1=slos*bxh+clos*bzh
+      term2=slos*bdx+clos*bdz
+      term3=(bdx*bxh+bdy*byh+bdz*bzh)*gammad/(1.0d0+gammad)
+      qx=bxh+(term1-term3)*bdx-term2*bxh
+      qy=byh+(term1-term3)*bdy-term2*byh
+      qz=bzh+(term1-term3)*bdz-term2*bzh
+      q2=qx*qx+qy*qy+qz*qz
+      ndq=qx*slos+qz*clos
+      term1=-qy*clos
+      term2=qx*clos-qz*slos
+      term3=qy*slos
+      term=dsqrt(q2-ndq*ndq)
+      ex=term1/term
+      ey=term2/term
+      ez=term3/term
+      term=ex*ex+ey*ey+ez*ez
+      coschi=(-clos*ex+slos*ez)/dsqrt(term)
       chi=acos(coschi)
-c      write(5,9999)b,bx,by,bz,clos,slos,bdx,bdy,bdz,
-c     ,   gammad,term,ndq,q2,coschi,chi
+c      write(5,9999)b,bx,by,bz,bdx,bdy,bdz,
+c     ,   term,ex,ey,ez,ndq,q2,coschi,chi
 c 9999 format(1p15e10.2)
       return
       end

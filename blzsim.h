@@ -8,7 +8,7 @@ static const int BLZSIM_DIM16384 = 16384;
 static const int BLZSIM_DIM32768 = 32768;
 
 // These are variables in the TEMZ (Fortran) "common" blocks. Putting
-// them here in a structure for now, to expedited porting to C++.
+// them here in a structure for now, to expedite porting to C++.
 // Can come up with a better way later.
 class BlzSimCommon {
  public:
@@ -28,12 +28,19 @@ class BlzSimCommon {
 
   BlzSimCommon();
   ~BlzSimCommon();
+  // Setters for the arrays. For the non-array members, just set directly for now
   void setGgam(const double gam[CDIST_SIZE]);
   void setEdist(const double _edist[CDIST_SIZE]);
   void setDustnu(const double dnu[CSEED_SIZE]);
   void setDusti(const double di[CSEED_SIZE]);
   void setSnu(const double _snu[CSSC_SIZE]);
   void setSsseed(const double _ssseed[CSSC_SIZE]);
+};
+
+class BlzSimInput {
+  // This will contain some of the input parameters for a call to BlzSim:run()
+  float zred, dgpc, alpha, p,bavg, neg_psdslope, e_e_over_e_b, rsie, gmaxmn, gmrat, gmin, betup;
+  float zeta, thlos, opang,dustTemp,dustTorusDist, torusXsectionRadius, zdist0, vdm;
 };
 
 // Callback function passed to BlzMath::qg5()
@@ -48,6 +55,11 @@ class BlzSim {
   BlzSim();
   ~BlzSim();
 
+  // This is the main method of this class. Eventually, all other methods will be private.
+  // Instantiate a BlzSim object, instantiate and initialize a BlzSimInput object, then pass it
+  // to the run() method.
+  void run(BlzSimInput& blzSimInput);
+
   // Most of these methods will eventually become private or protected.
 
   // Instance of structure to store shared variables, serving same purpose
@@ -58,7 +70,7 @@ class BlzSim {
 
   // code is ported from Fortran psdsim() in temz.f from Ritaban Chatterjee
   // to create variations according to an input PSD with slopes beta1 and beta2 at
-  // variational frequencies below and above a break frequency nu_break */
+  // variational frequencies below and above a break frequency nu_break
   // N=number of data points in the lc, should be an integer power of 2, N<=8192
   // t_incre1=increment in time in each step while resampling the simulated data.
   // This must be larger than the smallest interval between successive data points in the input light curve

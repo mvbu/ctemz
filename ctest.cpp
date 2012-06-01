@@ -200,21 +200,21 @@ int main()
 
   // Test polcalc()
   pSim = new BlzSim();
-  double b = 1.05397856;
-  double bx = 0.898704171;
-  double by = -.54515934;
-  double bz = -.0774780065;
-  double clos = 0.9999862922696503;
-  double slos = 0.0052359595870788813;
-  pSim->common.bdx = 0.021429364179171097;
-  pSim->common.bdy = 0.033405057415456803;
-  pSim->common.bdz = 0.99540335416720571;
-  const double expectedChi = 2.61113882;
+  double b = 0.316276222;
+  double bx = 0.150767073;
+  double by = 0.240987927;
+  double bz = -0.138653368;
+  double clos = 0.99098321431122793;
+  double slos = 0.13398607746100638;
+  pSim->common.bdx = 0.042337138162786593;
+  pSim->common.bdy = 0.073330036710039445;
+  pSim->common.bdz = 0.97277779711713219;
+  pSim->common.gammad = 4.6357107942851155;
+  const double expectedChi = 0.94032985;
   double chi = pSim->polcalc(b, bx, by, bz, clos, slos);
   BlzLog::debugScalar("polcalcResult", chi);
   BlzLog::debugScalar("expected", expectedChi);
   delete pSim;
-
 }
 
 

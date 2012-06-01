@@ -708,12 +708,31 @@ double BlzSim::polcalc(const double b, const double bx, const double by, const d
   double bdx = common.bdx;
   double bdy = common.bdy;
   double bdz = common.bdz;
-  double term=byh+(bdy*bxh-bdx*byh)*slos+(bdy*bzh-bdz*byh)*clos;
-  double ndq=(bxh+(bdx*bzh-bdz*bxh)*clos)*slos + (bzh+(bdz*bxh-bdx*bzh)*slos)*clos;
-  double q2=::pow(bxh+(bdx*bzh-bdz*bxh)*clos, 2.0) +  ::pow(byh+(bdy*bxh-bdx*byh)*slos+(bdy*bzh-bdz*byh)*clos, 2.0) +
-    ::pow(bzh+(bdz*bxh-bdx*bzh)*slos, 2.0);
-  double coschi=term/sqrt(q2-ndq*ndq);
+  double gammad = common.gammad;
+  double term1=slos*bxh+clos*bzh;
+  double term2=slos*bdx+clos*bdz;
+  double term3=(bdx*bxh+bdy*byh+bdz*bzh)*gammad/(1.0+gammad);
+  double qx=bxh+(term1-term3)*bdx-term2*bxh;
+  double qy=byh+(term1-term3)*bdy-term2*byh;
+  double qz=bzh+(term1-term3)*bdz-term2*bzh;
+  double q2=qx*qx+qy*qy+qz*qz;
+  double ndq=qx*slos+qz*clos;
+  term1 = -qy*clos;
+  term2 = qx*clos-qz*slos;
+  term3 = qy*slos;
+  double term=sqrt(q2-ndq*ndq);
+  double ex=term1/term; 
+  double ey=term2/term;
+  double ez=term3/term;
+  term=ex*ex+ey*ey+ez*ez;
+  double coschi=(-clos*ex+slos*ez)/sqrt(term);
   chi=acos(coschi);
   return chi;
 }
 
+void BlzSim::run(BlzSimInput& blzSimInput) 
+{
+  // TODO: fill this in :-)  
+  // Seriously, this is where a most of the code ported from the "main" Fortran program will go, mostly as-is.
+  // Then hopefully will have time to make it more modular after it is ported.
+}

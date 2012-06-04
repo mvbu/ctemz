@@ -721,12 +721,12 @@ double BlzSim::polcalc(const double b, const double bx, const double by, const d
   term2 = qx*clos-qz*slos;
   term3 = qy*slos;
   double term=sqrt(q2-ndq*ndq);
-  double ex=term1/term; 
   double ey=term2/term;
-  double ez=term3/term;
-  term=ex*ex+ey*ey+ez*ez;
-  double coschi=(-clos*ex+slos*ez)/sqrt(term);
-  chi=acos(coschi);
+  if((ey > 1.0) && (ey < 1.000001))
+    ey = .99999999;
+  if((ey < -1.0) && (ey > -1.000001))
+    ey = -.99999999;
+  chi = asin(ey);
   return chi;
 }
 

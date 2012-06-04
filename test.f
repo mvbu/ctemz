@@ -799,14 +799,15 @@ c
       term2=qx*clos-qz*slos
       term3=qy*slos
       term=dsqrt(q2-ndq*ndq)
-      ex=term1/term
+c      ex=term1/term
       ey=term2/term
-      ez=term3/term
-      term=ex*ex+ey*ey+ez*ez
-      coschi=(-clos*ex+slos*ez)/dsqrt(term)
-      chi=acos(coschi)
-c      write(5,9999)b,bx,by,bz,bdx,bdy,bdz,
-c     ,   term,ex,ey,ez,ndq,q2,coschi,chi
-c 9999 format(1p15e10.2)
+c      ez=term3/term
+c      term=ex*ex+ey*ey+ez*ez
+c      coschi=(-clos*ex+slos*ez)
+c      chi=acos(coschi)
+c      term2=ey/dsqrt(term)
+      if(ey.gt.1.0d0.and.ey.lt.1.000001d0)ey=0.99999999d0
+      if(ey.lt.-1.0d0.and.ey.gt.-1.000001d0)ey=-0.99999999d0
+      chi=asin(ey)
       return
       end

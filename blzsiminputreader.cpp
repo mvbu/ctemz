@@ -47,5 +47,6 @@ void BlzSimInputReader::read(BlzSimInput& simInput)
   filestream >> simInput.torusXsectionRadius;
   filestream >> simInput.zdist0;
   filestream >> simInput.vmd;
+  filestream.close();
 }
 

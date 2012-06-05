@@ -8,6 +8,7 @@
 #include "blzrand.h"
 #include "blzmath.h"
 #include "blzsim.h"
+#include "blzsiminputreader.h"
 
 using namespace std;
 
@@ -18,6 +19,9 @@ double dummyFunction(double d, void* pObject) {
 int main()
 {
   BlzLog::setLevel(DEBUG);
+  BlzSimInputReader inputReader(string("temzinp.txt"));
+  BlzSimInput simInput;
+  inputReader.read(simInput);
   const int N = 16384;
   double r[32678];
   int ISEED1=58;

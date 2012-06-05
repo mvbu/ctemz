@@ -1,6 +1,8 @@
 #ifndef _INCL_BLZSIM_H_
 #define _INCL_BLZSIM_H_
 
+#include "blzsiminput.h"
+
 using namespace std;
 
 // I'll give these better names when I know what they mean
@@ -37,11 +39,6 @@ class BlzSimCommon {
   void setSsseed(const double _ssseed[CSSC_SIZE]);
 };
 
-class BlzSimInput {
-  // This will contain some of the input parameters for a call to BlzSim:run()
-  float zred, dgpc, alpha, p,bavg, neg_psdslope, e_e_over_e_b, rsie, gmaxmn, gmrat, gmin, betup;
-  float zeta, thlos, opang,dustTemp,dustTorusDist, torusXsectionRadius, zdist0, vdm;
-};
 
 // Callback function passed to BlzMath::qg5()
 double sdgran(double sn, void *pObject);

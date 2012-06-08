@@ -3,6 +3,7 @@
 
 using namespace std;
 
+// Various constants
 static const double TWOPI =     6.28318530717959;
 static const double PI =        3.14159265358979;
 static const double PIOVERTWO = 1.57079632679490;
@@ -13,9 +14,19 @@ static const double SEC_PER_DAY = 86400.;
 static const double MIN_PER_HOUR = 60.;
 static const double MIN_PER_DAY = 1440.;
 static const double HOUR_PER_DAY = 24.;
+static const double SEC_PER_YEAR = 3.16e7;
+static const double SQRT3 = 1.73205;
+static const double M_PER_PARSEC = 3.086e16;
+static const double CM_PER_PARSEC = 3.086e18;
+static const double C_CM_PER_SEC = 3e10;
+static const double EMC2 = 8.186e-7;
+static const double CC2 = 1.29e-9; // TODO: What is this?
 
 // Function pointer type to pass into the Gaussian integration routines
 typedef double (*QgFunctionPtr)(double, void *pObject);
+
+// A simple 3-vector type
+typedef double BlzVec[3];
 
 class BlzMath {
 	// General math routines

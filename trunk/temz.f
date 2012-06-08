@@ -1,5 +1,5 @@
-c     Turbulent, Extreme Multi-zone (TEMZ) model for blazar multi-waveband
-c       light curves, SEDs, and 44(synchrotron) polarization
+c     Turbulent Extreme Multi-Zone (TEMZ) model for blazar multi-waveband
+c       light curves, SEDs, and (synchrotron) polarization
 c
 c     Program that calculates the light curve and dynamic SED of a jet with turbulent
 c       plasma passing through a conical standing shock
@@ -7,15 +7,18 @@ c     This version includes variations on times as short as the time for a cell 
 c       cross the shock, as well as longer-term variations according to a given PSD slope
 c     Includes synchrotron radiation and IC of seed photons from a dust torus
 c       and from a Mach disk
+      dimension fixedRandData(100000)
       dimension itarra(3),
 c     polc(100,1140,35,250),pac(100,1140,35,250),pqcum(35),pucum(35),
      , pq(100,1140,68),pu(100,1140,68),fpol(100,1140,68),
-     , flux(100,1141,68),gammin(100,1141),
-     , gammax(100,1141),xcell(1141),gmax0(100,1141),
+     , flux(100,1141,68),gammin(100,1141),gammax(100,1141),
+     , xcell(1141),gmax0(100,1141),egam(100,1141,44),
      , phcell(1141),rcell(1141),ycell(1141),cosph(1141),
      , sinph(1141),bperp(1141),bfield(1141),n0(100,1141),
-     , zcell(100,1141),betadx(1141),betady(1141),
-     , egam(100,1141,44),betadz(1141),
+     , zcell(100,1141),betadx(100,1141),betady(100,1141),
+     , betadz(100,1141),betad(100,1141),gammad(100,1141),
+     , betaux(1141),betauy(1141),betauz(1141),
+     , betau(1141),gammau(1141),
      , nu(68),bx(100,1141),by(100,1141),bz(100,1141),
      , delta(100,1141),enofe(100,1141,44),edist(44),fsync(68),
      , ggam(44),dustnu(22),dusti(22),ididg(1141),spsd(16384),
@@ -29,27 +32,34 @@ c     polc(100,1140,35,250),pac(100,1140,35,250),pqcum(35),pucum(35),
      , alfmdc(68,4000),syseed(68),scseed(68),snu(68),ssseed(68),
      , flec(100,1141,68),flssc(100,1141,68),mdd(4000),useed(110),
      , phots(68),phalph(68),icelmx(1141),imax(1141),seedpk(110),
-     , abexmd(68,4000)
+     , abexmd(68,4000),psi(1140),sinpsi(1140),cospsi(1140),
+     , tanpsi(1140)
       character*10 dumdum
       real*8 pol,pqcum,pucum,pq,pu,pmean,polc,ai2,
      ,  pcum,tanv0,cosv0,betaup,gamup,beta,sinz,cosz,phcell,
-     ,  cosph,sinph,thlos,betau,opang,tanop,cosop,sinop,
+     ,  cosph,sinph,thlos,betau,gammau,opang,tanop,cosop,sinop,
      ,  zeta,tanz,betad,betadx,betady,betadz,slos,clos,
      ,  eta,tanxi,xi,betacs,psiup,gammad,bdx,bdy,bdz,
      ,  dcsth1,dcsth2,dth1,dth2,dsnth1,dsnth2,n0ave,
      ,  betamd,betarl,betamx,betamy,betamz,betamr,gamamr,
      ,  cosmd,tanmd,cosbm,bup,bprp,gmax0,ustob,tlfact,delt,
      ,  gamb,glow,gmrat,gmratl,gmratm,ggam,tloss,t1,t2,tlmin,
-     ,  eterm1,eterm2,gammax,glim,t2max,phots
+     ,  eterm1,eterm2,gammax,glim,t2max,phots,betaux,betauy,
+     ,  betauz,psi,cospsi,sinpsi,betat,sinzps,coszps,tanzps,zetap,
+     ,  tanpsi,betd,gamd,bd2,gm1,bmfact
       real*4 n0mean,n0,nu
       integer dstart
+      real fixedRandData
+      integer fixedRandFlag, fixedRandFileOpened, fixedRandCounter
 c      common/ci/i,j
-      common/cvel/bdx,bdy,bdz,gammad,betad
+      common/cvel/bdx,bdy,bdz,gamd,betd
       common/cparm/zred1,bfld,bperpp
       common/cdust/dcsth1,dcsth2,dsnth1,dsnth2,dsang,tdust
       common/cssc/snu,ssseed,nuhi
       common/cdist/ggam,edist
       common/cseed/dustnu,dusti
+      common/cfixedrand/fixedRandFlag, fixedRandFileOpened, fixedRandData, fixedRandCounter
+      fixedRandFlag = 1
       open (2,iostat=ios, err=9000, file='temzinp.txt',
      ,   status='old')
       open (3,iostat=ios, err=9000, file='temzspec.txt',
@@ -58,19 +68,19 @@ c      common/ci/i,j
      , status='new')
       open (5,iostat=ios, err=9000, file='temzpol.txt',
      , status='new')
-c     Input file format: 1st line characters, then zred, dgpc, alpha, p,
-c       bavg, n0mean, rsize, gmaxmn, gmrat, gmin
+c     Input file format: 1st line characters, then values of parameters,
+c       one per line
       read(2,9111)dumdum, zred, dgpc, alpha, p, bave, psdslp,
-     , uratio, rsize, gmaxmn, gmrat, gmin, betaup, zeta, thlos,
+     , uratio, rsize, gmaxmn, gmrat, gmin, betaup, betat, zeta, thlos,
      , opang,tdust,dtdist,dtrad,zdist0,vmd
       close(2)
       call itime(itarra)
       ita=itarra(1)+itarra(2)+itarra(3)
-      iseed = rand (ita)
-      randstart=rand(iseed)
+      iseed = randproto(ita)
+      randstart=randproto(iseed)
 c     icells along axial direction, jcells along transverse direction
       icells=50
-      nend=10
+      nend=9
       jcells=3*nend*(nend-1)+1
       ancol=2*nend-1
       rbound=ancol*rsize
@@ -133,10 +143,6 @@ c     Line of sight
       gamup=1.0d0/dsqrt(1.0d0-betaup**2)
       betaus=betaup*sinz
       gamus=1.0/sqrt(1.0-betaus**2)
-c     Shock compression factor in terms of upstream speed and angle of shock zeta
-c     From Cawthorne & Cobb (1990)
-      eta=gamup*betaup*sinz*dsqrt(8.0d0*(betaup*sinz)**2
-     , -1.0d0/gamup**2)/dsqrt(1.0d0-(betaup*cosz)**2)
 c     Compression ratio of Mach disk
 c       Ultra-relativistic eq. of state assumed, so compression ratio is that
 c       given by Hughes, Aller, & Aller (1989, ApJ, 341, 54)
@@ -144,22 +150,25 @@ c       given by Hughes, Aller, & Aller (1989, ApJ, 341, 54)
       tanxi=(tanz**2*(3.0*betaup**2-1.0d0)-(1-betaup**2))/
      ,(tanz*(tanz**2+1.0d0+2.0d0*betaup**2))
       xi=datan(tanxi)
-      betad=dsqrt((1.0d0-(betaup*cosz)**2)**2+9.0d0*
+      betad(1,1)=dsqrt((1.0d0-(betaup*cosz)**2)**2+9.0d0*
      ,(betaup**2*cosz*sinz)**2)/(3.0*betaup*sinz)
-      gammad=1.0d0/dsqrt(1.0d0-betad**2)
+      gammad(1,1)=1.0d0/dsqrt(1.0d0-betad(1,1)**2)
+      betd=betad(1,1)
+      gamd=gammad(1,1)
 c     Length of a cylindrical cell in pc
       zsize=2.0*rsize/tanz
       volc=pi*rsize**2*zsize
 c     Length and volume of cell in plasma proper frame
-      zsizep=zsize/gammad
-      volcp=volc/gammad
+      zsizep=zsize/gamd
+      volcp=volc/gamd
       svmd=sqrt(vmd)
-      delobs=1.0d0/(gammad*(1.0d0-betad*clos))
+      delobs=1.0d0/(gamd*(1.0d0-betd*clos))
       dstart=mdmax+(icells+100)*delobs+2500
 c     Time step in observer's frame in days
-      dtfact=(1.0d0-betad*clos)/(betad*clos)
+      dtfact=(1.0d0-betd*clos)/(betd*clos)
       dtime=1190.0*zsize*dtfact*zred1
-      itlast=20.0/dtime ! originally 2000.0/dtime ; just for testing, use 20.0/dtime
+      !itlast=2000.0/dtime
+      itlast=20.0/dtime
       mdrang=0.5*(1.0/dtfact+1.0)
 c     Distance of shock from axis and apex of conical jet
       tanop=dtan(opang)
@@ -169,6 +178,8 @@ c     Next line is specific to the selected number of cells per slice
       rshock=(2*nend-1)*rsize
 c     Distance of Mach disk from z value where conical shock intersects jet boundary
       zshock=rshock/tanz
+c     Distance of Mach disk from from vertex of jet cone
+      zsvtex=rshock/tanop
 c      write(3,8888)iseed,alpha
       expon=alpha+1.0
       exp1=0.5*expon-1.0
@@ -181,12 +192,14 @@ c     Calculate min & max angles of dust torus in plasma frame
       dphi2=atan(dtdist/zdist)
       dth1=dphi1+dphi2
       dth2=dphi2-dphi1
-      dcsth1=-(dcos(dth1)-betad)/(1.0d0-betad*dcos(dth1))
-      dcsth2=-(dcos(dth2)-betad)/(1.0d0-betad*dcos(dth2))
+      dcsth1=-(dcos(dth1)-betad(i,jcells))/(1.0d0-betad(i,jcells)*
+     ,   dcos(dth1))
+      dcsth2=-(dcos(dth2)-betad(i,jcells))/(1.0d0-betad(i,jcells)*
+     ,   dcos(dth2))
       dsnth1=dsqrt(1.0d0-dcsth1**2)
       dsnth2=dsqrt(1.0d0-dcsth2**2)
 c     Doppler factor of dust torus emission in frame of cells
-      tdel=1.0/(gammad*(1.0d0-betad*dcsth1))
+      tdel=1.0/(gamd*(1.0d0-betd*dcsth1))
       dsang=2.0*pi*(dsnth2-dsnth1)
 c     Calculate seed photon field from dust emission in plasma frame
 c     Peak frequency of dust thermal emission for part of torus closest to shock
@@ -228,22 +241,23 @@ c      testj=ajnu(1.0e12)
 c      write(5,9996)testj
 cccccc  END TEST
       write(3,6665)zred, dgpc, alpha, p, bave, uratio, rsize, gmaxmn,
-     , gmrat, gmin, betaup, (zeta*rad), (thlos*rad), (opang*rad),
+     , gmrat, gmin, betaup, betat, (zeta*rad), (thlos*rad), (opang*rad),
      , tdust, dtdist,dtrad,zdist0,useed(5),psdslp,vmd
       write(4,6665)zred, dgpc, alpha, p, bave, uratio, rsize, gmaxmn,
-     , gmrat, gmin, betaup, (zeta*rad), (thlos*rad), (opang*rad),
+     , gmrat, gmin, betaup, betat, (zeta*rad), (thlos*rad), (opang*rad),
      , tdust, dtdist,dtrad,zdist0,useed(5),psdslp,vmd
       write(5,6665)zred, dgpc, alpha, p, bave, uratio, rsize, gmaxmn,
-     , gmrat, gmin, betaup, (zeta*rad), (thlos*rad), (opang*rad),
+     , gmrat, gmin, betaup, betat, (zeta*rad), (thlos*rad), (opang*rad),
      , tdust, dtdist,dtrad,zdist0,useed(5),psdslp,vmd
  6665 format('#redshift: ',f5.3,2x,'Distance in Gpc: ',f5.3/
      ,  '#spectral index: ',f4.2,2x,'filling factor exponent: ',f4.2/
      ,  '#mean unshocked magnetic field: ',f4.2,2x,'ratio of electron ',
      ,  'to mag. energy: ',e7.1/'#cell radius (pc): ',f6.3/
      ,  '#Min. value of gamma_max: ',f8.1,2x,'ratio of max. to min. ',
-     ,  'values of gamma_max: ',f5.1/'#gamma_min: ',f6.1,2x,
-     ,  'upstream velocity: ',f9.5,'c',2x,'shock angle: ',f6.3/
-     ,  '#viewing angle: ',f6.3,2x,'opening angle: ',f6.3/
+     ,  'values of gamma_max: ',f5.1/'#gamma_min: ',f6.1,/
+     ,  '#upstream laminar velocity: ',f9.5,'c',2x,
+     ,  'upstream turbulent velocity: ',f9.5,'c'/'#shock angle: ',f6.3,
+     ,  2x,'viewing angle: ',f6.3,2x,'opening angle: ',f6.3/
      ,  '#Dust temperature: ',f6.0,2x,'distance of center of dust ',
      ,  'torus from black hole: ',f3.1,' pc'/'#radius of torus: ',
      ,  f3.1,' pc   ','Distance of shock from central ',
@@ -264,7 +278,7 @@ c      spsd(ip)=1.0
       do 4999 ip=1,16384
 c      if(ip.lt.100)write(3,9996)spsd(ip)
  4999 spsd(ip)=amppsd*spsd(ip)/psdsum
-      ip0=rand(0)*5000
+      ip0=randproto(0)*5000
       it=0
  1000 continue
 c     Set parameters of each cell at initial time
@@ -304,6 +318,10 @@ c     nouter(j) = approx. no. of cells between cell of interest and observer
       nouter(j)=imax(j)
       cosph(j)=xcell(j)/rcell(j)
       sinph(j)=ycell(j)/rcell(j)
+      tanpsi(j)=rcell(j)/(zsvtex-zcol)
+      psi(j)=dtan(tanpsi(j))
+      cospsi(j)=dcos(psi(j))
+      sinpsi(j)=tanpsi(j)*cospsi(j)
   797 continue
 c      write(5,9876)j,nrow,ncell,xcell(j),ycell(j),rcell(j),
 c     ,  cosph(j),sinph(j)
@@ -321,26 +339,26 @@ c
 c     Compute time delay (no. of time steps) between when plasma passes Mach disk
 c       and when it passes reference point of conical shock at column 30, in plasma frame
       zmd=zrf-zshock
-      idelmd=zmd/(zsize/betad)
+      idelmd=zmd/(zsize/betd)
 c      write(5,9595)mdmax,dstart,idelmd,ip0,zshock,rshock,zrf,zmd,
 c     , zsize
 c 9595 format('mdmax = ',i7,' dstart = ',i7,' idelmd = ',i7,
 c     ,  '  ip0 = ',i7/'zshock, rshock, zrf, zmd, zsize ',
 c     ,     1p5e10.2)
-      betadx(jcells)=0.0
-      betady(jcells)=0.0
-      betadz(jcells)=1.0d0/3.0d0
-      betamd=betadz(jcells)
+      betadx(1,jcells)=0.0
+      betady(1,jcells)=0.0
+      betadz(1,jcells)=1.0d0/3.0d0
+      betamd=betadz(1,jcells)
       gammd=1.0d0/dsqrt(1.0d0-betamd**2)
-      dopref=gammad/gammd
+      dopref=gamd/gammd
 c     Determine B vector of MD assuming random magnetic field orientation
       i=1
       do 130 md=1,(mdmax-1)
-      xrand=rand(0)
+      xrand=randproto(0)
       phi=2.0*pi*xrand
-      xrand=rand(0)
+      xrand=randproto(0)
       costh=2.0*(xrand-0.5)
-      xrand=rand(0)
+      xrand=randproto(0)
       sign=xrand-0.5
       sign=sign/abs(sign)
       thetab=sign*acos(costh)
@@ -365,9 +383,9 @@ cc      write(5,9333)md,idelay,dstart,idelmd,bavg,n0mean
       j=jcells
       n0(i,j)=etac*n0mean
       n0prev=etac*n0prev
-      bx(i,j)=bavg*(gamup/gammad)*sinthb*cosphb*(etac-
+      bx(i,j)=bavg*(gamup/gammad(i,jcells))*sinthb*cosphb*(etac-
      ,  (etac-1.0)*(cosz*cosph(j))**2)
-      by(i,j)=bavg*(gamup/gammad)*sinthb*sinphb*(etac-
+      by(i,j)=bavg*(gamup/gammad(i,jcells))*sinthb*sinphb*(etac-
      ,  (etac-1.0)*(cosz*sinph(j))**2)
       bz(i,j)=bavg*costhb*(etac*cosz**2+sinz**2)
       bfield(j)=sqrt(bx(i,j)**2+by(i,j)**2+bz(i,j)**2)
@@ -386,7 +404,7 @@ c     Next 3 lines assume a power-law distribution of gmax0, unrelated
 c         to direction of B field
 c     See http://mathworld.wolfram.com/RandomNumber.html for choosing
 c      random numbers from a power-law distribution
-c      xrand=rand(0)
+c      xrand=randproto(0)
 c      if(pexp.eq.0.0)gmax0(i,j)=gmaxmx
 c      if(pexp.lt.0.0)gmax0(i,j)=((gmaxmx**pexp-gmaxmn**pexp)*xrand+
 c     ,  gmaxmn**pexp)**(1.0/pexp)
@@ -429,8 +447,8 @@ c     ,  bmdtot(mdi),delt,gamb,glow
       t2=dmin1(tloss,delt)
       tlmin=delt-(gminmd-ggam(ie))/(tlfact*gminmd*ggam(ie))
       enofe(i,j,ie)=0.0
-      eterm1=1.0-ggam(ie)*t1*tlfact
-      eterm2=1.0-ggam(ie)*t2*tlfact
+      eterm1=1.0d0-ggam(ie)*t1*tlfact
+      eterm2=1.0d0-ggam(ie)*t2*tlfact
       if(eterm1.ge.0.0.and.eterm2.ge.0.0)
      ,enofe(i,j,ie)=n0(i,j)/((sen-1.0)*tlfact*ggam(ie)**(sen+1.0))*
      ,  (1.0d0-eterm2**(sen-1.0))
@@ -439,6 +457,7 @@ c     ,  bmdtot(mdi),delt,gamb,glow
      ,  eterm2**(sen-1.0))
 c     Divide by delt since integral is over time
       enofe(i,j,ie)=enofe(i,j,ie)/delt
+      if(enofe(i,j,ie).lt.0.0)enofe(i,j,ie)=0.0
       edist(ie)=enofe(i,j,ie)
   124 continue
       bperpp=bfld*(2.0/3.0)
@@ -495,6 +514,8 @@ cc     ,  fsynmd(inu,md),alphmd(inu,md)
 c     Calculate the SSC emission from the Mach disk for reference
 c       relative Doppler factor dopref
       fq1=0.98*nu(7)
+      betd=betad(1,jcells)
+      gamd=gammad(1,jcells)
       fssc1=ssc(fq1/dopref)*dopref**2
       do 129 inu=7,68
       restnu=nu(inu)
@@ -529,7 +550,7 @@ c
       ididg(j)=0
       zcell(i,j)=zshock-(rcell(j)-rsize)/tanz
       idelay=dstart+it-1+((zrf-zcell(i,j))
-     ,   +(xrf-xcell(j))*slos/(betad*clos))/zsize
+     ,   +(xrf-xcell(j))*slos/(betad(1,1)*clos))/zsize
       if(idelay.lt.1.or.idelay.gt.(16384-ip0))
      ,  write(5,9222)idelay,i,j,md,ip0,zshock,zcell(i,j)
       bavg=bave*sqrt(spsd(idelay+ip0))
@@ -538,18 +559,66 @@ c      if(idelay.gt.(dstart+40).and.idelay.lt.(dstart+51))
 c     ,  n0mean=10.0*n0mean
 c      write(5,9333)it,idelay,i,j,zlos,bavg,n0mean
       phcell(j)=datan2(sinph(j),cosph(j))
-c     Determine velocity vector downstream of shock
-      betadx(j)=betad*cosph(j)*dsin(opang-xi)
-      betady(j)=betad*sinph(j)*dsin(opang-xi)
-      betadz(j)=betad*dcos(opang-xi)
+c     Velocity vector of laminar component of pre-shock flow
+      betupx=betaup*cosph(j)*sinpsi(j)
+      betupy=betaup*sinph(j)*sinpsi(j)
+      betupz=betaup*cospsi(j)
+c     Velocity vector of the turbulent component of pre-shocked plasma
+      phi=2.0*pi*randproto(0)
+      costh=2.0*(randproto(0)-0.5)
+      sign=randproto(0)-0.5
+      sign=sign/abs(sign)
+      thetat=sign*acos(costh)
+      sintht=sin(thetat)
+      costht=cos(thetat)
+      sinpht=sin(phi)
+      cospht=cos(phi)
+      betatx=betat*cospht*sintht
+      betaty=betat*sinpht*sintht
+      betatz=betat*costht
+      dotprd=betupx*betatx+betupy*betaty+betupz*betatz
+      btparx=dotprd*betupx/betaup**2
+      btpary=dotprd*betupy/betaup**2
+      btparz=dotprd*betupz/betaup**2
+      btprpx=betatx-btparx
+      btprpy=betaty-btpary
+      btprpz=betatz-btparz
+c     Velocity vector of the pre-shock plasma including turbulent component
+      betaux(j)=(betupx+btparx+btprpx/gamup**2)/(1.0d0+dotprd)
+      betauy(j)=(betupy+btpary+btprpy/gamup**2)/(1.0d0+dotprd)
+      betauz(j)=(betupz+btparz+btprpz/gamup**2)/(1.0d0+dotprd)
+      betau(j)=dsqrt(betaux(j)**2+betauy(j)**2+betauz(j)**2)
+      gammau(j)=1.0d0/dsqrt(1.0d0-betau(j)**2)
+c     Shock compression factor in terms of upstream speed and angle of shock zeta
+c     From Cawthorne & Cobb (1990)
+      sinzps=dsin(zeta+psi(j))
+      coszps=dcos(zeta+psi(j))
+      tanzps=sinzps/coszps
+      eta=gammau(j)*betau(j)*sinzps*dsqrt((8.0d0*(betau(j)*sinzps)**2
+     ,    -1.0d0/gammau(j)**2)/(1.0d0-(betau(j)*coszps)**2))
+c     Deflection angle of velocity vector crossing shock, in rest frame of shock
+      tanxi=(tanzps**2*(3.0*betau(j)**2-1.0d0)-
+     ,  1.0d0/gammau(j)**2)/(tanzps*(tanzps**2+1.0d0+
+     ,  2.0d0*betau(j)**2))
+      xi=datan(tanxi)
+c     Velocity vector downstream of shock
+      cszp2=coszps*coszps
+      betad(i,j)=dsqrt((1.0d0-betau(j)**2*cszp2)**2+
+     ,   9.0d0*betau(j)**4*cszp2*(1.0d0-cszp2))/
+     ,   (3.0d0*betau(j)*dsqrt(1.0d0-cszp2))
+      gammad(i,j)=1.0d0/dsqrt(1.0d0-betad(i,j)*betad(i,j))
+      sinpsx=dsin(psi(j)-xi)
+      cospsx=dcos(psi(j)-xi)
+      betadx(i,j)=betad(i,j)*cosph(j)*sinpsx
+      betady(i,j)=betad(i,j)*sinph(j)*sinpsx
+      betadz(i,j)=betad(i,j)*cospsx
 c     Determine B vector of cell assuming random magnetic field orientation
    11 continue
-      xrand=rand(0)
+      xrand=randproto(0)
       phi=2.0*pi*xrand
-      xrand=rand(0)
+      xrand=randproto(0)
       costh=2.0*(xrand-0.5)
-      iseed=0
-      xrand=rand(0)
+      xrand=randproto(0)
       sign=xrand-0.5
       sign=sign/abs(sign)
       thetab=sign*acos(costh)
@@ -558,22 +627,35 @@ c     Determine B vector of cell assuming random magnetic field orientation
       sinphb=sin(phi)
       cosphb=cos(phi)
 c     Compute B field components downstream of shock in the plasma frame
-c       From equation that I derived by transforming from the upstream plasma
-c       frame to the stationary shock frame, compressing the component of B
+c       From equation derived by transforming from the upstream plasma
+c       frame, compressing the component of B
 c       parallel to the shock, and transforming the result to the rest frame
 c       of the downstream plama
       if(j.eq.jcells)go to 12
-      bx(i,j)=bavg*(gamup/gammad)*sinthb*cosphb*(eta-
-     ,  (eta-1.0)*(cosz*cosph(j))**2)
-      by(i,j)=bavg*(gamup/gammad)*sinthb*sinphb*(eta-
-     ,  (eta-1.0)*(cosz*sinph(j))**2)
-      bz(i,j)=bavg*costhb*(eta*cosz**2+sinz**2)
+      zetap=datan(gammau(j)*tanzps)-datan(gammau(j)*dtan(psi(j)))
+      ssx=dsin(zetap)*cosph(j)
+      ssy=dsin(zetap)*sinph(j)
+      ssz=dcos(zetap)
+      bux=bavg*sinthb*cosphb
+      buy=bavg*sinthb*sinphb
+      buz=bavg*costhb
+      bterm=bux*ssx+buy*ssy+buz*ssz
+c     Finally, the downstream B field components
+      bx(i,j)=bux+(eta-1.0)*bterm*ssx
+      by(i,j)=buy+(eta-1.0)*bterm*ssy
+      bz(i,j)=buz+(eta-1.0)*bterm*ssz
+c     Calculate upstream B field component perpendicular to the shock front bprp
+      bup=sqrt(bux*bux+buy*buy+buz*buz)
+      bprpx=bux-bterm*ssx
+      bprpy=buy-bterm*ssy
+      bprpz=buz-bterm*ssz
+      bprp=sqrt(bprpx*bprpx+bprpy*bprpy+bprpz*bprpz)
       go to 13
 c     Set field of plasma in central cell, which is a Mach disk
    12 n0(i,j)=etac*n0mean
-      bx(i,j)=bavg*(gamup/gammad)*sinthb*cosphb*(etac-
+      bx(i,j)=bavg*(gamup/gammad(i,j))*sinthb*cosphb*(etac-
      ,  (etac-1.0)*(cosz*cosph(j))**2)
-      by(i,j)=bavg*(gamup/gammad)*sinthb*sinphb*(etac-
+      by(i,j)=bavg*(gamup/gammad(i,j))*sinthb*sinphb*(etac-
      ,  (etac-1.0)*(cosz*sinph(j))**2)
       bz(i,j)=bavg*costhb*(etac*cosz**2+sinz**2)
       bfield(j)=sqrt(bx(i,j)**2+by(i,j)**2+bz(i,j)**2)
@@ -592,7 +674,7 @@ c     Next 3 lines assume a power-law distribution of gmax0, unrelated
 c         to direction of B field
 c     See http://mathworld.wolfram.com/RandomNumber.html for choosing
 c      random numbers from a power-law distribution
-      xrand=rand(0)
+      xrand=randproto(0)
 c      if(pexp.eq.0.0)gmax0(i,j)=gmaxmx
 c      if(pexp.lt.0.0)gmax0(i,j)=((gmaxmx**pexp-gmaxmn**pexp)*xrand+
 c     ,  gmaxmn**pexp)**(1.0/pexp)
@@ -633,8 +715,8 @@ cc     ,  delt,gamb,glow
       t2=dmin1(tloss,delt)
       tlmin=delt-(gminmd-ggam(ie))/(tlfact*gminmd*ggam(ie))
       enofe(i,j,ie)=0.0
-      eterm1=1.0-ggam(ie)*t1*tlfact
-      eterm2=1.0-ggam(ie)*t2*tlfact
+      eterm1=1.0d0-ggam(ie)*t1*tlfact
+      eterm2=1.0d0-ggam(ie)*t2*tlfact
       if(eterm1.ge.0.0.and.eterm2.ge.0.0)
      ,enofe(i,j,ie)=n0(i,j)/((sen-1.0)*tlfact*ggam(ie)**(sen+1.0))*
      ,  (1.0d0-eterm2**(sen-1.0))
@@ -643,6 +725,7 @@ cc     ,  delt,gamb,glow
      ,  eterm2**(sen-1.0))
 c     Divide by delt since integral is over time
       enofe(i,j,ie)=enofe(i,j,ie)/delt
+      if(enofe(i,j,ie).lt.0.0)enofe(i,j,ie)=0.0
       edist(ie)=enofe(i,j,ie)
  1124 continue
       bperpp=bfld*(2.0/3.0)
@@ -696,6 +779,8 @@ c     ,   absorb(inu,md),alphmd(inu,md),bperpp
 c     Calculate the SSC emission from the Mach disk for reference
 c       relative Doppler factor dopref
       fq1=0.98*nu(7)
+      betd=betad(1,jcells)
+      gamd=gammad(1,jcells)
       fssc1=ssc(fq1/dopref)*dopref**2
       do 1129 inu=7,68
       restnu=nu(inu)
@@ -720,21 +805,40 @@ c     ,  it,i,md,(idelay+md-mdmax),spsd(idelay+md-mdmax),
 c     ,  fsynmd(8,md),fsynmd(20,md)
 c 1132 continue
       go to 88
-   13 bperp(j)=dsqrt(by(i,j)**2+(bz(i,j)*slos-bx(i,j)*clos)**2)
+   13 continue
+c     Calculate component of magnetic field that is perpendicular to
+c       the aberrated line of sight in the plasma frame
+c     Line-of-sight vector in plasma frame
+      bd2=betad(i,j)*betad(i,j)
+      gm1=gammad(i,j)-1.0d0
+      spx=(1.0d0+gm1*(bdx/betad(i,j))**2)*slos+
+     ,  gm1*bdx*bdz/bd2*clos
+      spy=gm1*bdx*bdy/bd2*slos+gm1*bdy*bdz/bd2*clos
+      spz=(1.0d0+gm1*(bdz/betad(i,j))**2)*clos+
+     ,  gm1*bdx*bdz/bd2*slos
+c     Need to normalize the line-of-sight vector - should be unit vector
+      spnorm=sqrt(spx*spx+spy*spy+spz*spz)
+      dotprd=(bx(i,j)*spx+by(i,j)*spy+bz(i,j)*spz)/spnorm
+      bpx=bx(i,j)-dotprd*spx/spnorm
+      bpy=by(i,j)-dotprd*spy/spnorm
+      bpz=bz(i,j)-dotprd*spz/spnorm
+      bperp(j)=sqrt(bpx*bpx+bpy*bpy+bpz*bpz)
       bfield(j)=sqrt(bx(i,j)**2+by(i,j)**2+bz(i,j)**2)
       n0(i,j)=eta*n0mean
 c     Calculate the initial maximum electron energy in each cell
 c       from the ratio of B(perp. to shock) to B_total in shock frame
-      bup=bavg*dsqrt(costhb**2+(gamup*sinthb)**2)
-      bprp=bavg*dsqrt((costhb*sinz**2)**2+(gamup*sinthb*cosz**2)**2*
-     ,  ((cosphb*cosph(j)**2)**2+(sinphb*sinph(j)**2)**2))
+c     Calculate upstream B field component perpendicular to the shock front bprp
+      bprpx=bux-bterm*ssx
+      bprpy=buy-bterm*ssy
+      bprpz=buz-bterm*ssz
+      bprp=sqrt(bprpx*bprpx+bprpy*bprpy+bprpz*bprpz)
 c     Next line relates this to direction of B field relative to shock
 c      gmax0(i,j)=gmaxmn*(bprp/bup)**(2.0*pexp)
 c     Next 3 lines assume a power-law distribution of gmax0, unrelated
 c         to direction of B field
 c     See http://mathworld.wolfram.com/RandomNumber.html for choosing
 c      random numbers from a power-law distribution
-      xrand=rand(0)
+      xrand=randproto(0)
       if(pexp.eq.0.0)gmax0(i,j)=gmaxmx
       if(pexp.lt.0.0)gmax0(i,j)=((gmaxmx**pexp-gmaxmn**pexp)*xrand+
      ,  gmaxmn**pexp)**(1.0/pexp)
@@ -756,29 +860,34 @@ c
       zcell(i,j)=zshock-(rcell(j)-rsize)/tanz
 c     Determine Doppler factor relative to the observer
       psiup=opang
-      betacs=betad*(dsin(psiup-xi)*cosph(j)*slos+dcos(psiup-xi)*clos)
-      delta(i,j)=dsqrt(1.0d0-betad**2)/(1.0d0-betacs)
-      bdx=betadx(j)
-      bdy=betady(j)
-      bdz=betadz(j)
+      bdx=betadx(i,j)
+      bdy=betady(i,j)
+      bdz=betadz(i,j)
+      betacs=bdx*slos+bdz*clos
+      delta(i,j)=1.0d0/(gammad(i,j)*(1.0d0-betacs))
       ecflux=0.0
       bperpp=bperp(j)
       bfld=bfield(j)
 c     Determine velocity of the cell plasma relative to the MD plasma
-      betamx(j)=betadx(j)/(gammd*(1.0d0-betadz(j)*betamd))
-      betamy(j)=betady(j)/(gammd*(1.0d0-betadz(j)*betamd))
-      betamz(j)=(betadz(j)-betamd)/(1.0d0-betadz(j)*betamd)
+      bmfact=3.0d0*gammad(i,j)*betad(i,j)*betad(i,j)
+      betamx(j)=(bmfact+(gammad(i,j)-1.0d0)*bdz)*bdx/
+     ,  (bmfact*(1.0d0+bdz/3.0d0))
+      betamy(j)=(bmfact+(gammad(i,j)-1.0d0)*bdz)*bdy/
+     ,  (bmfact*(1.0d0+bdz/3.0d0))
+      betamz(j)=((bmfact+1.0d0)*betad(i,j)*betad(i,j)+
+     ,  (gammad(i,j)-1.0d0)*bdz*bdz)/(bmfact*(1.0d0+bdz/3.0d0))
       betamr(j)=dsqrt(betamx(j)**2+betamy(j)**2+betamz(j)**2)
       gamamr(j)=1.0d0/dsqrt(1.0d0-betamr(j)**2)
       cosmr(j)=0.0d0
-      if(zshock.eq.zcell(i,j)) go to 888
-      tanmd=rcell(j)/(gamamr(j)*(zshock-zcell(i,j)))
-c     Determine Doppler factor of the MD emission in the cell's frame
-      cosmr(j)=1.0d0/dsqrt(tanmd**2+1.0d0)
-  888 deltmd(j)=1.0d0/(gamamr(j)*(1.0d0-betamr(j)*cosmr(j)))
-c     Determine time step of Mach disk seed photons from light-travel delay
       zcl=zcell(i,j)
       dmd(j)=sqrt((zshock-0.5*zsize-zcl)**2+rcell(j)**2)
+      if(zshock.eq.zcell(i,j)) go to 888
+c     Determine Doppler factor of the MD emission in the cell's frame
+      cosmr(j)=betamx(j)*xcell(j)+betamy(j)*ycell(j)+
+     ,  betamz(j)*(zshock-0.5*zsize-zcl)/gamamr(j)
+      cosmr(j)=cosmr(j)/(betamr(j)*dmd(j))
+  888 deltmd(j)=1.0d0/(gamamr(j)*(1.0d0-betamr(j)*cosmr(j)))
+c     Determine time step of Mach disk seed photons from light-travel delay
       delcor=deltmd(j)/dopref
       mdmid=mdmax-(((zrf-zcl)*clos+(xrf-
      ,   xcell(j))*slos)-dmd(j))/(dtfact*zsize)
@@ -889,7 +998,7 @@ c     Calculate energy distribution in the cell
       ustob=8.0*pi*(useed(id)+usdmd)/(bfield(j))**2
       tlfact=cc2*bfield(j)**2*(1.0+ustob)
       tlf1(j)=tlfact
-      delt=zsize*yr*3.26/(gammad*betad)
+      delt=zsize*yr*3.26/(gammad(i,j)*betad(i,j))
       gamb=gmax0(i,j)/(1.0+tlfact*gmax0(i,j)*delt)
       glow=gmin/(1.0+tlfact*gmin*delt)
       gmrat=0.99*gmax0(i,j)/gmin
@@ -911,8 +1020,8 @@ cc     ,  delt,gamb,glow
       t2=dmin1(tloss,delt)
       tlmin=delt-(gmin-ggam(ie))/(tlfact*gmin*ggam(ie))
       enofe(i,j,ie)=0.0
-      eterm1=1.0-ggam(ie)*t1*tlfact
-      eterm2=1.0-ggam(ie)*t2*tlfact
+      eterm1=1.0d0-ggam(ie)*t1*tlfact
+      eterm2=1.0d0-ggam(ie)*t2*tlfact
       if(eterm1.ge.0.0.and.eterm2.ge.0.0)
      ,enofe(i,j,ie)=n0(i,j)/((sen-1.0)*tlfact*ggam(ie)**(sen+1.0))*
      ,  (1.0d0-eterm2**(sen-1.0))
@@ -921,6 +1030,7 @@ cc     ,  delt,gamb,glow
      ,  eterm2**(sen-1.0))
 c     Divide by delt since integral is over time
       enofe(i,j,ie)=enofe(i,j,ie)/delt
+      if(enofe(i,j,ie).lt.0.0)enofe(i,j,ie)=0.0
       edist(ie)=enofe(i,j,ie)
 c      if(edist(ie).lt.0.0.or.edist(ie).gt.1.0e20)
 c     ,  write(5,9994)i,j,ggam(ie),edist(ie),tlfact,t2,tloss,
@@ -928,7 +1038,7 @@ c     ,  tlmin,t1,delt,glow,gmin,gmax0(i,j),n0(i,j)
 c      write(5,9994)i,j,ggam(ie),edist(ie),tlfact,t2,tloss,
 c     ,  t1,delt,glow,gmin,gmax0(i,j),n0(i,j)
    90 continue
-      delt=zsize*3.26*yr/(gammad*betad)
+      delt=zsize*3.26*yr/(gammad(i,j)*betad(i,j))
       gammax(i,j)=gmax0(i,j)/(1.0d0+tlfact*delt*gmax0(i,j))
       gammin(i,j)=gmin/(1.0d0+tlfact*delt*gmin)
       emold=0.0
@@ -986,6 +1096,8 @@ c     ,  ggam,edist,restnu,bperpp
       flsync(i,j,inu)=fsync2(inu)*(volc/zsize)*zred1/
      ,  (1.0e18*amjy*dgpc**2)*fgeom
       flux(i,j,inu)=flsync(i,j,inu)
+      betd=betad(i,j)
+      gamd=gammad(i,j)
       if(inu.eq.1)call polcalc(bfield(j),bx(i,j),by(i,j),bz(i,j),
      ,    clos,slos,chipol)
       if(specin.lt.alpha)specin=alpha
@@ -1006,6 +1118,8 @@ c     ,  gammax(i,j),gammin(i,j),edist(30),edist(40)
       if(restnu.lt.1.0e14)go to 94
       spxec=0.0001
       spxssc=0.0001
+      betd=betad(1,jcells)
+      gamd=gammad(1,jcells)
       ecflux=ecdust(restnu)*3.086*volc*zred1*delta(i,j)**2/dgpc**2*
      ,   fgeom
       sscflx=ssc(restnu)*3.086*volc*zred1*delta(i,j)**2/dgpc**2*
@@ -1014,7 +1128,7 @@ c     ,  gammax(i,j),gammin(i,j),edist(30),edist(40)
       if(nu(inu).lt.1.0e22)go to 99
 c     Pair production opacity calculation
 c     Expression for anumin includes typical interaction angle
-      anumin=(1.24e20/(nu(inu)*zred1))*1.24e20*(2.0*gammad)**2
+      anumin=(1.24e20/(nu(inu)*zred1))*1.24e20*(2.0*gammad(i,j))**2
       alnumn=alog10(anumin)
       inumin=(alnumn-10.0)*4+1
       if(inumin.gt.40)go to 99
@@ -1082,16 +1196,76 @@ c     iend is the last slice of cells with energetic electrons
       ncells=ncells+1
       if(it.gt.1)go to 110
       zcell(i,j)=(i-1)*zsize+zshock-(rcell(j)-rsize)/tanz
-c     Determine Doppler factor relative to the observer
-      psiup=opang
-      betacs=betad*(dsin(psiup-xi)*cosph(j)*slos+dcos(psiup-xi)*clos)
-      delta(i,j)=dsqrt(1.0d0-betad**2)/(1.0d0-betacs)
+c     Set up physical parameters of downstream cells at first time step
+      idelay=dstart+it-1-((zrf-zcell(i,j))*clos
+     ,   +(xrf-xcell(j))*slos)/zsize
+      if(idelay.lt.1.or.idelay.gt.(16384-ip0))
+     ,  write(5,9222)idelay,i,j,md,ip0,zshock,zcell(i,j)
+      bavg=bave*sqrt(spsd(idelay+ip0))
+      n0mean=n0ave*spsd(idelay+ip0)
+      phcell(j)=datan2(sinph(j),cosph(j))
+c     Velocity vector of laminar component of pre-shock flow
+      betupx=betaup*cosph(j)*sinpsi(j)
+      betupy=betaup*sinph(j)*sinpsi(j)
+      betupz=betaup*cospsi(j)
+c     Velocity vector of the turbulent component of pre-shocked plasma
+      phi=2.0*pi*randproto(0)
+      costh=2.0*(randproto(0)-0.5)
+      sign=randproto(0)-0.5
+      sign=sign/abs(sign)
+      thetat=sign*acos(costh)
+      sintht=sin(thetat)
+      costht=cos(thetat)
+      sinpht=sin(phi)
+      cospht=cos(phi)
+      betatx=betat*cospht*sintht
+      betaty=betat*sinpht*sintht
+      betatz=betat*costht
+      dotprd=betupx*betatx+betupy*betaty+betupz*betatz
+      btparx=dotprd*betupx/betaup**2
+      btpary=dotprd*betupy/betaup**2
+      btparz=dotprd*betupz/betaup**2
+      btprpx=betatx-btparx
+      btprpy=betaty-btpary
+      btprpz=betatz-btparz
+c     Velocity vector of the pre-shock plasma including turbulent component
+      betaux(j)=(betupx+btparx+btprpx/gamup**2)/(1.0d0+dotprd)
+      betauy(j)=(betupy+btpary+btprpy/gamup**2)/(1.0d0+dotprd)
+      betauz(j)=(betupz+btparz+btprpz/gamup**2)/(1.0d0+dotprd)
+      betau(j)=dsqrt(betaux(j)**2+betauy(j)**2+betauz(j)**2)
+      gammau(j)=1.0d0/dsqrt(1.0d0-betau(j)**2)
+c     Shock compression factor in terms of upstream speed and angle of shock zeta
+c     From Cawthorne & Cobb (1990)
+      sinzps=dsin(zeta+psi(j))
+      coszps=dcos(zeta+psi(j))
+      tanzps=sinzps/coszps
+      eta=gammau(j)*betau(j)*sinzps*dsqrt((8.0d0*(betau(j)*sinzps)**2
+     ,    -1.0d0/gammau(j)**2)/(1.0d0-(betau(j)*coszps)**2))
+c     Deflection angle of velocity vector crossing shock, in rest frame of shock
+      tanxi=(tanzps**2*(3.0*betau(j)**2-1.0d0)-
+     ,  1.0d0/gammau(j)**2)/(tanzps*(tanzps**2+1.0d0+
+     ,  2.0d0*betau(j)**2))
+      xi=datan(tanxi)
+c     Velocity vector downstream of shock
+      cszp2=coszps*coszps
+      betad(i,j)=dsqrt((1.0d0-betau(j)**2*cszp2)**2+
+     ,   9.0d0*betau(j)**4*cszp2*(1.0d0-cszp2))/
+     ,   (3.0d0*betau(j)*dsqrt(1.0d0-cszp2))
+      gammad(i,j)=1.0d0/dsqrt(1.0d0-betad(i,j)*betad(i,j))
+      sinpsx=dsin(psi(j)-xi)
+      cospsx=dcos(psi(j)-xi)
+      betadx(i,j)=betad(i,j)*cosph(j)*sinpsx
+      betady(i,j)=betad(i,j)*sinph(j)*sinpsx
+      betadz(i,j)=betad(i,j)*cospsx
+      betacs=betadx(i,j)*slos+betadz(i,j)*clos
+      delta(i,j)=1.0d0/(gammad(i,j)*(1.0d0-betacs))
 c     Determine B vector of cell assuming random magnetic field orientation
-      xrand=rand(0)
+  103 continue
+      xrand=randproto(0)
       phi=2.0*pi*xrand
-      xrand=rand(0)
+      xrand=randproto(0)
       costh=2.0*(xrand-0.5)
-      xrand=rand(0)
+      xrand=randproto(0)
       sign=xrand-0.5
       sign=sign/abs(sign)
       thetab=sign*acos(costh)
@@ -1099,32 +1273,40 @@ c     Determine B vector of cell assuming random magnetic field orientation
       costhb=cos(thetab)
       sinphb=sin(phi)
       cosphb=cos(phi)
-c     Compute B field components downstream of shock
-      idelay=dstart+it-1-((zrf-zcell(i,j))*clos
-     ,   +(xrf-xcell(j))*slos)/zsize
-      if(idelay.lt.1.or.idelay.gt.(16384-ip0))
-     ,  write(5,9222)idelay,i,j,md,ip0,zshock,zcell(i,j)
-      bavg=bave*sqrt(spsd(idelay+ip0))
-      n0mean=n0ave*spsd(idelay+ip0)
+c     Compute B field components downstream of shock in the plasma frame
+c       From equation derived by transforming from the upstream plasma
+c       frame, compressing the component of B
+c       parallel to the shock, and transforming the result to the rest frame
+c       of the downstream plama
+      zetap=datan(gammau(j)*tanzps)-datan(gammau(j)*dtan(psi(j)))
+      ssx=dsin(zetap)*cosph(j)
+      ssy=dsin(zetap)*sinph(j)
+      ssz=dcos(zetap)
+      bux=bavg*sinthb*cosphb
+      buy=bavg*sinthb*sinphb
+      buz=bavg*costhb
+      bterm=bux*ssx+buy*ssy+buz*ssz
+c     Finally, the downstream B field components
+      bx(i,j)=bux+(eta-1.0)*bterm*ssx
+      by(i,j)=buy+(eta-1.0)*bterm*ssy
+      bz(i,j)=buz+(eta-1.0)*bterm*ssz
+c     Calculate upstream B field component perpendicular to the shock front bprp
+      bup=sqrt(bux*bux+buy*buy+buz*buz)
+      bprpx=bux-bterm*ssx
+      bprpy=buy-bterm*ssy
+      bprpz=buz-bterm*ssz
+      bprp=sqrt(bprpx*bprpx+bprpy*bprpy+bprpz*bprpz)
 c      if(idelay.gt.(dstart+40).and.idelay.lt.(dstart+51))
 c     ,  n0mean=10.0*n0mean
       n0(i,j)=eta*n0mean
-      bx(i,j)=bavg*(gamup/gammad)*sinthb*cosphb*(eta-
-     ,  (eta-1.0)*(cosz*cosph(j))**2)
-      by(i,j)=bavg*(gamup/gammad)*sinthb*sinphb*(eta-
-     ,  (eta-1.0)*(cosz*sinph(j))**2)
-      bz(i,j)=bavg*costhb*(eta*cosz**2+sinz**2)
 c     Calculate the initial maximum electron energy in each cell
-      bup=bavg*dsqrt(costhb**2+(gamup*sinthb)**2)
-      bprp=bavg*dsqrt((costhb*sinz**2)**2+(gamup*sinthb*cosz**2)**2*
-     ,  ((cosphb*cosph(j)**2)**2+(sinphb*sinph(j)**2)**2))
 c     Next line relates this to direction of B field relative to shock
 c      gmax0(i,j)=gmaxmn*(bprp/bup)**(2.0*pexp)
 c     Next 3 lines assume a power-law distribution of gmax0, unrelated
 c         to direction of B field
 c     See http://mathworld.wolfram.com/RandomNumber.html for choosing
 c      random numbers from a power-law distribution
-      xrand=rand(0)
+      xrand=randproto(0)
       if(pexp.eq.0.0)gmax0(i,j)=gmaxmx
       if(pexp.lt.0.0)gmax0(i,j)=((gmaxmx**pexp-gmaxmn**pexp)*xrand+
      ,  gmaxmn**pexp)**(1.0/pexp)
@@ -1132,7 +1314,24 @@ c      random numbers from a power-law distribution
   105 if(gmax0(i,j).le.gcnt(ig+1).and.gmax0(i,j).ge.gcnt(ig))
      , igcnt(ig)=igcnt(ig)+1
 c     Time loop resumes here
-  110 bperp(j)=dsqrt(by(i,j)**2+(bz(i,j)*slos-bx(i,j)*clos)**2)
+  110 continue
+c     Calculate component of magnetic field that is perpendicular to
+c       the aberrated line of sight in the plasma frame
+c     Line-of-sight vector in plasma frame
+      bd2=betad(i,j)*betad(i,j)
+      gm1=gammad(i,j)-1.0d0
+      spx=(1.0d0+gm1*(bdx/betad(i,j))**2)*slos+
+     ,  gm1*bdx*bdz/bd2*clos
+      spy=gm1*bdx*bdy/bd2*slos+gm1*bdy*bdz/bd2*clos
+      spz=(1.0d0+gm1*(bdz/betad(i,j))**2)*clos+
+     ,  gm1*bdx*bdz/bd2*slos
+c     Need to normalize the line-of-sight vector - should be unit vector
+      spnorm=sqrt(spx*spx+spy*spy+spz*spz)
+      dotprd=(bx(i,j)*spx+by(i,j)*spy+bz(i,j)*spz)/spnorm
+      bpx=bx(i,j)-dotprd*spx/spnorm
+      bpy=by(i,j)-dotprd*spy/spnorm
+      bpz=bz(i,j)-dotprd*spz/spnorm
+      bperp(j)=sqrt(bpx*bpx+bpy*bpy+bpz*bpz)
       bfield(j)=sqrt(bx(i,j)**2+by(i,j)**2+bz(i,j)**2)
 c      write(5,9996)bperp(j),bfield(j),bx(i,j),by(i,j),bz(i,j),
 c     ,  slos,clos
@@ -1144,27 +1343,32 @@ c     ,  slos,clos
       flec(i,j,inu)=0.0
       flssc(i,j,inu)=0.0
   111 flux(i,j,inu)=0.0
-      bdx=betadx(j)
-      bdy=betady(j)
-      bdz=betadz(j)
-      delt=(i-1)*zsize*yr*3.26/(gammad*betad)
+      bdx=betadx(i,j)
+      bdy=betady(i,j)
+      bdz=betadz(i,j)
+      delt=(i-1)*zsize*yr*3.26/(gammad(i,j)*betad(i,j))
       bperpp=bperp(j)
       bfld=bfield(j)
 c     Determine velocity of the cell plasma relative to the MD plasma
-      betamx(j)=betadx(j)/(gammd*(1.0d0-betadz(j)*betamd))
-      betamy(j)=betady(j)/(gammd*(1.0d0-betadz(j)*betamd))
-      betamz(j)=(betadz(j)-betamd)/(1.0d0-betadz(j)*betamd)
+      bmfact=3.0d0*gammad(i,j)*betad(i,j)*betad(i,j)
+      betamx(j)=(bmfact+(gammad(i,j)-1.0d0)*bdz)*bdx/
+     ,  (bmfact*(1.0d0+bdz/3.0d0))
+      betamy(j)=(bmfact+(gammad(i,j)-1.0d0)*bdz)*bdy/
+     ,  (bmfact*(1.0d0+bdz/3.0d0))
+      betamz(j)=((bmfact+1.0d0)*betad(i,j)*betad(i,j)+
+     ,  (gammad(i,j)-1.0d0)*bdz*bdz)/(bmfact*(1.0d0+bdz/3.0d0))
       betamr(j)=dsqrt(betamx(j)**2+betamy(j)**2+betamz(j)**2)
       gamamr(j)=1.0d0/dsqrt(1.0d0-betamr(j)**2)
       cosmr(j)=0.0d0
-      if(zshock.eq.zcell(i,j)) go to 988
-      tanmd=rcell(j)/(gamamr(j)*(zshock-zcell(i,j)))
-c     Determine Doppler factor of the MD emission in the cell's frame
-      cosmr(j)=1.0d0/dsqrt(tanmd**2+1.0d0)
-  988 deltmd(j)=1.0d0/(gamamr(j)*(1.0d0-betamr(j)*cosmr(j)))
-c     Determine time step of Mach disk seed photons from light-travel delay
       zcl=zcell(i,j)
       dmd(j)=sqrt((zshock-0.5*zsize-zcl)**2+rcell(j)**2)
+      if(zshock.eq.zcell(i,j)) go to 988
+c     Determine Doppler factor of the MD emission in the cell's frame
+      cosmr(j)=betamx(j)*xcell(j)+betamy(j)*ycell(j)+
+     ,  betamz(j)*(zshock-0.5*zsize-zcl)/gamamr(j)
+      cosmr(j)=cosmr(j)/(betamr(j)*dmd(j))
+  988 deltmd(j)=1.0d0/(gamamr(j)*(1.0d0-betamr(j)*cosmr(j)))
+c     Determine time step of Mach disk seed photons from light-travel delay
       delcor=deltmd(j)/dopref
       mdmid=mdmax-(((zrf-zcl)*clos+(xrf-
      ,   xcell(j))*slos)-dmd(j))/(dtfact*zsize)
@@ -1289,7 +1493,7 @@ c     ,  gmax0(i,j),gammax(i-1,j)
 c     iend is the last slice of cells with energetic electrons
       iend=i
 c     Calculate energy distribution for the cell
-      delt=zsize*yr*3.26/(gammad*betad)
+      delt=zsize*yr*3.26/(gammad(i,j)*betad(i,j))
       glow=gammin(i-1,j)/(1.0+tlfact*gammin(i-1,j)*delt)
       gmrat=0.99*gammax(i-1,j)/gammin(i-1,j)
       gmratl=dlog10(gmrat)/32.0
@@ -1315,16 +1519,16 @@ cc     ,  delt,gamb,glow
       t2=dmin1(tloss,t2max)
       tlmin=t2max-(gmin-ggam(ie))/(tlavg*gmin*ggam(ie))
       if(ie.lt.12)t1=tlmin
-      eterm1=1.0-ggam(ie)*t1*tlfact
-      eterm2=1.0-ggam(ie)*t2*tlfact
+      eterm1=1.0d0-ggam(ie)*t1*tlfact
+      eterm2=1.0d0-ggam(ie)*t2*tlfact
       if(eterm1.ge.0.0.and.eterm2.ge.0.0)
      ,enofe(i,j,ie)=n0(i,j)/((sen-1.0)*tlavg*ggam(ie)**(sen+1.0))*
-     ,  (eterm1**(sen-1.0)-
-     ,   eterm2**(sen-1.0))
+     ,  (eterm1**(sen-1.0)-eterm2**(sen-1.0))
 c     Divide by cell crossing time since integral is over time
 c      test1=eterm1**(sen-1.0)
 c      test2=eterm2**(sen-1.0)
       enofe(i,j,ie)=enofe(i,j,ie)/delt
+      if(enofe(i,j,ie).lt.0.0)enofe(i,j,ie)=0.0
   188 edist(ie)=enofe(i,j,ie)
 c      if(edist(ie).lt.0.0.or.edist(ie).gt.1.0e20)
 c      write(5,9994)j,i,ggam(ie),edist(ie),tlfact,t2,tloss,
@@ -1390,6 +1594,8 @@ c      if(tauexp.le.15.0)fsync2(inu)=fsync2(inu)/exp(tauexp)
       flsync(i,j,inu)=fsync2(inu)*(volc/zsize)*zred1/
      ,  (1.0e18*amjy*dgpc**2)*fgeom
       flux(i,j,inu)=flsync(i,j,inu)
+      betd=betad(i,j)
+      gamd=gammad(i,j)
       if(inu.eq.1)call polcalc(bfield(j),bx(i,j),by(i,j),bz(i,j),
      ,    clos,slos,chipol)
       if(specin.lt.alpha)specin=alpha
@@ -1408,6 +1614,8 @@ c     ,    pu(i,j,inu)
       if(restnu.lt.1.0e14)go to 194
       spxec=0.0001
       spxssc=0.0001
+      betd=betad(1,jcells)
+      gamd=gammad(1,jcells)
       ecflux=ecdust(restnu)*3.086*volc*zred1*delta(i,j)**2/dgpc**2*
      ,   fgeom
       sscflx=ssc(restnu)*3.086*volc*zred1*delta(i,j)**2/dgpc**2*
@@ -1416,7 +1624,7 @@ c     ,    pu(i,j,inu)
       taupp=0.0
 c     Pair production opacity calculation
 c     Expression for anumin includes typical interaction angle
-      anumin=(1.24e20/(nu(inu)*zred1))*1.24e20*(2.0*gammad)**2
+      anumin=(1.24e20/(nu(inu)*zred1))*1.24e20*(2.0*gammad(i,j))**2
       alnumn=alog10(anumin)
       inumin=(alnumn-10.0)*4+1
       if(inumin.gt.40)go to 199
@@ -1531,20 +1739,20 @@ c     Write SED to file
       if(inu.eq.53)tfssc=tsscfl
       if(inu.eq.11)tfl11=tflux
       tflold=1000.0*tflux/nu(inu)
-      if(inu.eq.9)pdeg9=100.0*poldeg
-      if(inu.eq.9)pang9=pang
-      if(inu.eq.13)pdeg13=100.0*poldeg
-      if(inu.eq.13)pang13=pang
-      if(inu.eq.17)pdeg17=100.0*poldeg
-      if(inu.eq.17)pang17=pang
-      if(inu.eq.21)pdeg21=100.0*poldeg
-      if(inu.eq.21)pang21=pang
-      if(inu.eq.25)pdeg25=100.0*poldeg
-      if(inu.eq.25)pang25=pang
-      if(inu.eq.29)pdeg29=100.0*poldeg
-      if(inu.eq.29)pang29=pang
-      if(inu.eq.33)pdeg33=100.0*poldeg
-      if(inu.eq.33)pang33=pang
+      if(inu.eq.8)pdeg8=100.0*poldeg
+      if(inu.eq.8)pang8=pang
+      if(inu.eq.12)pdeg12=100.0*poldeg
+      if(inu.eq.12)pang12=pang
+      if(inu.eq.16)pdeg16=100.0*poldeg
+      if(inu.eq.16)pang16=pang
+      if(inu.eq.20)pdeg20=100.0*poldeg
+      if(inu.eq.20)pang20=pang
+      if(inu.eq.24)pdeg24=100.0*poldeg
+      if(inu.eq.24)pang24=pang
+      if(inu.eq.28)pdeg28=100.0*poldeg
+      if(inu.eq.28)pang28=pang
+      if(inu.eq.32)pdeg32=100.0*poldeg
+      if(inu.eq.32)pang32=pang
   500 continue
       alp20a=0.0
       alp20b=0.0
@@ -1573,19 +1781,25 @@ c     Write light curve points to file
      ,  tfl33,alph33,tfcomx,nu(53),tfl53,alph53,tfcomp,tfec,
      ,  tfssc,nu(11),tfl11,ncells
 c     Write selected polarization data to file
-      write(5,9988)it,timeo,nu(9),pdeg9,pang9,nu(13),pdeg13,pang13,
-     ,  nu(17),pdeg17,pang17,nu(21),pdeg21,pang21,
-     ,  nu(25),pdeg25,pang25,nu(29),pdeg29,pang29,
-     ,  nu(33),pdeg33,pang33
+      write(5,9988)it,timeo,nu(8),pdeg8,pang8,nu(12),pdeg12,pang12,
+     ,  nu(16),pdeg16,pang16,nu(20),pdeg20,pang20,
+     ,  nu(24),pdeg24,pang24,nu(28),pdeg28,pang28,
+     ,  nu(32),pdeg32,pang32
 c     Set up next time step by shifting physical conditions 1 slice down jet
       if(it.eq.itlast)go to 9000
       do 598 j=1,jcells
-      do 598 i=istart,icelmx(j)+1
+      do 598 i=icelmx(j)+1,istart,-1
       gmax0(i,j)=gmax0(i-1,j)
       bx(i,j)=bx(i-1,j)
       by(i,j)=by(i-1,j)
       bz(i,j)=bz(i-1,j)
       n0(i,j)=n0(i-1,j)
+      betadx(i,j)=betadx(i-1,j)
+      betady(i,j)=betady(i-1,j)
+      betadz(i,j)=betadz(i-1,j)
+      betad(i,j)=betad(i-1,j)
+      gammad(i,j)=gammad(i-1,j)
+      delta(i,j)=delta(i-1,j)
   598 continue
 c      write(3,8889)
       ispec=ispec-1
@@ -1614,7 +1828,7 @@ c     Move cells in time array to make room for next time step
  8888 format(i5,f9.2)
  8889 format(/)
  9111 format(a10/f5.3/f5.3/f4.2/f4.2/f4.2/f3.1/e7.1/f5.3/f7.1/
-     ,f5.1/f6.1/d9.5/d6.1/d5.1/d6.2/f6.1/f3.1/f3.1/f3.1/e7.2)
+     ,f5.1/f6.1/d9.5/d9.5/d6.1/d6.1/d6.2/f6.1/f3.1/f3.1/f3.1/e7.2)
  9222 format('idelay out of bounds ',5i6,1p3e11.3)
  9988 format(i5,f8.2,2x,7(1pe8.2,1x,0pf7.3,1x,f8.3,1x))
  9989 format(i6,2x,i6,2x,i6,1p16e10.2)
@@ -2391,21 +2605,73 @@ c       derived by Lyutikov et al. 2005, MNRAS, 360, 869
 c
       Subroutine polcalc(b,bx,by,bz,clos,slos,chi)
       common/cvel/bdx,bdy,bdz,gammad,betad
-      real*8 clos,slos,bdx,bdy,bdz,gammad,betad,term,ndq,q2
+      real*8 clos,slos,bdx,bdy,bdz,gammad,betad,term,ndq,q2,
+     ,  qx,qy,qz,ex,ey,ez,term1,term2,term3
       bxh=bx/b
       byh=by/b
       bzh=bz/b
-      term=byh+(bdy*bxh-bdx*byh)*slos+(bdy*bzh-bdz*byh)*clos 
-      ndq=(bxh+(bdx*bzh-bdz*bxh)*clos)*slos +
-     ,  (bzh+(bdz*bxh-bdx*bzh)*slos)*clos
-      q2=(bxh+(bdx*bzh-bdz*bxh)*clos)**2+
-     ,   (byh+(bdy*bxh-bdx*byh)*slos+(bdy*bzh-bdz*byh)*clos)**2 +
-     ,   (bzh+(bdz*bxh-bdx*bzh)*slos)**2
-      coschi=term/dsqrt(q2-ndq*ndq)
-      chi=acos(coschi)
-c      write(5,9999)b,bx,by,bz,clos,slos,bdx,bdy,bdz,
-c     ,   gammad,term,ndq,q2,coschi,chi
-c 9999 format(1p15e10.2)
+      term1=slos*bxh+clos*bzh
+      term2=slos*bdx+clos*bdz
+      term3=(bdx*bxh+bdy*byh+bdz*bzh)*gammad/(1.0d0+gammad)
+      qx=bxh+(term1-term3)*bdx-term2*bxh
+      qy=byh+(term1-term3)*bdy-term2*byh
+      qz=bzh+(term1-term3)*bdz-term2*bzh
+      q2=qx*qx+qy*qy+qz*qz
+      ndq=qx*slos+qz*clos
+      term1=-qy*clos
+      term2=qx*clos-qz*slos
+      term3=qy*slos
+      term=dsqrt(q2-ndq*ndq)
+c      ex=term1/term
+      ey=term2/term
+c      ez=term3/term
+c      term=ex*ex+ey*ey+ez*ez
+c      coschi=(-clos*ex+slos*ez)
+c      chi=acos(coschi)
+c      term2=ey/dsqrt(term)
+      if(ey.gt.1.0d0.and.ey.lt.1.000001d0)ey=0.99999999d0
+      if(ey.lt.-1.0d0.and.ey.gt.-1.000001d0)ey=-0.99999999d0
+      chi=asin(ey)
       return
       end
       
+      ! Function to call rand() most of the time, but when fixedRandFlag is non-zero, 
+      ! get the random values from a file. When all the numbers are used up, start
+      ! back at the beginning of the number list
+      function randproto(seed)
+      common/cfixedrand/fixedRandFlag, fixedRandFileOpened, fixedRandData, fixedRandCounter
+      dimension fixedRandData(100000)
+      real fixedRandData
+      integer fixedRandFlag, fixedRandFileOpened, fixedRandCounter
+      integer*4 seed
+
+      if(fixedRandFileOpened.eq.0) then
+         ! need to open the file with all the pre-generated random nums
+         ! and load into a shared array
+         ! At some point, I want to have the ability to set an environment variable for the filename:
+         !character(len=512) :: filename
+         !call get_environment_variable('BLZFIXEDRAND', filename, 512, status)
+         !if(status.eq.1) then
+         !   filename = './fixedrand.dat'
+         !endif
+         open(99, FILE = 'fixedrand.dat') ! At the moment, as you can see, this file must be in running/current directory
+         do i=1,100000
+            read(99, *) fixedRandData(i)
+         end do
+         fixedRandFileOpened = 1
+         fixedRandCounter = 1
+         close(99)
+      endif
+
+      if(fixedRandFlag.eq.0) then
+         randproto = rand(seed)
+      else
+         randproto = fixedRandData(fixedRandCounter)
+         if(fixedRandCounter.ge.100000) then
+            fixedRandCounter = 1
+         else
+            fixedRandCounter = fixedRandCounter + 1
+         endif
+      endif
+      return
+      end

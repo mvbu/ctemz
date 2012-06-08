@@ -5,8 +5,15 @@
 class BlzSimInput {
   // This will contain some of the input parameters for a call to BlzSim:run()
  public:
-  double zred, dgpc, alpha, p,bavg, neg_psdslope, e_e_over_e_b, rsie, gmaxmn, gmrat, gmin, betaup, betat;
-  double zeta, thlos, opang,dustTemp,dustTorusDist, torusXsectionRadius, zdist0, vmd;
+  // These are the input parameters from temz.f and temzinp.txt:
+  // read(2,9111)dumdum, zred, dgpc, alpha, p, bave, psdslp,
+  //   , uratio, rsize, gmaxmn, gmrat, gmin, betaup, betat, zeta, thlos,
+  //   , opang,tdust,dtdist,dtrad,zdist0,vmd
+  double zred, dgpc, alpha, p, bave, psdslp;
+  double uratio, rsize, gmaxmn, gmrat, gmin, betaup, betat, zeta, thlos;
+  double opang, tdust, dtdist, dtrad, zdist0, vmd;
+
+  // Later we can add other run-time parameters such as total sim time (or number of time steps), etc.
 };
 
 

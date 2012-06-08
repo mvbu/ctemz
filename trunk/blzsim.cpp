@@ -777,8 +777,8 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     betaux[D1141],betauy[D1141],betauz[D1141],
     betau[D1141],gammau[D1141],
     nu[D68],bx[D100][D1141],by[D100][D1141],bz[D100][D1141],
-    delta[D100][D1141],enofe[D100][D1141][D44],edist[D44],fsync[D68],
-    ggam[D44],dustnu[D22],dusti[D22],ididg[D1141],spsd[16384],
+    delta[D100][D1141],enofe[D100][D1141][D44],fsync[D68],
+    ididg[D1141],spsd[16384],
     gcnt[D44],igcnt[D44],fsynmd[D68][D4000],nouter[D1140],
     fsscmd[D68][D4000],fmdall[D68],deltmd[D1140],dmd[D1140],
     tlf[100],betamx[D1140],betamy[D1140],
@@ -786,17 +786,17 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     bmdy[D4000],bmdz[D4000],bmdtot[D4000],tlf1[D1140],
     flsync[D100][D1141][D68],flcomp[D100][D1141][D68],absorb[D68][D4000],
     fsync2[D68],cosmr[D1140],alphmd[D68][D4000],dustii[D110][D22],
-    alfmdc[D68][D4000],syseed[D68],scseed[D68],snu[D68],ssseed[D68],
+    alfmdc[D68][D4000],syseed[D68],scseed[D68],
     flec[D100][D1141][D68],flssc[D100][D1141][D68],mdd[D4000],useed[D110],
     phots[D68],phalph[D68],icelmx[D1141],imax[D1141],seedpk[D110],
     abexmd[D68][D4000],psi[D1140],sinpsi[D1140],cospsi[D1140],
     tanpsi[D1140];
 
   double pol,pqcum,pucum,pmean,polc,ai2, pcum,tanv0,cosv0,gamup,beta,sinz,cosz,
-    thlos,opang,tanop,cosop,sinop,zeta,tanz,slos,clos, eta,tanxi,xi,betacs,psiup,bdx,bdy,bdz,
-    dcsth1,dcsth2,dth1,dth2,dsnth1,dsnth2,n0ave, betamd,betarl, cosmd,tanmd,cosbm,bup,bprp,ustob,tlfact,delt,
-    gamb,glow,gmrat,gmratl,gmratm,tloss,t1,t2,tlmin, eterm1,eterm2,glim,t2max,
-    betat,sinzps,coszps,tanzps,zetap, bd2,gm1,bmfact,n0mean;
+    thlos,opang,tanop,cosop,sinop,zeta,tanz,slos,clos, eta,tanxi,xi,betacs,psiup,
+    dth1,dth2,n0ave, betamd,betarl, cosmd,tanmd,cosbm,bup,bprp,ustob,tlfact,delt,
+    gamb,glow,gmratl,gmratm,tloss,t1,t2,tlmin, eterm1,eterm2,glim,t2max,
+    sinzps,coszps,tanzps,zetap, bd2,gm1,bmfact,n0mean;
   int dstart;
 
   // Initialize the random number generator. If bTestMode is true, the BlzRand::rand() method will get
@@ -859,8 +859,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   double betaus=inp.betaup*sinz;
   double gamus=1.0/sqrt(1.0-betaus*betaus); // I don't see where this is ever used in the Fortran code
 
-  // Compression ratio of Mach disk
-  // Ultra-relativistic eq. of state assumed, so compression ratio is that
+  // Compression ratio of Mach disk. Ultra-relativistic eq. of state assumed, so compression ratio is that
   // given by Hughes, Aller, & Aller (1989, ApJ, 341, 54)
   double etac = sqrt(8.0*::pow(gamup, 4) - 17.0*gamup*gamup + 9.0)/gamup;
   double betaup2 = inp.betaup*inp.betaup;

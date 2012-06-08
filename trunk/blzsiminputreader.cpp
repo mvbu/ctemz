@@ -25,10 +25,10 @@ void BlzSimInputReader::read(BlzSimInput& simInput)
   filestream >> simInput.dgpc;
   filestream >> simInput.alpha;
   filestream >> simInput.p;
-  filestream >> simInput.bavg;
-  filestream >> simInput.neg_psdslope;
-  filestream >> simInput.e_e_over_e_b;
-  filestream >> simInput.rsie;
+  filestream >> simInput.bave;
+  filestream >> simInput.psdslp;
+  filestream >> simInput.uratio;
+  filestream >> simInput.rsize;
   filestream >> simInput.gmaxmn;
   filestream >> simInput.gmrat;
   filestream >> simInput.gmin;
@@ -42,9 +42,9 @@ void BlzSimInputReader::read(BlzSimInput& simInput)
   filestream >> dummy;
   filestream >> simInput.opang;
   filestream >> dummy;
-  filestream >> simInput.dustTemp;
-  filestream >> simInput.dustTorusDist;
-  filestream >> simInput.torusXsectionRadius;
+  filestream >> simInput.tdust;
+  filestream >> simInput.dtdist;
+  filestream >> simInput.dtrad;
   filestream >> simInput.zdist0;
   filestream >> simInput.vmd;
   filestream.close();

@@ -19,9 +19,6 @@ double dummyFunction(double d, void* pObject) {
 int main()
 {
   BlzLog::setLevel(DEBUG);
-  BlzSimInputReader inputReader(string("temzinp.txt"));
-  BlzSimInput simInput;
-  inputReader.read(simInput);
   const int N = 16384;
   double r[32678];
   int ISEED1=58;
@@ -109,8 +106,8 @@ int main()
   BlzSimCommon common;
   double qgresult;
   common.tdust = 1200.;
-  common.gammad = 11.473015869669796;
-  common.betad = 0.99619423459093981;
+  common.gamd = 11.473015869669796;
+  common.betd = 0.99619423459093981;
   common.freq = 4.65842962e+11;
 
   // Test qg5() and sdgran()
@@ -128,8 +125,8 @@ int main()
   double freq = 4.65842962e+11;
   pSim = new BlzSim();
   pSim->common.tdust = 1200.;
-  pSim->common.gammad = 11.473015869669796;
-  pSim->common.betad = 0.99619423459093981;
+  pSim->common.gamd = 11.473015869669796;
+  pSim->common.betd = 0.99619423459093981;
   pSim->common.freq = 4.65842962e+11;
   pSim->common.dsnth1 = 0.74151808435155919;
   pSim->common.dsnth2 = 0.99292683212516131;
@@ -213,11 +210,24 @@ int main()
   pSim->common.bdx = 0.042337138162786593;
   pSim->common.bdy = 0.073330036710039445;
   pSim->common.bdz = 0.97277779711713219;
-  pSim->common.gammad = 4.6357107942851155;
+  pSim->common.gamd = 4.6357107942851155;
   const double expectedChi = 0.94032985;
   double chi = pSim->polcalc(b, bx, by, bz, clos, slos);
   BlzLog::debugScalar("polcalcResult", chi);
   BlzLog::debugScalar("expected", expectedChi);
+  delete pSim;
+  
+  //
+  // Test run()
+  //
+  pSim = new BlzSim();
+  // Get the input parameters from the input file
+  const string inputFile("temzinp.txt");
+  BlzSimInput inp;
+  BlzSimInputReader inputReader(inputFile);
+  inputReader.read(inp);
+  // true means run in test mode, second param is number of days to simulate
+  pSim->run(inp, 10, true);
   delete pSim;
 }
 

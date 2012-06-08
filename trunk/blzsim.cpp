@@ -1,8 +1,10 @@
 #include <cmath>
+#include <ctime>
 #include "blzlog.h"
 #include "blzmath.h"
 #include "blzrand.h"
 #include "blzsim.h"
+#include "blzsiminputreader.h"
 
 BlzSimCommon::BlzSimCommon() {}
 BlzSimCommon::~BlzSimCommon() {}
@@ -105,7 +107,7 @@ double sdgran(double sn, void *pObject)
   const double HOK = 4.80e-11;
   double retVal = 0.0;
   double cs = sqrt((double)(1.0-sn*sn));
-  double tdel=1.0/(pcm->gammad*(1.0D-pcm->betad*cs));
+  double tdel=1.0/(pcm->gamd*(1.0D-pcm->betd*cs));
   double f = pcm->freq/tdel;
   double expon= HOK * f/pcm->tdust;
   double val = 0.0;
@@ -252,7 +254,7 @@ double BlzSim::ecdust(const double anuf)
   // In this version, approximate that plasma velocity is along jet axis
   // and that Doppler factor of dust torus is the mean over its solid angle
   // as viewed in the plasma frame 
-  // tdel=1.0/(gammad*(1.0d0-betad*dcsth1))
+  // tdel=1.0/(gamd*(1.0d0-betad*dcsth1))
   double g1=gam[0];
   double vala=S0*edist[0]/(g1*g1);
   int ie;
@@ -475,7 +477,7 @@ double BlzSim::ssc(const double anuf)
   // In this version, approximate that plasma velocity is along jet axis
   // and that Doppler factor of dust torus is the mean over its solid angle
   // as viewed in the plasma frame 
-  // tdel=1.0/(gammad*(1.0d0-betad*dcsth1))
+  // tdel=1.0/(gamd*(1.0d0-betad*dcsth1))
   double g1=gam[0];
   double vala=S0*edist[0]/(g1*g1);
   int ie;
@@ -708,7 +710,7 @@ double BlzSim::polcalc(const double b, const double bx, const double by, const d
   double bdx = common.bdx;
   double bdy = common.bdy;
   double bdz = common.bdz;
-  double gammad = common.gammad;
+  double gammad = common.gamd;
   double term1=slos*bxh+clos*bzh;
   double term2=slos*bdx+clos*bdz;
   double term3=(bdx*bxh+bdy*byh+bdz*bzh)*gammad/(1.0+gammad);
@@ -730,9 +732,156 @@ double BlzSim::polcalc(const double b, const double bx, const double by, const d
   return chi;
 }
 
-void BlzSim::run(BlzSimInput& blzSimInput) 
+void BlzSim::initRandFromTime(bool bTestMode) 
 {
-  // TODO: fill this in :-)  
-  // Seriously, this is where a most of the code ported from the "main" Fortran program will go, mostly as-is.
+  // Seeds the random number generator as closely as possible to what the Fortran code does
+  time_t rawtime;
+  struct tm* timeinfo;
+  time(&rawtime);
+  timeinfo = localtime(&rawtime);
+  // Fortran itime() gives 1-based values, C++ time() gives 0-based values, but both
+  // seem to be returning the same numbers even though I'd expect the C++ numbers to
+  // lower by 1. Since they don't seem to be, I will not add 1 to them.
+  int hour = timeinfo->tm_hour; // + 1; // don't add 1 even though the docs would suggest that you should
+  int min = timeinfo->tm_min; // + 1;
+  int sec = timeinfo->tm_sec; // + 1;
+  int ita = hour + min + sec; // the Fortran code just adds these up to create the seed
+  randObj.setRandTestMode(bTestMode);
+  double iseed = randObj.rand(ita);
+  double dummy = randObj.rand(iseed);
+}
+
+
+void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
+{
+  // This is where a most of the code ported from the "main" Fortran program will go, mostly as-is.
   // Then hopefully will have time to make it more modular after it is ported.
+  const int D68=68;
+  const int D100=100;
+  const int D35=35;
+  const int D1140=1140;
+  const int D1141=1141;
+  const int D44=44;
+  const int D22=22;
+  const int D4000=4000;
+  const int D110=110;
+
+  static int itarra[3];
+  static double pq[D100][D1140][D68], pu[D100][D1140][D68], fpol[D100][D1140][D68],
+    flux[D100][D1141][D68],gammin[D100][D1141],gammax[D100][D1141],
+    xcell[D1141],gmax0[D100][D1141],egam[D100][D1141][44],
+    phcell[D1141],rcell[D1141],ycell[D1141],cosph[D1141],
+    sinph[D1141],bperp[D1141],bfield[D1141],n0[D100][D1141],
+    zcell[D100][D1141],betadx[D100][D1141],betady[D100][D1141],
+    betadz[D100][D1141],betad[D100][D1141],gammad[D100][D1141],
+    betaux[D1141],betauy[D1141],betauz[D1141],
+    betau[D1141],gammau[D1141],
+    nu[D68],bx[D100][D1141],by[D100][D1141],bz[D100][D1141],
+    delta[D100][D1141],enofe[D100][D1141][D44],edist[D44],fsync[D68],
+    ggam[D44],dustnu[D22],dusti[D22],ididg[D1141],spsd[16384],
+    gcnt[D44],igcnt[D44],fsynmd[D68][D4000],nouter[D1140],
+    fsscmd[D68][D4000],fmdall[D68],deltmd[D1140],dmd[D1140],
+    tlf[100],betamx[D1140],betamy[D1140],
+    betamz[D1140],betamr[D1140],gamamr[D1140],bmdx[D4000],
+    bmdy[D4000],bmdz[D4000],bmdtot[D4000],tlf1[D1140],
+    flsync[D100][D1141][D68],flcomp[D100][D1141][D68],absorb[D68][D4000],
+    fsync2[D68],cosmr[D1140],alphmd[D68][D4000],dustii[D110][D22],
+    alfmdc[D68][D4000],syseed[D68],scseed[D68],snu[D68],ssseed[D68],
+    flec[D100][D1141][D68],flssc[D100][D1141][D68],mdd[D4000],useed[D110],
+    phots[D68],phalph[D68],icelmx[D1141],imax[D1141],seedpk[D110],
+    abexmd[D68][D4000],psi[D1140],sinpsi[D1140],cospsi[D1140],
+    tanpsi[D1140];
+
+  double pol,pqcum,pucum,pmean,polc,ai2, pcum,tanv0,cosv0,gamup,beta,sinz,cosz,
+    thlos,opang,tanop,cosop,sinop,zeta,tanz,slos,clos, eta,tanxi,xi,betacs,psiup,bdx,bdy,bdz,
+    dcsth1,dcsth2,dth1,dth2,dsnth1,dsnth2,n0ave, betamd,betarl, cosmd,tanmd,cosbm,bup,bprp,ustob,tlfact,delt,
+    gamb,glow,gmrat,gmratl,gmratm,tloss,t1,t2,tlmin, eterm1,eterm2,glim,t2max,
+    betat,sinzps,coszps,tanzps,zetap, bd2,gm1,bmfact,n0mean;
+  int dstart;
+
+  // Initialize the random number generator. If bTestMode is true, the BlzRand::rand() method will get
+  // numbers from a text file instead of actually generating new random numbers
+  initRandFromTime(bTestMode);
+
+  
+  const int ICELLS = 50; // ICELLS cells along the axial direction
+  const int NEND = 9; // NEND cells along each side of the hexagon
+  int  jcells = 3*NEND*(NEND-1)+1; // jcells cells along the transverse direction (perp to axial dir)
+  int  ancol = 2*NEND-1;
+  double rbound = ancol*inp.rsize; // inp is the BlzSimInput object passed into this method
+  int mdmax = 4000; // I think this matches the 4000 dimension in the arrays above
+  // An SED will be printed out every ispecs time steps
+  const int ISPECS = 1;
+  int ispec = 1;
+  // Set up frequencies
+  int inu;
+  for(inu=1; inu<=D68; inu++) {
+    phots[inu-1] = 0.0;
+    nu[inu-1] = ::pow(10.0, 10.0+0.25*(inu-1));
+  }
+  // alpha = (s-1)/2 is the underlying spectral index, where s = slope of electron E dist.
+  // gmaxmn,gmaxmx are the min/max values of initial gamma_max of
+  // electrons in a cell
+  double gmaxmx = inp.gmrat * inp.gmaxmn;
+  // gmin is the minimum value of initial gamma of electrons
+  // 2p is the slope of the volume vs. initial gamma-max law over all cells,
+  // V = V0*gamma_max**(-2p)
+  double pexp = -2.0 * inp.p;
+  double amppsd = 5.0;
+  // Set up compilation of distribution of initial gamma_max values
+  double gmrf=gmaxmx/inp.gmaxmn;
+  double gmrfl=log10(gmrf)/43.0;
+  int ie;
+  for(ie=1; ie<=D44; ie++) {
+    double gfl=log10(inp.gmaxmn)+gmrfl*(ie-1);
+    gcnt[ie-1]=::pow(10.0, gfl);
+    igcnt[ie-1] = 0;
+  }
+  const double FGEOM = 1.33;
+  const double EMFACT = 3.74e-23;
+  const double C6GAM = 8.2e-21;
+  const double AMJY = 1.03-26;
+  common.zred1 = 1.0 + inp.zred;
+  double sen = 2.0*inp.alpha + 1.0;
+  zeta = inp.zeta/DEG_PER_RAD; // apparently inp.zeta is specified in DEG
+  opang = inp.opang/DEG_PER_RAD; // ...and same with inp.opang
+  // uratio is the ratio of energy density of electrons to that of mag. field
+  // set the normalization of the electron energy distribution accordingly:
+  n0ave = inp.uratio*inp.bave*inp.bave*(sen-2.0)/(8.0*PI*EMC2)/(::pow(inp.gmin, 2.0-sen) - ::pow(inp.gmaxmn,2.0-sen));
+  // Line of sight
+  thlos = inp.thlos/DEG_PER_RAD;
+  slos = sin(thlos);
+  clos = cos(thlos);
+  sinz = sin(zeta);
+  cosz = cos(zeta);
+  tanz = sinz/cosz;
+  gamup = 1.0/sqrt(1.0 - inp.betaup*inp.betaup);
+  double betaus=inp.betaup*sinz;
+  double gamus=1.0/sqrt(1.0-betaus*betaus); // I don't see where this is ever used in the Fortran code
+
+  // Compression ratio of Mach disk
+  // Ultra-relativistic eq. of state assumed, so compression ratio is that
+  // given by Hughes, Aller, & Aller (1989, ApJ, 341, 54)
+  double etac = sqrt(8.0*::pow(gamup, 4) - 17.0*gamup*gamup + 9.0)/gamup;
+  double betaup2 = inp.betaup*inp.betaup;
+  tanxi = (tanz*tanz*(3.0*betaup2-1.0) - (1-betaup2))/(tanz*(tanz*tanz + 1.0 + 2.0*betaup2));
+  xi = atan(tanxi);
+  betad[0][0] = sqrt(::pow(1.0 - ::pow(inp.betaup*cosz,2), 2) + 9.0*::pow(betaup2*cosz*sinz, 2))/(3.0*inp.betaup*sinz);
+  gammad[0][0] = 1.0/sqrt(1.0-betad[0][0]*betad[0][0]);
+  common.betd = betad[0][0];
+  common.gamd = gammad[0][0];
+  // Length of a cylindrical cell in pc
+  double zsize = 2.0*inp.rsize/tanz;
+  double volc = PI*inp.rsize*inp.rsize*zsize;
+  // Length and volume of cell in plasma proper frame
+  double zsizep= zsize/common.gamd;
+  double volcp = volc/common.gamd;
+  double svmd = sqrt(inp.vmd);
+  double delobs = 1.0/(common.gamd*(1.0-common.betd*clos));
+  dstart = mdmax+(ICELLS+100)*delobs+2500;
+  // Time step in observer's frame in days
+  double dtfact = (1.0-common.betd*clos)/(common.betd*clos);
+  double dtime = 1190.0*zsize*dtfact*common.zred1;
+  double itlast = ndays/dtime; // time "index" of the last timestep (quit when it is >=)
+  double mdrang = 0.5*(1.0/dtfact+1.0);
 }

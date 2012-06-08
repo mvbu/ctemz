@@ -2,6 +2,7 @@
 #define _INCL_BLZSIM_H_
 
 #include "blzsiminput.h"
+#include "blzrand.h"
 
 using namespace std;
 
@@ -18,7 +19,7 @@ class BlzSimCommon {
   static const int CSEED_SIZE = 22;
   static const int CSSC_SIZE = 68;
 
-  double bdx, bdy, bdz, gammad, betad; // cvel
+  double bdx, bdy, bdz, gamd, betd; // cvel
   double zred1, bfld, bperpp; // cparm
   double dcsth1, dcsth2, dsnth1, dsnth2, dsang, tdust; // cdust
   // The first two entries in the next two lines are both referred to in the Fortran as dnu, di
@@ -51,11 +52,11 @@ class BlzSim {
  public:
   BlzSim();
   ~BlzSim();
-
+  
   // This is the main method of this class. Eventually, all other methods will be private.
   // Instantiate a BlzSim object, instantiate and initialize a BlzSimInput object, then pass it
-  // to the run() method.
-  void run(BlzSimInput& blzSimInput);
+  // to the run() method. ndays is number of days to simulate
+  void run(BlzSimInput& blzSimInput, double ndays=20.0, bool bTestMode = false);
 
   // Most of these methods will eventually become private or protected.
 
@@ -82,6 +83,7 @@ class BlzSim {
   double polcalc(const double b, const double bx, const double by, const double bz, 
                  const double clos, const double slos);
  private:
+  void initRandFromTime(bool bTestMode = false);
   static const double ONETHIRD = .33333333;
   static const double S0 = 6.237;
 };

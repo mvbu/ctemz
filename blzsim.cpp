@@ -1,3 +1,4 @@
+
 #include <cmath>
 #include <ctime>
 #include "blzlog.h"
@@ -799,10 +800,16 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     sinzps,coszps,tanzps,zetap, bd2,gm1,bmfact,n0mean;
   int dstart;
 
+  // This line has no analog in the Fortran code, which has tdust 1) being filled in from the
+  // input file (temzinp.txt) *and* 2) being part of a common block. Since I've created two
+  // separate tdust's (one in BlzSimInput and one in BlzSimCommon), need to copy the value 
+  // from BlzSimInput into BlzSimCommon. This need only be done once, and then the tdust in 
+  // BlzSimCommon is what gets used/modified hereafter
+  common.tdust = inp.tdust;
+
   // Initialize the random number generator. If bTestMode is true, the BlzRand::rand() method will get
   // numbers from a text file instead of actually generating new random numbers
   initRandFromTime(bTestMode);
-
   
   const int ICELLS = 50; // ICELLS cells along the axial direction
   const int NEND = 9; // NEND cells along each side of the hexagon
@@ -881,6 +888,68 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   // Time step in observer's frame in days
   double dtfact = (1.0-common.betd*clos)/(common.betd*clos);
   double dtime = 1190.0*zsize*dtfact*common.zred1;
-  double itlast = ndays/dtime; // time "index" of the last timestep (quit when it is >=)
+  double itlast = ndays/dtime; // time "index" of the last timestep (quit when it is >= itlast)
   double mdrang = 0.5*(1.0/dtfact+1.0);
+  // Distance of shock from axis and apex of conical jet
+  tanop = tan(opang);
+  cosop = cos(opang);
+  sinop = tanop * cosop;
+  // Next line is specific to the selected number of cells per slice
+  double rshock = (2*NEND-1)*inp.rsize;
+  // Distance of Mach disk from z value where conical shock intersects jet boundary
+  double zshock = rshock/tanz;
+  // Distance of Mach disk from from vertex of jet cone
+  double zsvtex = rshock/tanop;
+  double expon = inp.alpha+1.0;
+  double exp1 = 0.5*expon-1.0;
+  double anorm = (1.0+inp.alpha)/(inp.alpha+5.0/3.0);
+  int id, i=1; // Fortran doesn't seem to initialize i, but I think it needs to be initialized
+  // Computation of IR seed photon density from dust torus as function of distance down jet
+  double zdist;
+
+  for(id=1; id<=ICELLS+NEND; id++) {
+    zdist = inp.zdist0+(id-NEND)*zsize+zshock;
+    // Calculate min & max angles of dust torus in plasma frame
+    double dphi1=asin(inp.dtrad/sqrt(zdist*zdist+inp.dtdist*inp.dtdist));
+    double dphi2=atan(inp.dtdist/zdist);
+    dth1 = dphi1 + dphi2;
+    dth2 = dphi2 - dphi1;
+    common.dcsth1 = -(cos(dth1) - betad[i-1][jcells-1])/(1.0-betad[i-1][jcells-1] * cos(dth1));
+    common.dcsth2 = -(cos(dth2) - betad[i-1][jcells-1])/(1.0-betad[i-1][jcells-1] * cos(dth2));
+    common.dsnth1 = sqrt(1.0 - common.dcsth1*common.dcsth1);
+    common.dsnth2 = sqrt(1.0 - common.dcsth2*common.dcsth2);
+    // Doppler factor of dust torus emission in frame of cells
+    double tdel = 1.0/(common.gamd*(1.0-common.betd*common.dcsth1));
+    common.dsang = TWOPI*(common.dsnth2 - common.dsnth1);
+    // Calculate seed photon field from dust emission in plasma frame
+    // Peak frequency of dust thermal emission for part of torus closest to shock
+    seedpk[id-1] = 5.88e10*common.tdust*tdel;
+    // Use this to set the frequency array of the seed photons
+    for(inu=1; inu<=D22; inu++) {
+      common.dustnu[inu-1] = seedpk[id-1]*::pow(10.0,-1.6+(inu-1)*0.1);
+      common.dusti[inu-1] = seedph(common.dustnu[inu-1]);
+      // If too far downstream, dust torus angles are in 2nd quadrant; need to correct
+      if(common.dusti[inu-1] < 0.0)
+        common.dusti[inu-1] = -common.dusti[inu-1];
+      dustii[id-1][inu-1] = common.dusti[inu-1];
+    }
+  } // for(id=1; id<=ICELLS+NEND; id++)
+
+  for(id=1; id<=ICELLS+NEND; id++) {
+    double dflux=0.0;
+    for(inu=2; inu<=D22; inu++) {
+      if((dustii[id-1][inu-2]<=0.0) || (dustii[id-1][inu-1]<=0)) {
+        dflux = dflux + 0.5*(dustii[id-1][inu-1]+dustii[id-1][inu-2]) * (common.dustnu[inu-1]-common.dustnu[inu-2]);
+      }
+      else {
+        double a = log10(dustii[id-1][inu-1]/dustii[id-1][inu-2])/log10(common.dustnu[inu-1]/common.dustnu[inu-2]);
+        dflux = dflux + dustii[id-1][inu-2]/(a+1.0)*common.dustnu[inu-2]*(::pow(common.dustnu[inu-1]/common.dustnu[inu-2], a+1.0) - 1.0);
+      }
+
+      zdist = inp.zdist0 + (id-NEND)*zsize+zshock;
+    }
+    useed[id-1] = dflux/C_CM_PER_SEC;
+  }
+  
+  gmratl = log10(gmaxmx/inp.gmin)/40.0;
 }

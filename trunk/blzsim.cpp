@@ -788,10 +788,10 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     fsync2[D68],cosmr[D1140],alphmd[D68][D4000],dustii[D110][D22],
     alfmdc[D68][D4000],syseed[D68],scseed[D68],
     flec[D100][D1141][D68],flssc[D100][D1141][D68],mdd[D4000],useed[D110],
-    phots[D68],phalph[D68],icelmx[D1141],imax[D1141],seedpk[D110],
+    phots[D68],phalph[D68],seedpk[D110],
     abexmd[D68][D4000],psi[D1140],sinpsi[D1140],cospsi[D1140],
     tanpsi[D1140];
-
+  int icelmx[D1141], imax[D1141];
   double pol,pqcum,pucum,pmean,polc,ai2, pcum,tanv0,cosv0,gamup,beta,sinz,cosz,
     thlos,opang,tanop,cosop,sinop,zeta,tanz,slos,clos, eta,tanxi,xi,betacs,psiup,
     dth1,dth2,n0ave, betamd,betarl, cosmd,tanmd,cosbm,bup,bprp,ustob,tlfact,delt,
@@ -902,7 +902,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   double expon = inp.alpha+1.0;
   double exp1 = 0.5*expon-1.0;
   double anorm = (1.0+inp.alpha)/(inp.alpha+5.0/3.0);
-  int id, i=1; // Fortran doesn't seem to initialize i, but I think it needs to be initialized
+  int id;
   // Computation of IR seed photon density from dust torus as function of distance down jet
   double zdist;
 
@@ -962,4 +962,66 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     spsd[ip-1] = ::pow(abs(spsd[ip-1]), spexp);
     psdsum = psdsum + (spsd[ip-1]/(double)BLZSIM_DIM16384);
   }
+
+  for(ip=1; ip<=BLZSIM_DIM16384; ip++)
+    spsd[ip-1]=amppsd*spsd[ip-1]/psdsum;
+  
+  int ip0 = randObj.rand(0) * 5000;
+  int it = 0;
+  // Set parameters of each cell at initial time
+  // There are icells rows of cells, with jcells cells per row
+  // The central cell is a Mach disk with low velocity; its observed radiation
+  // is ignored, but it is an  important source of IC seed photons
+  int i = 1, j = 0, nrow, ncol, neven, ncell, jold;
+  for(nrow=-(NEND-1); nrow<=NEND-1; nrow++) {
+    ncol = 2*NEND-(abs(nrow)+1);
+    neven = ncol % 2;
+    ncol = ncol/2;
+    for(ncell=-ncol; ncell<=ncol; ncell++) {
+      if((ncell==0) && (nrow==0)) {
+        j=jcells;
+        xcell[j-1]=0.0;
+        ycell[j-1]=0.0;
+        rcell[j-1]=0.0;
+        cosph[j-1]=1.0;
+        sinph[j-1]=0.0;
+        j=jold;
+      }
+      else if((neven!=0) || (ncell!=0)) {
+        j = j + 1;
+        jold = j;
+        xcell[j-1] = 2.0*ncell*inp.rsize;
+        ycell[j-1] = nrow*SQRT3*inp.rsize;
+        rcell[j-1] = sqrt(xcell[j-1]*xcell[j-1]+ycell[j-1]*ycell[j-1]);
+        double zcol = rcell[j-1]/tanz;
+        imax[j-1] = 2.0*zcol/zsize;
+        if(imax[j-1] < 2)
+          imax[j-1] = 2;
+        // nouter[j-1] = approx. no. of cells between cell of interest and observer
+        nouter[j-1]=imax[j-1];
+        cosph[j-1]=xcell[j-1]/rcell[j-1];
+        sinph[j-1]=ycell[j-1]/rcell[j-1];
+        tanpsi[j-1]=rcell[j-1]/(zsvtex-zcol);
+        psi[j-1] = tan(tanpsi[j-1]);
+        cospsi[j-1] = cos(psi[j-1]);
+        sinpsi[j-1]=tanpsi[j-1]*cospsi[j-1];
+      }        
+    } // for(ncell=-ncol; ncell<=ncol; ncell++)
+  } //  for(nrow=(-NEND-1); nrow<=NEND-1)
+
+  double zrf=zshock, xrf=0.0;
+
+  // *** Set up Mach disk emission for earlier times ***
+  // Compute time delay (no. of time steps) between when plasma passes Mach disk
+  // and when it passes reference point of conical shock at column 30, in plasma frame
+  double zmd = zrf - zshock;
+  double idelmd = zmd/(zsize/common.betd);
+  betadx[0][jcells-1] = 0.0;
+  betady[0][jcells-1] = 0.0;
+  betadz[0][jcells-1] = 1.0/3.0;
+  betamd = betadz[0][jcells-1];
+  double gammd = 1.0/sqrt(1.0 - betamd*betamd);
+  double dopref = common.gamd/gammd;
+
+  i = 1;
 }

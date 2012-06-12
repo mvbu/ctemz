@@ -23,7 +23,7 @@ BlzSim::~BlzSim() {
 }
 
 /* Output/result parameter lc_sim must be of dimension BLZSIM_DIM_16384 */
-void BlzSim::psdsim(const int N, const float beta1, const float beta2, const float nu_break, const float t_incre1, float *lc_sim)
+void BlzSim::psdsim(const int N, const double beta1, const double beta2, const double nu_break, const double t_incre1, double *lc_sim)
 {
   // This code is ported from Fortran routine temz.f:psdsim() by R. Chatterjee
   double nu[BLZSIM_DIM16384],dat[BLZSIM_DIM32768],R[BLZSIM_DIM32768];
@@ -46,12 +46,11 @@ void BlzSim::psdsim(const int N, const float beta1, const float beta2, const flo
   for(j=1; j<=N/2; j++) {
     nu[j-1] = j*fac_norm/86400.;
     if(nu[j-1] <= nu_break) {
-      // (double) cast necessary on Mac OS X because pow(double, int) not available?? (WTH)
-      flux_s[j-1]=::pow(nu[j-1], (double)beta1);
+      flux_s[j-1]=::pow(nu[j-1], beta1);
       datareal[j-1]=sqrt((double)(fac_norm2*0.5*flux_s[j-1]))*R[j-1];
     }
     else {
-      flux_s[j-1]=(::pow(nu[j-1], (double)beta2)) * ((::pow(nu_break, (double)beta1))/(::pow(nu_break, (double)beta2)));
+      flux_s[j-1]=(::pow(nu[j-1], beta2)) * ((::pow(nu_break, beta1))/(::pow(nu_break, beta2)));
       datareal[j-1] = sqrt((double)(fac_norm2*0.5*flux_s[j-1]))*R[j-1];
     }
   }
@@ -779,7 +778,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     betau[D1141],gammau[D1141],
     nu[D68],bx[D100][D1141],by[D100][D1141],bz[D100][D1141],
     delta[D100][D1141],enofe[D100][D1141][D44],fsync[D68],
-    ididg[D1141],spsd[16384],
+    ididg[D1141],spsd[BLZSIM_DIM16384],
     gcnt[D44],igcnt[D44],fsynmd[D68][D4000],nouter[D1140],
     fsscmd[D68][D4000],fmdall[D68],deltmd[D1140],dmd[D1140],
     tlf[100],betamx[D1140],betamy[D1140],
@@ -914,8 +913,8 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     double dphi2=atan(inp.dtdist/zdist);
     dth1 = dphi1 + dphi2;
     dth2 = dphi2 - dphi1;
-    common.dcsth1 = -(cos(dth1) - betad[i-1][jcells-1])/(1.0-betad[i-1][jcells-1] * cos(dth1));
-    common.dcsth2 = -(cos(dth2) - betad[i-1][jcells-1])/(1.0-betad[i-1][jcells-1] * cos(dth2));
+    common.dcsth1 = -(cos(dth1) - common.betd)/(1.0-common.betd * cos(dth1));
+    common.dcsth2 = -(cos(dth2) - common.betd)/(1.0-common.betd * cos(dth2));
     common.dsnth1 = sqrt(1.0 - common.dcsth1*common.dcsth1);
     common.dsnth2 = sqrt(1.0 - common.dcsth2*common.dcsth2);
     // Doppler factor of dust torus emission in frame of cells
@@ -952,4 +951,15 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   }
   
   gmratl = log10(gmaxmx/inp.gmin)/40.0;
+
+  double tinc = dtime;
+  psdsim(BLZSIM_DIM16384, -inp.psdslp, -inp.psdslp, 1.0, tinc, spsd); 
+  
+  double psdsum = 0.0;
+  int ip;
+  for(ip=1; ip<=BLZSIM_DIM16384; ip++) {
+    double spexp=1.0/(0.5*expon+1.0);
+    spsd[ip-1] = ::pow(abs(spsd[ip-1]), spexp);
+    psdsum = psdsum + (spsd[ip-1]/(double)BLZSIM_DIM16384);
+  }
 }

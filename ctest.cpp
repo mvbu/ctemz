@@ -83,7 +83,7 @@ int main()
 	// DUMMY COMMENT
 
   // Now test psdsim
-  float spsd[BLZSIM_DIM16384]; // where to put the output light curve
+  double spsd[BLZSIM_DIM16384]; // where to put the output light curve
   float psdslp = 1.7; // psd slope
   float tinc= 1.93893981; 
   BlzSim* pSim = new BlzSim();

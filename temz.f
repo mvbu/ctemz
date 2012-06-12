@@ -58,6 +58,7 @@ c      common/ci/i,j
       common/cssc/snu,ssseed,nuhi
       common/cdist/ggam,edist
       common/cseed/dustnu,dusti
+      ! Added by me (MSV, June 2012) for test mode ("generates" the same sequence of rand numbers every time)
       common/cfixedrand/fixedRandFlag, fixedRandFileOpened, fixedRandData, fixedRandCounter
       fixedRandFlag = 1
       open (2,iostat=ios, err=9000, file='temzinp.txt',
@@ -192,10 +193,8 @@ c     Calculate min & max angles of dust torus in plasma frame
       dphi2=atan(dtdist/zdist)
       dth1=dphi1+dphi2
       dth2=dphi2-dphi1
-      dcsth1=-(dcos(dth1)-betad(i,jcells))/(1.0d0-betad(i,jcells)*
-     ,   dcos(dth1))
-      dcsth2=-(dcos(dth2)-betad(i,jcells))/(1.0d0-betad(i,jcells)*
-     ,   dcos(dth2))
+      dcsth1=-(dcos(dth1)-betd)/(1.0d0-betd*dcos(dth1))
+      dcsth2=-(dcos(dth2)-betd)/(1.0d0-betd*dcos(dth2))
       dsnth1=dsqrt(1.0d0-dcsth1**2)
       dsnth2=dsqrt(1.0d0-dcsth2**2)
 c     Doppler factor of dust torus emission in frame of cells

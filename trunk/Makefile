@@ -1,6 +1,6 @@
 # Automated Makefile
 CC = g++
-CFLAGS = -g -Wall # -O2
+CFLAGS = -g # -Wall -O2
 COMPILE = $(CC) $(CFLAGS) -c
 OBJFILES := $(patsubst %.cpp,%.o,$(wildcard *.cpp))
 
@@ -45,6 +45,10 @@ test: test.f
 randtest: randtest.f
 	$(FCOMPILER) $(FCOMPILER_OPTS) -o randtest randtest.f
 
-# Copy stuff to Dropbox directory
+# Work in progress to Dropbox directory. Should then be synced to the remote Dropbox by Dropbox daemon.
 dropbox:
 	cp *.cpp *.f *.h Makefile ~/Dropbox/dev/jet
+
+# Copy the CVS repository to Dropbox directory. Should then be synced to the remote Dropbox by Dropbox daemon.
+cvsbackup:
+	cp -f -r ~/CVSROOT ~/Dropbox/dev

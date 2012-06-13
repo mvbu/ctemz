@@ -284,7 +284,6 @@ c     Set parameters of each cell at initial time
 c     There are icells rows of cells, with jcells cells per row
 c     The central cell is a Mach disk with low velocity; its observed radiation
 c      is ignored, but it is an  important source of IC seed photons
-      write(3,6666)
       write(4,6667)
       write(5,6668)
       i=1
@@ -349,6 +348,8 @@ c     ,     1p5e10.2)
       betadz(1,jcells)=1.0d0/3.0d0
       betamd=betadz(1,jcells)
       gammd=1.0d0/dsqrt(1.0d0-betamd**2)
+      betad(1,jcells)=betamd
+      gammad(1,jcells)=gammd
       dopref=gamd/gammd
 c     Determine B vector of MD assuming random magnetic field orientation
       i=1
@@ -382,11 +383,9 @@ cc      write(5,9333)md,idelay,dstart,idelmd,bavg,n0mean
       j=jcells
       n0(i,j)=etac*n0mean
       n0prev=etac*n0prev
-      bx(i,j)=bavg*(gamup/gammad(i,jcells))*sinthb*cosphb*(etac-
-     ,  (etac-1.0)*(cosz*cosph(j))**2)
-      by(i,j)=bavg*(gamup/gammad(i,jcells))*sinthb*sinphb*(etac-
-     ,  (etac-1.0)*(cosz*sinph(j))**2)
-      bz(i,j)=bavg*costhb*(etac*cosz**2+sinz**2)
+      bx(i,j)=bavg*sinthb*cosphb*etac
+      by(i,j)=bavg*sinthb*sinphb*etac
+      bz(i,j)=bavg*costhb
       bfield(j)=sqrt(bx(i,j)**2+by(i,j)**2+bz(i,j)**2)
       bfld=bfield(j)
       bmdx(md)=bx(i,j)
@@ -461,6 +460,8 @@ c     Divide by delt since integral is over time
   124 continue
       bperpp=bfld*(2.0/3.0)
       nuhi=1
+c      write(5,9911)md,j,dopref,bperpp,phi,cosphb,sinphb,
+c     ,  bmdx(md),bmdy(md),bmdz(md),gammad(i,j)
       do 125 inu=1,40
       alfmdc(inu,md)=10.0
       fsscmd(inu,md)=0.0
@@ -499,8 +500,8 @@ c     ,   absorb(inu,md),alphmd(inu,md),bperpp,dopref
       fq1=restnu
       fsyn1=fsynmd(inu,md)
       ssseed(inu)=fsync(inu)
-cc      write(5,9333)md,it,i,j,restnu,ssseed(inu),
-cc     ,  fsynmd(inu,md),alphmd(inu,md)
+c      write(5,9911)md,j,dopref,bperpp,n0(i,j),ggam(44),edist(44),
+c     ,  restnu,ssseed(inu),fsynmd(inu,md),fsscmd(inu,md)
   125 continue
       do 128 inu=41,68
       snu(inu)=nu(inu)
@@ -513,8 +514,8 @@ cc     ,  fsynmd(inu,md),alphmd(inu,md)
 c     Calculate the SSC emission from the Mach disk for reference
 c       relative Doppler factor dopref
       fq1=0.98*nu(7)
-      betd=betad(1,jcells)
-      gamd=gammad(1,jcells)
+      betd=betamd
+      gamd=gammd
       fssc1=ssc(fq1/dopref)*dopref**2
       do 129 inu=7,68
       restnu=nu(inu)
@@ -522,8 +523,8 @@ c       relative Doppler factor dopref
       alfmdc(inu,md)=10.0
       if(fsscmd(inu,md).gt.0.0.and.fssc1.gt.0.0)
      ,alfmdc(inu,md)=-alog10(fsscmd(inu,md)/fssc1)/alog10(restnu/fq1)
-c      write(5,9333)md,it,i,j,restnu,ssseed(inu),fsscmd(inu,md),
-c     ,  alfmdc(inu,md),bperpp,dopref
+c      write(5,9911)md,j,dopref,bfld,bperpp,n0(i,j),ggam(43),edist(43),
+c     ,  restnu,ssseed(inu),fsynmd(inu,md),fsscmd(inu,md)
       fq1=restnu
       fssc1=fsscmd(inu,md)
   129 continue
@@ -652,11 +653,9 @@ c     Calculate upstream B field component perpendicular to the shock front bprp
       go to 13
 c     Set field of plasma in central cell, which is a Mach disk
    12 n0(i,j)=etac*n0mean
-      bx(i,j)=bavg*(gamup/gammad(i,j))*sinthb*cosphb*(etac-
-     ,  (etac-1.0)*(cosz*cosph(j))**2)
-      by(i,j)=bavg*(gamup/gammad(i,j))*sinthb*sinphb*(etac-
-     ,  (etac-1.0)*(cosz*sinph(j))**2)
-      bz(i,j)=bavg*costhb*(etac*cosz**2+sinz**2)
+      bx(i,j)=bavg*sinthb*cosphb*etac
+      by(i,j)=bavg*sinthb*sinphb*etac
+      bz(i,j)=bavg*costhb
       bfield(j)=sqrt(bx(i,j)**2+by(i,j)**2+bz(i,j)**2)
       bfld=bfield(j)
       bmdx(md)=bx(i,j)
@@ -778,8 +777,8 @@ c     ,   absorb(inu,md),alphmd(inu,md),bperpp
 c     Calculate the SSC emission from the Mach disk for reference
 c       relative Doppler factor dopref
       fq1=0.98*nu(7)
-      betd=betad(1,jcells)
-      gamd=gammad(1,jcells)
+      betd=betamd
+      gamd=gammd
       fssc1=ssc(fq1/dopref)*dopref**2
       do 1129 inu=7,68
       restnu=nu(inu)
@@ -1103,11 +1102,7 @@ c     ,  ggam,edist,restnu,bperpp
       poldeg=(specin+1.0)/(specin+5.0/3.0)
       if(ssabs.gt.1.0)poldeg=3.0/(12.0*specin+19)
       fpol(i,j,inu)=poldeg*flsync(i,j,inu)
-      signbx=1.0
-      signby=1.0
-      if(bx(i,j).ne.0.0)signbx=bx(i,j)/abs(bx(i,j))
-      if(by(i,j).ne.0.0)signby=by(i,j)/abs(by(i,j))
-      pq(i,j,inu)=fpol(i,j,inu)*cos(2.0*chipol)*signbx*signby
+      pq(i,j,inu)=fpol(i,j,inu)*cos(2.0*chipol)
       pu(i,j,inu)=fpol(i,j,inu)*sin(2.0*chipol)
 c      write(5,9996)bfield(j),bx(i,j),by(i,j),bz(i,j),
 c     ,    clos,slos,chipol,fpol(i,j,inu),pq(i,j,inu),
@@ -1601,11 +1596,7 @@ c      if(tauexp.le.15.0)fsync2(inu)=fsync2(inu)/exp(tauexp)
       poldeg=(specin+1.0)/(specin+5.0/3.0)
       if(ssabs.gt.1.0)poldeg=3.0/(12.0*specin+19)
       fpol(i,j,inu)=poldeg*flsync(i,j,inu)
-      signbx=1.0
-      signby=1.0
-      if(bx(i,j).ne.0.0)signbx=bx(i,j)/abs(bx(i,j))
-      if(by(i,j).ne.0.0)signby=by(i,j)/abs(by(i,j))
-      pq(i,j,inu)=fpol(i,j,inu)*cos(2.0*chipol)*signbx*signby
+      pq(i,j,inu)=fpol(i,j,inu)*cos(2.0*chipol)
       pu(i,j,inu)=fpol(i,j,inu)*sin(2.0*chipol)
 c      write(5,9996)bfield(j),bx(i,j),by(i,j),bz(i,j),
 c     ,    clos,slos,chipol,fpol(i,j,inu),pq(i,j,inu),

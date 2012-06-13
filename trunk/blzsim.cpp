@@ -1021,6 +1021,8 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   betadz[0][jcells-1] = 1.0/3.0;
   betamd = betadz[0][jcells-1];
   double gammd = 1.0/sqrt(1.0 - betamd*betamd);
+  betad[0][jcells-1] = betamd;
+  gammad[0][jcells-1] = gammd;
   double dopref = common.gamd/gammd;
 
   i = 1;

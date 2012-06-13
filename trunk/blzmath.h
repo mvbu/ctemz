@@ -46,6 +46,17 @@ class BlzMath {
   // pObject is passed to (*pFunction)(). pFunction will know what kind of object it is.
   static double qg5(double a, double b, QgFunctionPtr pFunction, void *pObject);
 
+  // Magnitude from 3 components
+  static double mag(double x, double y, double z);
+  // Magnitude squared from 3 components
+  static double magSquared(double x, double y, double z);
+
+  // 2- and 4-component versions of above
+  static double mag(double x, double y);
+  static double magSquared(double x, double y);
+  static double mag(double x, double y, double z, double w);
+  static double magSquared(double x, double y, double z, double w);
+
  private:
   BlzMath();
   ~BlzMath();

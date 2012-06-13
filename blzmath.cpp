@@ -95,5 +95,12 @@ double BlzMath::qg5(double a, double b, QgFunctionPtr pFunction, void *pObject)
   return retVal;
 }
 
+double BlzMath::mag(double x, double y, double z) {  return sqrt(magSquared(x,y,z)); }
+double BlzMath::magSquared(double x, double y, double z){ return x*x + y*y + z*z; }
+double BlzMath::mag(double x, double y) {  return sqrt(magSquared(x,y)); }
+double BlzMath::magSquared(double x, double y){ return x*x + y*y; }
+double BlzMath::mag(double x, double y, double z, double w) {  return sqrt(magSquared(x,y,z, w)); }
+double BlzMath::magSquared(double x, double y, double z, double w){ return x*x + y*y + z*z + w*w; }
+
 
 

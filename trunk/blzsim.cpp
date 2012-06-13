@@ -1026,4 +1026,80 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   double dopref = common.gamd/gammd;
 
   i = 1;
+  int md;
+  double xrand, phi;
+
+  // Determine B vector of MD assuming random magnetic field orientation
+  for(md=1; md<=mdmax-1; md++) {
+    xrand = randObj.rand(0);
+    phi = TWOPI * xrand;
+    xrand = randObj.rand(0);
+    double costh = 2.0*(xrand-0.5);
+    xrand = randObj.rand(0);
+    double sign = xrand - 0.5;
+    sign = sign/abs(sign);
+    double thetab = sign*acos(costh);
+    double sinthb=sin(thetab);
+    double costhb=cos(thetab);
+    double sinphb=sin(phi);
+    double cosphb=cos(phi);
+    // Compute B field components downstream of Mach disk shock
+    int idelay = dstart-mdmax+md-idelmd;
+    //if((idelay<1) || (idelay>(BLZSIM_DIM16384-ip0)))
+    //  write(5,9222)idelay,i,j,md,ip0,zshock,zcell(i,j);
+    double bavg = inp.bave*sqrt(spsd[idelay+ip0-1]);
+    n0mean = n0ave*spsd[idelay+ip0-1];
+    double n0prev = n0ave*spsd[idelay+ip0-2];
+    j = jcells;
+    n0[i-1][j-1] = etac*n0mean;
+    n0prev = etac * n0prev;
+    bx[i-1][j-1] = bavg*sinthb*cosphb*etac;
+    by[i-1][j-1] = bavg*sinthb*sinphb*etac;
+    bz[i-1][j-1] = bavg*costhb;
+    bfield[j-1] = BlzMath::mag(bx[i-1][j-1], by[i-1][j-1], bz[i-1][j-1]);
+    common.bfld = bfield[j-1];
+    bmdx[md-1] = bx[i-1][j-1];
+    bmdy[md-1] = by[i-1][j-1];
+    bmdz[md-1] = bz[i-1][j-1];
+    bmdtot[md-1] = common.bfld;
+    // Calculate the initial maximum electron energy in the Mach disk
+    bup = bavg*BlzMath::mag(costhb, gamup*sinthb);
+    bprp = bavg*sqrt(::pow(costhb*sinz*sinz,2)+::pow(gamup*sinthb*cosz*cosz, 2) *
+                     (::pow(cosphb*cosph[j-1]*cosph[j-1],2)+::pow(sinphb*sinph[j-1]*sinph[j-1], 2)));
+    // Next line relates this to direction of B field relative to shock
+    //  gmax0[i-1][j-1]=gmaxmn*(bprp/bup)**(2.0*pexp)
+    // Next 3 lines assume a power-law distribution of gmax0, unrelated
+    //     to direction of B field
+    // See http://mathworld.wolfram.com/RandomNumber.html for choosing
+    //  random numbers from a power-law distribution
+    //  xrand=randproto(0)
+    //  if(pexp.eq.0.0)gmax0[i-1][j-1]=gmaxmx
+    //  if(pexp.lt.0.0)gmax0[i-1][j-1]=((gmaxmx**pexp-gmaxmn**pexp)*xrand+
+    // ,  gmaxmn**pexp)**(1.0/pexp)
+    gmax0[i-1][j-1] = 0.2*inp.gmaxmn;
+    double gminmd = 0.15*inp.gmaxmn;
+    // Calculate energy distribution in the Mach disk cell
+    // Compute energy density of photons in Mach disk, time delayed by 1 step
+    // Ignore photons from dust torus since beaming is small in Mach disk
+    int mdi = md-1;
+    if(mdi <= 0)
+      mdi = 1;
+    // Value of SSC photon density for fast cooling case, from Sari and Esen (2001)
+    double uphmd = bmdtot[mdi-1]*bmdtot[mdi-1]/(8.0*PI)*(sqrt(1.0+4.0*inp.uratio)-1.0)/2.0;
+    ustob = 8.0*PI*uphmd/(bfield[j-1]*bfield[j-1]);
+    tlfact = CC2*bfield[j-1]*bfield[j-1]*(1.0+ustob);
+    // iend is the last slice of cells with energetic electrons
+    int iend = i;
+    delt = zsize*SEC_PER_YEAR*3.26/(gammd*betamd);
+    gamb = gmax0[i-1][j-1]/(1.0+tlfact*gmax0[i-1][j-1]*delt);
+    if(gamb < 1.0) gamb = 1.0;
+    glow = gminmd/(1.0+tlfact*gminmd*delt);
+    if(glow < 1.0) glow = 1.0;
+    // Use 0.99 instead of 1 to avoid singularity of N(gamma) at gmax0
+    inp.gmrat = 0.99*gmax0[i-1][j-1]/gminmd; // ick, Fortran is modifying the input variable
+    gmratl = log10(inp.gmrat)/32.0; // TODO: copy inp.gmrat to a different variable, maybe common.gmrat
+    gmratm = log10(gminmd/glow)/11.0;
+    int ibreak=0;
+    if(gamb <= glow) ibreak = 1;
+  }
 }

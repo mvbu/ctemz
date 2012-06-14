@@ -1101,5 +1101,41 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     gmratm = log10(gminmd/glow)/11.0;
     int ibreak=0;
     if(gamb <= glow) ibreak = 1;
+
+    for(ie=1; ie<=D44; ie++) {
+      egam[i-1][j-1][ie-1] = gminmd*::pow(10.0, gmratl*(ie-12));
+      if(ie < 12)
+        egam[i-1][j-1][ie-1] = glow*::pow(10.0, gmratm*(ie-1));
+      if(ie == 1)
+        egam[i-1][j-1][ie-1] = glow+0.2*(glow*::pow(10.0, gmratm)-glow);
+      if((ibreak != 1) && (egam[i-1][j-1][ie-1] >= gamb)) {
+        egam[i-1][j-1][ie-1] = gamb;
+        ibreak = 1;
+      }
+      common.ggam[ie-1] = egam[i-1][j-1][ie-1];
+      tloss = (gmax0[i-1][j-1] - common.ggam[ie-1])/(tlfact*common.ggam[ie-1]*gmax0[i-1][j-1]);
+      t1 = (gminmd-common.ggam[ie-1])/(tlfact*common.ggam[ie-1]*gminmd);
+      t2 = min(tloss,delt);
+      tlmin = delt-(gminmd-common.ggam[ie-1])/(tlfact*gminmd*common.ggam[ie-1]);
+      enofe[i-1][j-1][ie-1] = 0.0;
+      eterm1 =1.0 - common.ggam[ie-1]*t1*tlfact;
+      eterm2 =1.0 - common.ggam[ie-1]*t2*tlfact;
+      if((eterm1>=0.0) && (eterm2>=0.0)) {
+        enofe[i-1][j-1][ie-1] = n0[i-1][j-1]/((sen-1.0)*tlfact*::pow(common.ggam[ie-1],sen+1.0))
+          * (1.0 - ::pow(eterm2, sen-1.0));
+      }
+      if(ie<12) {
+        enofe[i-1][j-1][ie-1] = n0[i-1][j-1]/((sen-1.0)*tlfact*::pow(common.ggam[ie-1], sen+1.0))*
+          (::pow(eterm1, sen-1.0) - ::pow(eterm2, sen-1.0));
+      }
+      //Divide by delt since integral is over time
+      enofe[i-1][j-1][ie-1] = enofe[i-1][j-1][ie-1]/delt;
+      if(enofe[i-1][j-1][ie-1]<0.0)
+        enofe[i-1][j-1][ie-1] = 0.0;
+      common.edist[ie-1] = enofe[i-1][j-1][ie-1];
+    } // for(ie=1; ie<=D44; ie++)
+    
+    common.bperpp = common.bfld * (2.0/3.0);
+    int nuhi = 1;
   }
 }

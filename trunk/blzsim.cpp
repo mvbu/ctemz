@@ -844,7 +844,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     igcnt[ie-1] = 0;
   }
   const double FGEOM = 1.33;
-  const double EMFACT = 3.74e-23;
+  const double EMFACT = 3.74e-23; // not sure what this is, but code uses it (MSV June 2012)
   const double C6GAM = 8.2e-21;
   const double AMJY = 1.03-26;
   common.zred1 = 1.0 + inp.zred;
@@ -1136,6 +1136,88 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     } // for(ie=1; ie<=D44; ie++)
     
     common.bperpp = common.bfld * (2.0/3.0);
-    int nuhi = 1;
-  }
+    double restnu, ssabs, sstau, srcfn, fq1, fsyn1, absrb1;
+    for(inu=1; inu<=40; inu++) { // TODO: what is the significance of 40??
+      alfmdc[inu-1][md-1] = 10.0;
+      fsscmd[inu-1][md-1] = 0.0;
+      common.snu[inu-1] = nu[inu-1];
+      restnu = nu[inu-1];
+      // Synchrotron mean intensity for SSC calculation inside Mach disk
+      ssabs = 1.02e4*(sen+2.0)*akapnu(restnu)*common.bperpp/(nu[inu-1]*nu[inu-1]);
+      sstau = ssabs*CM_PER_PARSEC*inp.rsize*svmd;
+      fsync[inu-1]=ajnu(restnu)*common.bperpp*inp.rsize*svmd*(EMFACT*CM_PER_PARSEC);
+      if(fsync[inu-1] > 0.0) 
+        common.nuhi=inu;
+      if(sstau >= 0.01) {
+        srcfn = fsync[inu-1]/sstau;
+        if(sstau > 5.0)
+          fsync[inu-1] = srcfn;
+        if((sstau>0.01) && (sstau<=5.0))
+          fsync[inu-1]= srcfn*(1.0-exp(-sstau));
+      }
+      // Now calculate synchrotron emission seen by other cells
+      // Need to add a lower frequency to get spectral index of nu(1)
+      if(inu <= 1) {
+        fq1 = 0.98*nu[0];
+        fsyn1 = ajnu(fq1/dopref)*dopref*dopref*common.bperpp;
+        absrb1 = 1.02e4*(sen+2.0)*akapnu(fq1/dopref)*common.bperpp/::pow(fq1/dopref, 2);
+      }
+      fsynmd[inu-1][md-1] = ajnu(restnu/dopref)*dopref*dopref*common.bperpp;
+      absorb[inu-1][md-1] = 1.02e4*(sen+2.0)*akapnu(restnu/dopref)*common.bperpp/(nu[inu-1]*nu[inu-1]);
+      alphmd[inu-1][md-1] = 10.0;
+      abexmd[inu-1][md-1] = 1.7;
+      if((fsynmd[inu-1][md-1] > 0.0) && (fsyn1 > 0.0))
+        alphmd[inu-1][md-1] = -log10(fsynmd[inu-1][md-1]/fsyn1)/log10(restnu/fq1);
+      if((absorb[inu-1][md-1] > 0.0) && (absrb1 > 0.0))
+        abexmd[inu-1][md-1] = -log10(fsynmd[inu-1][md-1]/fsyn1)/log10(restnu/fq1);
+      // write(5,9994)md,inu,restnu,fsync[inu-1],(restnu/dopref),
+      // ,   fsynmd[inu-1][md-1],sstau,
+      // ,   absorb[inu-1][md-1],alphmd[inu-1][md-1],bperpp,dopref
+      fq1 = restnu;
+      fsyn1 = fsynmd[inu-1][md-1];
+      common.ssseed[inu-1] = fsync[inu-1];
+      // write(5,9911)md,j,dopref,bperpp,n0(i,j),ggam(44),edist(44),
+      // ,  restnu,ssseed[inu-1],fsynmd[inu-1][md-1],fsscmd[inu-1][md-1]
+    } // for(inu=1; inu<=40; inu++)
+
+    for(inu=41; inu<=D68; inu++) {
+      common.snu[inu-1] = nu[inu-1];
+      alphmd[inu-1][md-1] = 10.0;
+      common.ssseed[inu-1] = 0.0;
+      fsync[inu-1] = 0.0;
+      fsynmd[inu-1][md-1] = 0.0;
+      absorb[inu-1][md-1] = 0.0;
+    }
+
+    // Calculate the SSC emission from the Mach disk for reference relative Doppler factor dopref
+    fq1 = 0.98*nu[6];
+    common.betd = betamd;
+    common.gamd = gammd;
+    double dopref2 = dopref*dopref;
+    double fssc1 = ssc(fq1/dopref)*dopref2;
+    for(inu=7; inu<=D68; inu++) { // why 7?
+      restnu = nu[inu-1];
+      fsscmd[inu-1][md-1] = ssc(restnu/dopref)*dopref2;
+      alfmdc[inu-1][md-1] = 10.0;
+      if((fsscmd[inu-1][md-1] > 0.0) && (fssc1 > 0.0))
+        alfmdc[inu-1][md-1] = -log10(fsscmd[inu-1][md-1]/fssc1)/log10(restnu/fq1);
+      // write(5,9911)md,j,dopref,bfld,bperpp,n0(i,j),ggam(43),edist(43),
+      // ,  restnu,ssseed(inu),fsynmd[inu-1][md-1],fsscmd[inu-1][md-1]
+      fq1 = restnu;
+      fssc1 = fsscmd[inu-1][md-1];
+    }
+  } // for(md=1; md<=mdmax-1; md++)
+
+  //
+  //     *** End Mach disk set-up ***
+  // 
+
+  i = 1;
+  int ncells = 0;
+  it = it + 1;
+  md = mdmax;
+
+  //
+  // Start loop over all cells in first layer to set up physical parameters
+  //
 }

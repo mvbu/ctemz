@@ -1002,7 +1002,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         cosph[j-1]=xcell[j-1]/rcell[j-1];
         sinph[j-1]=ycell[j-1]/rcell[j-1];
         tanpsi[j-1]=rcell[j-1]/(zsvtex-zcol);
-        psi[j-1] = tan(tanpsi[j-1]);
+        psi[j-1] = atan(tanpsi[j-1]);
         cospsi[j-1] = cos(psi[j-1]);
         sinpsi[j-1]=tanpsi[j-1]*cospsi[j-1];
       }        

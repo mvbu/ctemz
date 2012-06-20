@@ -317,7 +317,7 @@ c     nouter(j) = approx. no. of cells between cell of interest and observer
       cosph(j)=xcell(j)/rcell(j)
       sinph(j)=ycell(j)/rcell(j)
       tanpsi(j)=rcell(j)/(zsvtex-zcol)
-      psi(j)=dtan(tanpsi(j))
+      psi(j)=datan(tanpsi(j))
       cospsi(j)=dcos(psi(j))
       sinpsi(j)=tanpsi(j)*cospsi(j)
   797 continue

@@ -1220,4 +1220,84 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   //
   // Start loop over all cells in first layer to set up physical parameters
   //
+  for(j=1; j<=jcells; j++) {
+    for(inu=1; inu<=D68; inu++) {
+      fsynmd[inu-1][md-1] = 0.0;
+      fsscmd[inu-1][md-1] = 0.0;
+      fmdall[inu-1] = 0.0;
+    }
+
+    ididg[j-1] = 0;
+    zcell[i-1][j-1] = zshock - (rcell[j-1]-inp.rsize)/tanz;
+    int idelay = dstart + it - 1 + ((zrf-zcell[i-1][j-1]) +(xrf-xcell[j-1])*slos/(betad[0][0]*clos))/zsize;
+    double bavg = inp.bave * sqrt(spsd[idelay+ip0-1]);
+    n0mean = n0ave*spsd[idelay+ip0-1];
+    // if(idelay.gt.(dstart+40).and.idelay.lt.(dstart+51));
+    // ,  n0mean=10.0*n0mean
+    //  write(5,9333)it,idelay,i,j,zlos,bavg,n0mean
+    phcell[j-1] = atan2(sinph[j-1],cosph[j-1]);
+    // Velocity vector of laminar component of pre-shock flow
+    double betupx = inp.betaup*cosph[j-1]*sinpsi[j-1];
+    double betupy = inp.betaup*sinph[j-1]*sinpsi[j-1];
+    double betupz = inp.betaup*cospsi[j-1];
+    // Velocity vector of the turbulent component of pre-shocked plasma
+    phi = TWOPI*randObj.rand(0);
+    double costh = 2.0*(randObj.rand(0)-0.5);
+    double sign = randObj.rand(0)-0.5;
+    sign = sign/abs(sign);
+    double betaup2 = inp.betaup*inp.betaup;
+    double thetat = sign*acos(costh);
+    double sintht = sin(thetat);
+    double costht = cos(thetat);
+    double sinpht = sin(phi);
+    double cospht = cos(phi);
+    double betatx = inp.betat*cospht*sintht;
+    double betaty = inp.betat*sinpht*sintht;
+    double betatz = inp.betat*costht;
+    double dotprd = betupx*betatx+betupy*betaty+betupz*betatz;
+    double btparx = dotprd*betupx/betaup2;
+    double btpary = dotprd*betupy/betaup2;
+    double btparz = dotprd*betupz/betaup2;
+    double btprpx = betatx-btparx;
+    double btprpy = betaty-btpary;
+    double btprpz = betatz-btparz;
+    // Velocity vector of the pre-shock plasma including turbulent component
+    double gamup2 = gamup*gamup;
+    betaux[j-1] = (betupx+btparx+btprpx/gamup2)/(1.0+dotprd);
+    betauy[j-1] = (betupy+btpary+btprpy/gamup2)/(1.0+dotprd);
+    betauz[j-1] = (betupz+btparz+btprpz/gamup2)/(1.0+dotprd);
+    betau[j-1] = BlzMath::mag(betaux[j-1], betauy[j-1], betauz[j-1]);
+    gammau[j-1] = 1.0/sqrt(1.0-betau[j-1]*betau[j-1]);
+    // Shock compression factor in terms of upstream speed and angle of shock zeta From Cawthorne & Cobb (1990)
+    double sinzps = sin(zeta+psi[j-1]);
+    double coszps = cos(zeta+psi[j-1]);
+    double tanzps = sinzps/coszps;
+    double eta = gammau[j-1]*betau[j-1]*sinzps*sqrt((8.0*::pow(betau[j-1]*sinzps, 2)-1.0/(gammau[j-1]*gammau[j-1]))/(1.0-::pow(betau[j-1]*coszps,2)));
+    //  Deflection angle of velocity vector crossing shock, in rest frame of shock
+    tanxi = (tanzps*tanzps*(3.0*betau[j-1]*betau[j-1]-1.0)-1.0/(gammau[j-1]*gammau[j-1]))/(tanzps*(tanzps*tanzps+1.0+2.0*betau[j-1]*betau[j-1]));
+    xi = atan(tanxi);
+    // Velocity vector downstream of shock
+    double cszp2=coszps*coszps;
+    betad[i-1][j-1] = sqrt(::pow(1.0-betau[j-1]*betau[j-1]*cszp2, 2)+9.0*::pow(betau[j-1],4)*cszp2*(1.0-cszp2))/(3.0*betau[j-1]*sqrt(1.0-cszp2));
+    gammad[i-1][j-1] = 1.0/sqrt(1.0-betad[i-1][j-1]*betad[i-1][j-1]);
+    double sinpsx = sin(psi[j-1]-xi);
+    double cospsx = cos(psi[j-1]-xi);
+    betadx[i-1][j-1] = betad[i-1][j-1]*cosph[j-1]*sinpsx;
+    betady[i-1][j-1] = betad[i-1][j-1]*sinph[j-1]*sinpsx;
+    betadz[i-1][j-1] = betad[i-1][j-1]*cospsx;
+    // Determine B vector of cell assuming random magnetic field orientation
+    xrand = randObj.rand(0);
+    phi = TWOPI * xrand;
+    xrand = randObj.rand(0);
+    costh = 2.0*(xrand-0.5);
+    xrand = randObj.rand(0);
+    sign = xrand-0.5;
+    sign = sign/abs(sign);
+    double thetab = sign*acos(costh);
+    double sinthb = sin(thetab);
+    double costhb = cos(thetab);
+    double sinphb = sin(phi);
+    double cosphb = cos(phi);
+
+  }
 }

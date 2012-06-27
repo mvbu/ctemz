@@ -137,6 +137,11 @@ class BlzLog {
 	}
 
 	template <class T>
+  static void warnScalar(string name, T scalar) {
+		outputScalar(WARN, name, scalar);
+	}
+
+	template <class T>
   static void errorScalar(string name, T scalar) {
 		outputScalar(ERROR, name, scalar);
 	}

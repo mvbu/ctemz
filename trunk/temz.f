@@ -34,7 +34,7 @@ c     polc(100,1140,35,250),pac(100,1140,35,250),pqcum(35),pucum(35),
      , phots(68),phalph(68),icelmx(1141),imax(1141),seedpk(110),
      , abexmd(68,4000),psi(1140),sinpsi(1140),cospsi(1140),
      , tanpsi(1140)
-      character*10 dumdum
+      character*10 dumdum, fstat
       real*8 pol,pqcum,pucum,pq,pu,pmean,polc,ai2,
      ,  pcum,tanv0,cosv0,betaup,gamup,beta,sinz,cosz,phcell,
      ,  cosph,sinph,thlos,betau,gammau,opang,tanop,cosop,sinop,
@@ -61,14 +61,18 @@ c      common/ci/i,j
       ! Added by me (MSV, June 2012) for test mode ("generates" the same sequence of rand numbers every time)
       common/cfixedrand/fixedRandFlag, fixedRandFileOpened, fixedRandData, fixedRandCounter
       fixedRandFlag = 1
+      fstat = 'new'
+      if(fixedRandFlag.ne.0) then
+         fstat = 'replace'
+      end if
       open (2,iostat=ios, err=9000, file='temzinp.txt',
      ,   status='old')
       open (3,iostat=ios, err=9000, file='temzspec.txt',
-     , status='new')
+     , status=fstat)
       open (4,iostat=ios, err=9000, file='temzlc.txt',
-     , status='new')
+     , status=fstat)
       open (5,iostat=ios, err=9000, file='temzpol.txt',
-     , status='new')
+     , status=fstat)
 c     Input file format: 1st line characters, then values of parameters,
 c       one per line
       read(2,9111)dumdum, zred, dgpc, alpha, p, bave, psdslp,
@@ -169,7 +173,7 @@ c     Time step in observer's frame in days
       dtfact=(1.0d0-betd*clos)/(betd*clos)
       dtime=1190.0*zsize*dtfact*zred1
       !itlast=2000.0/dtime
-      itlast=20.0/dtime
+      itlast=4.0/dtime
       mdrang=0.5*(1.0/dtfact+1.0)
 c     Distance of shock from axis and apex of conical jet
       tanop=dtan(opang)
@@ -1406,7 +1410,7 @@ c
      ,   go to 1145
 c     Synchrotron mean intensity for inverse Compton calculation
       ssabs=1.02e4*(sen+2.0)*akapnu(restnu)*bperpp/nu(inu)**2
-      ssabs=ssabs*parsec*zsize
+      sstau=ssabs*parsec*zsize
       ajofnu=fsynmd(inu,md)*bpcorr**(1.0+alphmd(inu,md))*
      ,  delcor**(2.0+alphmd(inu,md))
       ajofnu=ajofnu*zsize*(emfact*parsec)

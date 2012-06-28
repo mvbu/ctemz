@@ -30,7 +30,7 @@ int main (int argc, char* argv[])  {
   char *pLogLevel, *pDays, *pSpec, *pInputFile;
   char logLevelDefault[10] = "warn";
   char inputFileDefault[128] = "temzinp.txt";
-  char daysDefault[10] = "20";
+  char daysDefault[10] = "4";
   char specDefault[10] = "1";
   pLogLevel = logLevelDefault;
   pInputFile =  inputFileDefault;

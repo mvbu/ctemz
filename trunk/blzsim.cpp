@@ -840,6 +840,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   // gmaxmn,gmaxmx are the min/max values of initial gamma_max of
   // electrons in a cell
   double gmaxmx = inp.gmrat * inp.gmaxmn;
+  double gmrat_original = inp.gmrat;
   // gmin is the minimum value of initial gamma of electrons
   // 2p is the slope of the volume vs. initial gamma-max law over all cells,
   // V = V0*gamma_max**(-2p)
@@ -2431,6 +2432,18 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       pfLc = fopen (lcFile.c_str(),"w");
       pfPol = fopen (polFile.c_str(),"w");
       bOutputFilesCreated = true;
+    std:string hformat("#redshift: %5.3f  Distance in Gpc: %5.3f\n#spectral index: %4.2f  filling factor exponent: %4.2f\n#mean unshocked magnetic field: %4.2f  ratio of electron to mag. energy: %7.1E\n#cell radius (pc): %6.3f\n#Min. value of gamma_max: %8.1f  ratio of max. to min. values of gamma_max: %5.1f\n#gamma_min: %6.1f\n#upstream laminar velocity: %9.5fc  upstream turbulent velocity: %9.5fc\n#shock angle: %6.3f  viewing angle: %6.3f  opening angle: %6.3f\n#Dust temperature: %6.0f  distance of center of dust torus from black hole: %3.1f pc\n#radius of torus: %3.1f pc   Distance of shock from central engine: %5.2f pc\n#Energy density of seed photons in plasma frame: %10.5f\n#-Slope of PSD: %5.1f     Area of Mach disk relative to other cell%9.2E\n");
+      fprintf(pfSpec, hformat.c_str(), inp.zred, inp.dgpc, inp.alpha, inp.p, inp.bave, inp.uratio, inp.rsize, inp.gmaxmn,
+             gmrat_original, inp.gmin, inp.betaup, inp.betat, (inp.zeta), (thlos*DEG_PER_RAD), (inp.opang),
+             inp.tdust, inp.dtdist,inp.dtrad,inp.zdist0,useed[4],inp.psdslp,inp.vmd);
+      fprintf(pfLc, hformat.c_str(), inp.zred, inp.dgpc, inp.alpha, inp.p, inp.bave, inp.uratio, inp.rsize, inp.gmaxmn,
+             gmrat_original, inp.gmin, inp.betaup, inp.betat, (inp.zeta), (thlos*DEG_PER_RAD), (inp.opang),
+             inp.tdust, inp.dtdist,inp.dtrad,inp.zdist0,useed[4],inp.psdslp,inp.vmd);
+      fprintf(pfPol, hformat.c_str(), inp.zred, inp.dgpc, inp.alpha, inp.p, inp.bave, inp.uratio, inp.rsize, inp.gmaxmn,
+             gmrat_original, inp.gmin, inp.betaup, inp.betat, (inp.zeta), (thlos*DEG_PER_RAD), (inp.opang),
+             inp.tdust, inp.dtdist,inp.dtrad,inp.zdist0,useed[4],inp.psdslp,inp.vmd);
+      fprintf(pfLc,"#\n#   time(d)     freq(Hz)  F(Jy Hz)  alpha     F(mJy)    freq(Hz)  F(Jy Hz)  alpha     F(muJy)   freq(Hz)  F(Jy Hz)   alpha     F(nJy)    F(EC)     F(SSC)  no. of live cells\n");
+      fprintf(pfPol,"#\n#     time(d)  freq(Hz)   p(%%)   chi(deg)   freq      p      chi     freq       p      chi     freq      p       chi     freq       p      chi      freq       p      chi    freq       p       chi\n");
     }
 
     // 
@@ -2486,13 +2499,15 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       // 390 continue
       timeo=it*dtime;
       if(inu == 1) {
-        //write(3,9990) timeo;
+        //Fortran: write(3,9990) timeo;
+        fprintf(pfSpec, "\n\n\nTime = %8.2f days\n  freq(Hz))  Ftot(Jy Hz)  sp. index    Fsynch         F(EC)    F(SSC-MD)\n", timeo);
       }
       // Write SED to file
       tfsync=1.0e3*tsflux/nu[inu-1];
       if(inu == 20)
         tfsyno=1.0e3*tsflux/nu[inu-1];
-      //write(3,9996)nu[inu-1],tflux,alph,tfsync,tecfl,tsscfl
+      //write(3,9996)nu[inu-1],tflux,alph,tfsync,tecfl,tsscfl   9996 format(1p10e12.4)
+      fprintf(pfSpec,"%12.4E%12.4E%12.4E%12.4E%12.4E%12.4E\n",nu[inu-1],tflux,alph,tfsync,tecfl,tsscfl);
       if(inu == 19)tfl19=tflux; // 391, but no reference ot it 
       if(inu == 20)tfl20=tflux;
       if(inu == 21)tfl21=tflux;
@@ -2548,12 +2563,10 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
             it,timeo,nu[20-1],tfl20,alph20,tfsyno,nu[33-1],
             tfl33,alph33,tfcomx,nu[53-1],tfl53,alph53,tfcomp,tfec,
             tfssc,nu[11-1],tfl11,ncells);
-    // 9991 format(i5,f8.2,2x,1p16e10.2,1x,i5)
     // Write selected polarization data to file
-    // write(5,9988)it,timeo,nu(8),pdeg8,pang8,nu(12),pdeg12,pang12,
-    // ,  nu(16),pdeg16,pang16,nu(20),pdeg20,pang20,
-    // ,  nu(24),pdeg24,pang24,nu(28),pdeg28,pang28,
-    // ,  nu(32),pdeg32,pang32
+    //fprintf(pfPol,"%5d%8.2f  %10.2E%10.2E%10.2E%10.2E%10.2E%10.2E%10.2E%10.2E%10.2E%10.2E%10.2E%10.2E%10.2E%10.2E%10.2E%10.2E %5d\n",
+    //       it,timeo,nu[8-1],pdeg8,pang8,nu[12-1],pdeg12,pang12,nu[16-1],pdeg16,pang16,nu[20-1],pdeg20,pang20,
+    //       nu[24-1],pdeg24,pang24,nu[28-1],pdeg28,pang28,nu[32-1],pdeg32,pang32);
     
     BlzLog::warnScalar("Done with time loop ", it);
 
@@ -2599,6 +2612,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   fclose(pfSpec);
   fclose(pfLc);
   fclose(pfPol);
-  BlzLog::warn("Done closeing output files");
+  BlzLog::warn("Done closing output files");
 
 } // end run() method

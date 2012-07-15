@@ -769,12 +769,16 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   const int D110=110;
 
   bool bOutputFilesCreated = false;
+  bool bTestOut = true;
   FILE* pfSpec = NULL; // 3 ctemzspec.txt
   FILE* pfLc = NULL; // 4 ctemzlc.txt
   FILE* pfPol = NULL; // 5 ctemzpol.txt
+  FILE* pfTestOut = NULL; // 6 ctestout.txt
   std::string specFile("ctemzspec.txt");
   std::string lcFile("ctemzlc.txt");
   std::string polFile("ctemzpol.txt");
+  std::string testOutFile("ctestout.txt");
+  if(bTestOut) pfTestOut = fopen (testOutFile.c_str(),"w");
 
   static int itarra[3];
   static double pq[D100][D1140][D68], pu[D100][D1140][D68], fpol[D100][D1140][D68],
@@ -1009,7 +1013,8 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         ycell[j-1] = nrow*SQRT3*inp.rsize;
         rcell[j-1] = sqrt(xcell[j-1]*xcell[j-1]+ycell[j-1]*ycell[j-1]);
         double zcol = rcell[j-1]/tanz;
-        imax[j-1] = 2.0*zcol/zsize;
+        imax[j-1] = BlzMath::round<double>(2.0*zcol/zsize);
+        if(bTestOut) fprintf(pfTestOut, "j %5d imax %5d\n", j, imax[j-1]);
         if(imax[j-1] < 2)
           imax[j-1] = 2;
         // nouter[j-1] = approx. no. of cells between cell of interest and observer
@@ -1565,6 +1570,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 
     for(j=1; j<=(JCELLS-1); j++) { // do 100 j=1,JCELLS-1
       ncells++;
+      if(bTestOut) fprintf(pfTestOut, "ncells %8d j %5d\n", ncells, j);
       emisco = 0.0;
       ecflux = 0.0;
       zcell[i-1][j-1] = zshock-(rcell[j-1]-inp.rsize)/tanz;
@@ -1901,6 +1907,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         for(i=istart; i<=imax[j-1]; i++) { // do 200 i=istart,imax[j-1]
           icelmx[j-1] = i;
           ncells = ncells+1;
+          if(bTestOut) fprintf(pfTestOut, "1908 ncells %8d j %5d i %5d\n", ncells, j, i);
           if(it <= 1) { // if(it.gt.1)go to 110
             zcell[i-1][j-1] = (i-1)*zsize+zshock-(rcell[j-1]-inp.rsize)/tanz;
             // Set up physical parameters of downstream cells at first time step
@@ -2612,6 +2619,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   fclose(pfSpec);
   fclose(pfLc);
   fclose(pfPol);
+  if(bTestOut) fclose(pfTestOut);
   BlzLog::warn("Done closing output files");
 
 } // end run() method

@@ -61,6 +61,7 @@ c      common/ci/i,j
       ! Added by me (MSV, June 2012) for test mode ("generates" the same sequence of rand numbers every time)
       common/cfixedrand/fixedRandFlag, fixedRandFileOpened, fixedRandData, fixedRandCounter
       fixedRandFlag = 1
+      testOut = 1
       fstat = 'new'
       if(fixedRandFlag.ne.0) then
          fstat = 'replace'
@@ -72,6 +73,8 @@ c      common/ci/i,j
       open (4,iostat=ios, err=9000, file='temzlc.txt',
      , status=fstat)
       open (5,iostat=ios, err=9000, file='temzpol.txt',
+     , status=fstat)
+      if(testOut.ne.0) open (6,iostat=ios, err=9000, file='testout.txt',
      , status=fstat)
 c     Input file format: 1st line characters, then values of parameters,
 c       one per line
@@ -314,7 +317,8 @@ c      is ignored, but it is an  important source of IC seed photons
       go to 797
     8 rcell(j)=sqrt(xcell(j)**2+ycell(j)**2)
       zcol=rcell(j)/tanz
-      imax(j)=2.0*zcol/zsize
+      imax(j)=round(2.0*zcol/zsize)
+      if(testOut.ne.0) write(6, 9219) j, imax(j)
       if(imax(j).lt.2)imax(j)=2
 c     nouter(j) = approx. no. of cells between cell of interest and observer
       nouter(j)=imax(j)
@@ -857,6 +861,7 @@ c
    88 continue
       do 100 j=1,jcells-1
       ncells=ncells+1
+      if(testOut.ne.0) write(6,9220) ncells, j
       emisco=0.0
       ecflux=0.0
       zcell(i,j)=zshock-(rcell(j)-rsize)/tanz
@@ -995,8 +1000,9 @@ c      write(5,9996)ssseed
 c     Calculate energy distribution in the cell
       id=(zcell(i,j)-zshock)/zsize+nend
       if(id.lt.1)id=1
-      if(id.gt.(icells+nend))write(3,9992)i,j,id,zcell(i,j),zshock,
-     ,  zsize
+      if(id.gt.(icells+nend)) then 
+         write(3,9992)i,j,id,zcell(i,j),zshock,zsize
+      end if
       ustob=8.0*pi*(useed(id)+usdmd)/(bfield(j))**2
       tlfact=cc2*bfield(j)**2*(1.0+ustob)
       tlf1(j)=tlfact
@@ -1192,6 +1198,7 @@ c     iend is the last slice of cells with energetic electrons
       do 200 i=istart,imax(j)
       icelmx(j)=i
       ncells=ncells+1
+      if(testOut.ne.0) write(6,9221) ncells, j, i 
       if(it.gt.1)go to 110
       zcell(i,j)=(i-1)*zsize+zshock-(rcell(j)-rsize)/tanz
 c     Set up physical parameters of downstream cells at first time step
@@ -1823,6 +1830,9 @@ c     Move cells in time array to make room for next time step
  8889 format(/)
  9111 format(a10/f5.3/f5.3/f4.2/f4.2/f4.2/f3.1/e7.1/f5.3/f7.1/
      ,f5.1/f6.1/d9.5/d9.5/d6.1/d6.1/d6.2/f6.1/f3.1/f3.1/f3.1/e7.2)
+ 9219 format('j ', i5, ' imax ', i5);
+ 9220 format('ncells ', i8, ' j ', i5)
+ 9221 format('1908 ncells ', i8, ' j ', i5, ' i ', i5)
  9222 format('idelay out of bounds ',5i6,1p3e11.3)
  9988 format(i5,f8.2,2x,7(1pe8.2,1x,0pf7.3,1x,f8.3,1x))
  9989 format(i6,2x,i6,2x,i6,1p16e10.2)
@@ -1841,6 +1851,7 @@ c     Move cells in time array to make room for next time step
  9999 format(10f10.3)
       close (4, status='keep')
       close (3, status='keep')
+      close (6, status='keep')
  9000 stop
       end
 c  Subroutine to calculate inverse Compton emission from external sources of seed photons
@@ -2667,5 +2678,19 @@ c      term2=ey/dsqrt(term)
             fixedRandCounter = fixedRandCounter + 1
          endif
       endif
+      return
+      end
+
+
+c     Subroutine to round to nearest integer
+      function round(f)
+      integer low, high
+      real*4 f, lowDiff, highDiff
+      low = f
+      high = f + 1.0
+      lowDiff = abs(f - low)
+      highDiff = abs(f - high)
+      round = high;
+      if(lowDiff.lt.highDiff) round = low
       return
       end

@@ -50,12 +50,21 @@ class BlzMath {
   static double mag(double x, double y, double z);
   // Magnitude squared from 3 components
   static double magSquared(double x, double y, double z);
-
   // 2- and 4-component versions of above
   static double mag(double x, double y);
   static double magSquared(double x, double y);
   static double mag(double x, double y, double z, double w);
   static double magSquared(double x, double y, double z, double w);
+
+  // round the input value (presumably a double or float) to the nearest int
+	template<class T>
+  static int round(const T input) {
+    int low = (int)input;
+    int high = (int)(input+1.0);
+    T lowDiff = abs(input - (T)low);
+    T highDiff = abs(input - (T)high);
+    return lowDiff < highDiff ? low : high;
+	}
 
  private:
   BlzMath();

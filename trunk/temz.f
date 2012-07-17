@@ -61,7 +61,7 @@ c      common/ci/i,j
       ! Added by me (MSV, June 2012) for test mode ("generates" the same sequence of rand numbers every time)
       common/cfixedrand/fixedRandFlag, fixedRandFileOpened, fixedRandData, fixedRandCounter
       fixedRandFlag = 1
-      testOut = 1
+      testOut = 0
       fstat = 'new'
       if(fixedRandFlag.ne.0) then
          fstat = 'replace'
@@ -176,7 +176,7 @@ c     Time step in observer's frame in days
       dtfact=(1.0d0-betd*clos)/(betd*clos)
       dtime=1190.0*zsize*dtfact*zred1
       !itlast=2000.0/dtime
-      itlast=4.0/dtime
+      itlast=8.0/dtime
       mdrang=0.5*(1.0/dtfact+1.0)
 c     Distance of shock from axis and apex of conical jet
       tanop=dtan(opang)
@@ -318,7 +318,7 @@ c      is ignored, but it is an  important source of IC seed photons
     8 rcell(j)=sqrt(xcell(j)**2+ycell(j)**2)
       zcol=rcell(j)/tanz
       imax(j)=round(2.0*zcol/zsize)
-      if(testOut.ne.0) write(6, 9219) j, imax(j)
+      !if(testOut.ne.0) write(6, 9219) j, imax(j)
       if(imax(j).lt.2)imax(j)=2
 c     nouter(j) = approx. no. of cells between cell of interest and observer
       nouter(j)=imax(j)
@@ -861,7 +861,7 @@ c
    88 continue
       do 100 j=1,jcells-1
       ncells=ncells+1
-      if(testOut.ne.0) write(6,9220) ncells, j
+      !if(testOut.ne.0) write(6,9220) ncells, j
       emisco=0.0
       ecflux=0.0
       zcell(i,j)=zshock-(rcell(j)-rsize)/tanz
@@ -1104,6 +1104,7 @@ c     ,  ggam,edist,restnu,bperpp
       flsync(i,j,inu)=fsync2(inu)*(volc/zsize)*zred1/
      ,  (1.0e18*amjy*dgpc**2)*fgeom
       flux(i,j,inu)=flsync(i,j,inu)
+      if(testOut.ne.0) write(6, 9218) i, j, inu, flux(i,j,inu)
       betd=betad(i,j)
       gamd=gammad(i,j)
       if(inu.eq.1)call polcalc(bfield(j),bx(i,j),by(i,j),bz(i,j),
@@ -1162,6 +1163,7 @@ c     ,   phots(inumin),nu(inumin+10),phots(inumin+10)
       flssc(i,j,inu)=sscflx
       flcomp(i,j,inu)=ecflux+sscflx
       flux(i,j,inu)=flsync(i,j,inu)+flcomp(i,j,inu)
+      if(testOut.ne.0) write(6, 9218) i, j, inu, flux(i,j,inu)
       if(emeold.gt.0.0.and.ecflux.gt.0.0)spxec=
      ,  alog10(emeold/ecflux)/alog10(nu(inu)/nu(inu-1))
       if(emsold.gt.0.0.and.sscflx.gt.0.0)spxssc=
@@ -1198,7 +1200,7 @@ c     iend is the last slice of cells with energetic electrons
       do 200 i=istart,imax(j)
       icelmx(j)=i
       ncells=ncells+1
-      if(testOut.ne.0) write(6,9221) ncells, j, i 
+      !if(testOut.ne.0) write(6,9221) ncells, j, i 
       if(it.gt.1)go to 110
       zcell(i,j)=(i-1)*zsize+zshock-(rcell(j)-rsize)/tanz
 c     Set up physical parameters of downstream cells at first time step
@@ -1599,6 +1601,7 @@ c      if(tauexp.le.15.0)fsync2(inu)=fsync2(inu)/exp(tauexp)
       flsync(i,j,inu)=fsync2(inu)*(volc/zsize)*zred1/
      ,  (1.0e18*amjy*dgpc**2)*fgeom
       flux(i,j,inu)=flsync(i,j,inu)
+      if(testOut.ne.0) write(6, 9218) i, j, inu, flux(i,j,inu)
       betd=betad(i,j)
       gamd=gammad(i,j)
       if(inu.eq.1)call polcalc(bfield(j),bx(i,j),by(i,j),bz(i,j),
@@ -1653,6 +1656,7 @@ c     Expression for anumin includes typical interaction angle
       flssc(i,j,inu)=sscflx
       flcomp(i,j,inu)=ecflux+sscflx
       flux(i,j,inu)=flsync(i,j,inu)+flcomp(i,j,inu)
+      if(testOut.ne.0) write(6, 9218) i, j, inu, flux(i,j,inu)
       if(emeold.gt.0.0.and.ecflux.gt.0.0)spxec=
      ,  alog10(emeold/ecflux)/alog10(nu(inu)/nu(inu-1))
       if(emsold.gt.0.0.and.sscflx.gt.0.0)spxssc=
@@ -1830,6 +1834,7 @@ c     Move cells in time array to make room for next time step
  8889 format(/)
  9111 format(a10/f5.3/f5.3/f4.2/f4.2/f4.2/f3.1/e7.1/f5.3/f7.1/
      ,f5.1/f6.1/d9.5/d9.5/d6.1/d6.1/d6.2/f6.1/f3.1/f3.1/f3.1/e7.2)
+ 9218 format('i ', i5, ' j ', i5, ' inu ', i5, ' flux ', f10.3);
  9219 format('j ', i5, ' imax ', i5);
  9220 format('ncells ', i8, ' j ', i5)
  9221 format('1908 ncells ', i8, ' j ', i5, ' i ', i5)

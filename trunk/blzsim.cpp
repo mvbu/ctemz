@@ -769,7 +769,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   const int D110=110;
 
   bool bOutputFilesCreated = false;
-  bool bTestOut = true;
+  bool bTestOut = false;
   FILE* pfSpec = NULL; // 3 ctemzspec.txt
   FILE* pfLc = NULL; // 4 ctemzlc.txt
   FILE* pfPol = NULL; // 5 ctemzpol.txt
@@ -1014,7 +1014,8 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         rcell[j-1] = sqrt(xcell[j-1]*xcell[j-1]+ycell[j-1]*ycell[j-1]);
         double zcol = rcell[j-1]/tanz;
         imax[j-1] = BlzMath::round<double>(2.0*zcol/zsize);
-        if(bTestOut) fprintf(pfTestOut, "j %5d imax %5d\n", j, imax[j-1]);
+
+        //if(bTestOut) fprintf(pfTestOut, "j %5d imax %5d\n", j, imax[j-1]);
         if(imax[j-1] < 2)
           imax[j-1] = 2;
         // nouter[j-1] = approx. no. of cells between cell of interest and observer
@@ -1570,7 +1571,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 
     for(j=1; j<=(JCELLS-1); j++) { // do 100 j=1,JCELLS-1
       ncells++;
-      if(bTestOut) fprintf(pfTestOut, "ncells %8d j %5d\n", ncells, j);
+      //if(bTestOut) fprintf(pfTestOut, "ncells %8d j %5d\n", ncells, j);
       emisco = 0.0;
       ecflux = 0.0;
       zcell[i-1][j-1] = zshock-(rcell[j-1]-inp.rsize)/tanz;
@@ -1812,6 +1813,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 
         flsync[i-1][j-1][inu-1] = fsync2[inu-1]*(volc/zsize)*common.zred1/(1.0e18*AMJY*inp.dgpc*inp.dgpc)*FGEOM;
         flux[i-1][j-1][inu-1] = flsync[i-1][j-1][inu-1];
+        if(bTestOut) fprintf(pfTestOut, "i %5d j %5d inu %5d flux %10.3f\n", i, j, inu, flux[i-1][j-1][inu-1]);
         common.betd = betad[i-1][j-1];
         common.gamd = gammad[i-1][j-1];
         if(inu == 1) // looks like Fortran calculates polarization angle once - for the first frequency
@@ -1872,6 +1874,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
           flssc[i-1][j-1][inu-1] = sscflx;
           flcomp[i-1][j-1][inu-1] = ecflux+sscflx;
           flux[i-1][j-1][inu-1] = flsync[i-1][j-1][inu-1]+flcomp[i-1][j-1][inu-1];
+          if(bTestOut) fprintf(pfTestOut, "i %5d j %5d inu %5d flux %10.3f\n", i, j, inu, flux[i-1][j-1][inu-1]);
           if((emeold>0.0) && (ecflux>0.0))
             spxec = log10(emeold/ecflux)/log10(nu[inu-1]/nu[inu-2]);
           if((emsold>0.0) && (sscflx>0.0))
@@ -1907,7 +1910,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         for(i=istart; i<=imax[j-1]; i++) { // do 200 i=istart,imax[j-1]
           icelmx[j-1] = i;
           ncells = ncells+1;
-          if(bTestOut) fprintf(pfTestOut, "1908 ncells %8d j %5d i %5d\n", ncells, j, i);
+          //if(bTestOut) fprintf(pfTestOut, "1908 ncells %8d j %5d i %5d\n", ncells, j, i);
           if(it <= 1) { // if(it.gt.1)go to 110
             zcell[i-1][j-1] = (i-1)*zsize+zshock-(rcell[j-1]-inp.rsize)/tanz;
             // Set up physical parameters of downstream cells at first time step
@@ -2351,6 +2354,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
               // 192 continue
               flsync[i-1][j-1][inu-1] = fsync2[inu-1]*(volc/zsize)*common.zred1/(1.0e18*AMJY*inp.dgpc*inp.dgpc)*FGEOM;
               flux[i-1][j-1][inu-1] = flsync[i-1][j-1][inu-1];
+              if(bTestOut) fprintf(pfTestOut, "i %5d j %5d inu %5d flux %10.3f\n", i, j, inu, flux[i-1][j-1][inu-1]);
               common.betd = betad[i-1][j-1];
               common.gamd = gammad[i-1][j-1];
               if(inu == 1)
@@ -2412,6 +2416,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
                 flssc[i-1][j-1][inu-1] = sscflx;
                 flcomp[i-1][j-1][inu-1] = ecflux+sscflx;
                 flux[i-1][j-1][inu-1] = flsync[i-1][j-1][inu-1]+flcomp[i-1][j-1][inu-1];
+                if(bTestOut) fprintf(pfTestOut, "i %5d j %5d inu %5d flux %10.3f\n", i, j, inu, flux[i-1][j-1][inu-1]);
                 if((emeold>0.0) && (ecflux>0.0))
                   spxec = log10(emeold/ecflux)/log10(nu[inu-1]/nu[inu-2]);
                 if((emsold>0.0) && (sscflx>0.0))
@@ -2439,7 +2444,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       pfLc = fopen (lcFile.c_str(),"w");
       pfPol = fopen (polFile.c_str(),"w");
       bOutputFilesCreated = true;
-    std:string hformat("#redshift: %5.3f  Distance in Gpc: %5.3f\n#spectral index: %4.2f  filling factor exponent: %4.2f\n#mean unshocked magnetic field: %4.2f  ratio of electron to mag. energy: %7.1E\n#cell radius (pc): %6.3f\n#Min. value of gamma_max: %8.1f  ratio of max. to min. values of gamma_max: %5.1f\n#gamma_min: %6.1f\n#upstream laminar velocity: %9.5fc  upstream turbulent velocity: %9.5fc\n#shock angle: %6.3f  viewing angle: %6.3f  opening angle: %6.3f\n#Dust temperature: %6.0f  distance of center of dust torus from black hole: %3.1f pc\n#radius of torus: %3.1f pc   Distance of shock from central engine: %5.2f pc\n#Energy density of seed photons in plasma frame: %10.5f\n#-Slope of PSD: %5.1f     Area of Mach disk relative to other cell%9.2E\n");
+      std::string hformat("#redshift: %5.3f  Distance in Gpc: %5.3f\n#spectral index: %4.2f  filling factor exponent: %4.2f\n#mean unshocked magnetic field: %4.2f  ratio of electron to mag. energy: %7.1E\n#cell radius (pc): %6.3f\n#Min. value of gamma_max: %8.1f  ratio of max. to min. values of gamma_max: %5.1f\n#gamma_min: %6.1f\n#upstream laminar velocity: %9.5fc  upstream turbulent velocity: %9.5fc\n#shock angle: %6.3f  viewing angle: %6.3f  opening angle: %6.3f\n#Dust temperature: %6.0f  distance of center of dust torus from black hole: %3.1f pc\n#radius of torus: %3.1f pc   Distance of shock from central engine: %5.2f pc\n#Energy density of seed photons in plasma frame: %10.5f\n#-Slope of PSD: %5.1f     Area of Mach disk relative to other cell%9.2E\n");
       fprintf(pfSpec, hformat.c_str(), inp.zred, inp.dgpc, inp.alpha, inp.p, inp.bave, inp.uratio, inp.rsize, inp.gmaxmn,
              gmrat_original, inp.gmin, inp.betaup, inp.betat, (inp.zeta), (thlos*DEG_PER_RAD), (inp.opang),
              inp.tdust, inp.dtdist,inp.dtrad,inp.zdist0,useed[4],inp.psdslp,inp.vmd);
@@ -2571,9 +2576,10 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
             tfl33,alph33,tfcomx,nu[53-1],tfl53,alph53,tfcomp,tfec,
             tfssc,nu[11-1],tfl11,ncells);
     // Write selected polarization data to file
-    //fprintf(pfPol,"%5d%8.2f  %10.2E%10.2E%10.2E%10.2E%10.2E%10.2E%10.2E%10.2E%10.2E%10.2E%10.2E%10.2E%10.2E%10.2E%10.2E%10.2E %5d\n",
-    //       it,timeo,nu[8-1],pdeg8,pang8,nu[12-1],pdeg12,pang12,nu[16-1],pdeg16,pang16,nu[20-1],pdeg20,pang20,
-    //       nu[24-1],pdeg24,pang24,nu[28-1],pdeg28,pang28,nu[32-1],pdeg32,pang32);
+    // 9988 format(i5,f8.2,2x,7(1pe8.2,1x,0pf7.3,1x,f8.3,1x))
+    fprintf(pfPol, "%5d%8.2f  %8.2E %7.3f %8.3f %8.2E %7.3f %8.3f %8.2E %7.3f %8.3f %8.2E %7.3f %8.3f %8.2E %7.3f %8.3f %8.2E %7.3f %8.3f %8.2E %7.3f %8.3f\n",
+            it,timeo,nu[8-1],pdeg8,pang8,nu[12-1],pdeg12,pang12,nu[16-1],pdeg16,pang16,nu[20-1],pdeg20,pang20,
+            nu[24-1],pdeg24,pang24,nu[28-1],pdeg28,pang28,nu[32-1],pdeg32,pang32);
     
     BlzLog::warnScalar("Done with time loop ", it);
 

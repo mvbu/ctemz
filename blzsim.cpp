@@ -9,6 +9,9 @@
 #include "blzsim.h"
 #include "blzsiminputreader.h"
 
+static const char FORMAT1[] = "i %5d j %5d inu %5d flux %10.3f\n";
+static const char FORMAT2[] = "j %5d imax %5d\n";
+
 BlzSimCommon::BlzSimCommon() {}
 BlzSimCommon::~BlzSimCommon() {}
 void BlzSimCommon::setGgam(const double gam[CDIST_SIZE]) { for(int i=0; i < CDIST_SIZE; i++)  ggam[i] = gam[i]; }
@@ -1015,7 +1018,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         double zcol = rcell[j-1]/tanz;
         imax[j-1] = BlzMath::round<double>(2.0*zcol/zsize);
 
-        //if(bTestOut) fprintf(pfTestOut, "j %5d imax %5d\n", j, imax[j-1]);
+        //if(bTestOut) fprintf(pfTestOut, FORMAT2, j, imax[j-1]);
         if(imax[j-1] < 2)
           imax[j-1] = 2;
         // nouter[j-1] = approx. no. of cells between cell of interest and observer
@@ -1813,7 +1816,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 
         flsync[i-1][j-1][inu-1] = fsync2[inu-1]*(volc/zsize)*common.zred1/(1.0e18*AMJY*inp.dgpc*inp.dgpc)*FGEOM;
         flux[i-1][j-1][inu-1] = flsync[i-1][j-1][inu-1];
-        if(bTestOut) fprintf(pfTestOut, "i %5d j %5d inu %5d flux %10.3f\n", i, j, inu, flux[i-1][j-1][inu-1]);
+        if(bTestOut) fprintf(pfTestOut, FORMAT1, i, j, inu, flux[i-1][j-1][inu-1]);
         common.betd = betad[i-1][j-1];
         common.gamd = gammad[i-1][j-1];
         if(inu == 1) // looks like Fortran calculates polarization angle once - for the first frequency
@@ -1874,7 +1877,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
           flssc[i-1][j-1][inu-1] = sscflx;
           flcomp[i-1][j-1][inu-1] = ecflux+sscflx;
           flux[i-1][j-1][inu-1] = flsync[i-1][j-1][inu-1]+flcomp[i-1][j-1][inu-1];
-          if(bTestOut) fprintf(pfTestOut, "i %5d j %5d inu %5d flux %10.3f\n", i, j, inu, flux[i-1][j-1][inu-1]);
+          if(bTestOut) fprintf(pfTestOut, FORMAT1, i, j, inu, flux[i-1][j-1][inu-1]);
           if((emeold>0.0) && (ecflux>0.0))
             spxec = log10(emeold/ecflux)/log10(nu[inu-1]/nu[inu-2]);
           if((emsold>0.0) && (sscflx>0.0))
@@ -2354,7 +2357,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
               // 192 continue
               flsync[i-1][j-1][inu-1] = fsync2[inu-1]*(volc/zsize)*common.zred1/(1.0e18*AMJY*inp.dgpc*inp.dgpc)*FGEOM;
               flux[i-1][j-1][inu-1] = flsync[i-1][j-1][inu-1];
-              if(bTestOut) fprintf(pfTestOut, "i %5d j %5d inu %5d flux %10.3f\n", i, j, inu, flux[i-1][j-1][inu-1]);
+              if(bTestOut) fprintf(pfTestOut, FORMAT1, i, j, inu, flux[i-1][j-1][inu-1]);
               common.betd = betad[i-1][j-1];
               common.gamd = gammad[i-1][j-1];
               if(inu == 1)
@@ -2416,7 +2419,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
                 flssc[i-1][j-1][inu-1] = sscflx;
                 flcomp[i-1][j-1][inu-1] = ecflux+sscflx;
                 flux[i-1][j-1][inu-1] = flsync[i-1][j-1][inu-1]+flcomp[i-1][j-1][inu-1];
-                if(bTestOut) fprintf(pfTestOut, "i %5d j %5d inu %5d flux %10.3f\n", i, j, inu, flux[i-1][j-1][inu-1]);
+                if(bTestOut) fprintf(pfTestOut, FORMAT1, i, j, inu, flux[i-1][j-1][inu-1]);
                 if((emeold>0.0) && (ecflux>0.0))
                   spxec = log10(emeold/ecflux)/log10(nu[inu-1]/nu[inu-2]);
                 if((emsold>0.0) && (sscflx>0.0))

@@ -51,6 +51,7 @@ c     polc(100,1140,35,250),pac(100,1140,35,250),pqcum(35),pucum(35),
       integer dstart
       real fixedRandData
       integer fixedRandFlag, fixedRandFileOpened, fixedRandCounter
+      real*4 daysToSimulate
 c      common/ci/i,j
       common/cvel/bdx,bdy,bdz,gamd,betd
       common/cparm/zred1,bfld,bperpp
@@ -58,14 +59,24 @@ c      common/ci/i,j
       common/cssc/snu,ssseed,nuhi
       common/cdist/ggam,edist
       common/cseed/dustnu,dusti
+      common/cinput/daysToSimulate
       ! Added by me (MSV, June 2012) for test mode ("generates" the same sequence of rand numbers every time)
       common/cfixedrand/fixedRandFlag, fixedRandFileOpened, fixedRandData, fixedRandCounter
-      fixedRandFlag = 1
       testOut = 0
+
+      ! Parse the command line options and their arguments
+      daysToSimulate = 4.0 ! Default value
+      fixedRandFlag = 0
+
+      ! Replace default value(s) above with values specified on command line
+      dummy = parseArgs(0)
+
       fstat = 'new'
+
       if(fixedRandFlag.ne.0) then
          fstat = 'replace'
       end if
+
       open (2,iostat=ios, err=9000, file='temzinp.txt',
      ,   status='old')
       open (3,iostat=ios, err=9000, file='temzspec.txt',
@@ -175,8 +186,8 @@ c     Length and volume of cell in plasma proper frame
 c     Time step in observer's frame in days
       dtfact=(1.0d0-betd*clos)/(betd*clos)
       dtime=1190.0*zsize*dtfact*zred1
-      !itlast=2000.0/dtime
-      itlast=8.0/dtime
+      itlast=daysToSimulate/dtime
+      write(*,*) 'itlast: ', itlast
       mdrang=0.5*(1.0/dtfact+1.0)
 c     Distance of shock from axis and apex of conical jet
       tanop=dtan(opang)
@@ -2697,5 +2708,39 @@ c     Subroutine to round to nearest integer
       highDiff = abs(f - high)
       round = high;
       if(lowDiff.lt.highDiff) round = low
+      return
+      end
+
+c     Subroutine to parse the command line parameters and set internal variables
+c     accordingly
+      function parseArgs(dummy)
+      common/cinput/daysToSimulate
+      common/cfixedrand/fixedRandFlag, fixedRandFileOpened, fixedRandData, fixedRandCounter
+      real*4 daysToSimulate
+      integer fixedRandFlag
+      character(len=32) :: opt
+      character(len=32) :: arg
+      integer :: i
+      integer :: dummy
+      integer :: total
+      integer :: days
+
+      total = command_argument_count()
+
+      do i = 1, total
+         call get_command_argument(i, opt)
+         select case (opt)
+         case ('-d')
+            call get_command_argument(i+1, arg)
+            read(arg, '(i5)' ) days
+            daysToSimulate = real(days)
+            write(*,*) '% Days to simulate:', daysToSimulate
+         case ('-t')
+            fixedRandFlag = 1 ! Use "fixed" set of random numbers
+            write(*,*) '% Test mode ON'
+         end select
+      end do
+
+      parseArgs = 0
       return
       end

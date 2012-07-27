@@ -35,9 +35,14 @@ scratch: $(SCRATCH_OBJFILES)
 temz: temz.f
 	$(FCOMPILER) $(FCOMPILER_OPTS) -o temz temz.f
 
+temzd: temzd.f
+	$(FCOMPILER) $(FCOMPILER_OPTS) -o temzd temzd.f
+
 # Remove the output files (temz.f program crashes if you don't do this)
 rmo: 
 	rm temzspec.txt temzlc.txt temzpol.txt
+rmod: 
+	rm temzdspec.txt temzdlc.txt temzdpol.txt temzdcheck.txt
 
 test: test.f
 	$(FCOMPILER) $(FCOMPILER_OPTS) -o test test.f

@@ -8,6 +8,9 @@
       real*4 anu
       real*8 ggam
       real*8 clos, slos
+      real*8 vx,vy,vz,sx,sy,sz,vdx,vdy,vdz,vd,gd,eta
+      real*4 bxbd,bybd,bzbd
+      real*4 bparx,bpary,bparz,bprpx,bprpy,bprpz,bpar,bprp
       integer i
       common/cparm/zred1,bfield,b
       common/cdist/ggam,edist
@@ -17,6 +20,9 @@
       real*8 bdx,bdy,bdz,gammad,betad
       data ggam  / 1.123009204864502, 1.6150462627410889, 2.6083743572235107, 4.2126455307006836, 6.803617000579834, 10.988156318664551, 17.746381759643555, 28.661226272583008, 46.289207458496094, 74.759208679199219, 120.73958587646484, 195.00001525878906, 196.69918823242188, 198.41317749023438, 200.14210510253906, 201.88607788085938, 203.645263671875, 205.41976928710938, 207.20974731445312, 209.01531982421875, 210.83662414550781, 212.67379760742188, 214.5269775390625, 216.39631652832031, 218.28193664550781, 220.18399047851562, 222.10261535644531, 224.03794860839844, 225.99015808105469, 227.95938110351562, 229.94575500488281, 231.94944763183594, 233.97059631347656, 236.00935363769531, 238.06587219238281, 240.14031982421875, 242.23283386230469, 244.34358215332031, 246.47273254394531, 248.62042236328125, 250.78683471679688, 252.97213745117188, 255.17646789550781, 257.39999389648438 /
       data edist / 207.588089, 100.368889, 38.4794807, 14.7522821, 5.65573835, 2.16830015, 0.831283987, 0.318698138, 0.122182652, 0.0468424521, 0.0179584846, 0.00688493345, 0.00650044205, 0.00613163831, 0.00577794248, 0.0054388023, 0.00511366921, 0.00480203005, 0.00450337958, 0.0042172363, 0.0039431327, 0.00368061941, 0.00342926243, 0.00318864221, 0.0029583571, 0.00273801689, 0.00252724718, 0.00232568663, 0.00213298434, 0.00194880483, 0.00177282514, 0.00160473085, 0.00144422159, 0.00129100704, 0.00114480685, 0.00100535038, 0.000872378412, 0.000745639321, 0.000624891079, 0.000509901613, 0.000400445395, 0.000296305661, 0.000197275149, 0.000103152641 /
+14001 format('i',i5,' j',i5,' md',i6,' inu',i5,' ',a,f10.5)
+      write(*,14001) 1, 2, 3, 4, 'blahblahblah', 5.67891
+      print *, 'TESTING OF FORTRAN TEMZ.F ROUTINES'
       N = 16384
       stp = 6.28318530717959d0/dble(8-1d0)
       ISEED1=58
@@ -109,7 +115,63 @@
       call polcalc(b, bx, by, bz, clos, slos, chi)
       print *, 'polcalcResult', chi
       print *, 'expected',  expectedChi
-      
+
+      !! Test vdcalc()
+
+      vx=-0.019240988424703537
+      vy=-0.031763915994522718
+      vz=0.99428764521559587
+      sx=0.086824050218871157
+      sy=0.15038358911704655
+      sz=0.98480777757993587
+      print *, 'vdcalc()'
+      call vdcalc(vx,vy,vz,sx,sy,sz,vdx,vdy,vdz,vd,gd,eta)
+      print *, 'vdx', 0.041984204418010367, ' ', vdx
+      print *, 'vdy', 0.073358681218656629, ' ', vdy
+      print *, 'vdz', 0.972837232139588060, vdz
+      print *, 'vd', 0.97650215041635646, vd
+      print *, 'gd', 4.6402063567000154, gd
+      print *, 'eta', 2.4875972258196399, eta
+
+      !! Test bdcalc()
+      vx=-0.019240988424703537 
+      vy=-0.031763915994522718
+      vz=0.99428764521559587
+      sx=-0.49240406488732119
+      sy=-0.85286842052300182
+      sz=0.17364803833636447
+      bxbd=0.107818834
+      bybd=-0.0286603495
+      bzbd=0.0073269424
+      eta=2.4875972258196399
+      print *, 'bdcalc()'
+      call bdcalc(vx,vy,vz,sx,sy,sz,bxbd,bybd,bzbd,eta,bdxbd,bdybd,bdzbd)
+      print *, 'bdx', 14.071546, bdxbd
+      print *, 'bdy', -7.8483157, bdybd
+      print *, 'bdz', 0.12617019, bdzbd
+
+      !! Test bcalc()
+      vx=-0.019240988424703537
+      vy=-0.031763915994522718
+      vz=0.99428764521559587
+      sx=0.086824050218871157
+      sy=0.15038358911704655
+      sz=0.98480777757993587
+      bx=0.107818834
+      by=-0.0286603495
+      bz=0.0073269424
+      print *, 'bcalc()'
+      call bcalc(vx,vy,vz,sx,sy,sz,bx,by,bz,bparx,bpary,
+     ,     bparz,bprpx,bprpy,bprpz,bpar,bprp)
+      print *, 'bparx', 0.0132327536, bparx
+      print *, 'bpary', 0.0227437261, bpary
+      print *, 'bparz', 0.0134581225, bparz
+      print *, 'bprpx', 0.0945860818, bprpx
+      print *, 'bprpy', -0.0514040738, bprpy
+      print *, 'bprpz', -0.0061311801, bprpz
+      print *, 'bpar', 0.0295550991, bpar
+      print *, 'bprp', 0.107826233, bprp
+
       end
 
 C*******************************************
@@ -407,15 +469,16 @@ c     , anu,b,x,gam(i),edist(i),gran1,gran2,a,addit,ajnu,rfact
  1000 return
       end
 
+c  Subroutine to calculate inverse Compton emission from external sources of seed photons
       function ecdust(anuf)
-      common/cparm/zred1,bfield,bperp ! Not used as far as I can tell
-      common/cdust/dcsth1,dcsth2,dsnth1,dsnth2,dsang,tdust ! Not used AFAICT
+      common/cparm/zred1,bfield,bperp
+      common/cdust/dcsth1,dcsth2,dsnth1,dsnth2,dsang,tdust
       common/cdist/gam,edist
-      common/cvel/bdx,bdy,bdz,gammad,betad ! Not used AFAICT
+      common/cvel/bdx,bdy,bdz,gammad,betad
       common/cseed/dnu,di
       dimension gam(44),edist(44),dnu(22),di(22)
       real*8 gam,bdx,bdy,bdz,gammad,betad,dcsth1,dcsth2,dsnth1,
-     ,  dsnth2
+     ,  dsnth2,val1,val2,vala,valb
       ecdust=0.0
       gran=0.0
 c     Flux will be in mJy, so set x-section as (3e26/32)sigt
@@ -445,7 +508,8 @@ c     Set up loop 1 to integrate over incident photon frequency anui
       go to 5
     2 continue
       do 3 id=2,22
-    3 if(anumin.le.dnu(id))go to 4
+      if(anumin.le.dnu(id))go to 4
+    3 continue
       id=22
     4 continue
       a=alog10(di(id-1)/di(id))/alog10(dnu(id-1)/dnu(id))
@@ -453,7 +517,9 @@ c     Set up loop 1 to integrate over incident photon frequency anui
     5 ide=22
       if(anumax.ge.dnu(22))go to 8
       do 6 idd=id,22
-    6 if(anumax.le.dnu(idd))go to 7
+      if(anumax.le.dnu(idd))go to 7
+    6 continue
+      idd=22
     7 a=alog10(di(idd-1)/di(idd))/alog10(dnu(idd-1)/dnu(idd))
       die=di(idd-1)*(anumax/dnu(idd-1))**a
       ide=idd
@@ -465,7 +531,7 @@ c     Set up loop 1 to integrate over incident photon frequency anui
       ratr=0.25*rat
    25 val1=(8.0+2.0*rat-rat*rat+4.0*rat*alog(ratr))*
      , (1.0e20/anui1)*(anuf/anui1)*di1*vala
-      if(val1.lt.0.0)val1=0.0
+      if(val1.lt.1.0d-40)val1=0.0d0
 c     Loop 1 to integrate over incoming photon frequency anui for lower gam value
       do 600 nu=id,ide
       anui2=dnu(nu)
@@ -477,12 +543,12 @@ c     Loop 1 to integrate over incoming photon frequency anui for lower gam valu
       ratr=0.25*rat
   525 val2=(8.0+2.0*rat-rat*rat+4.0*rat*alog(ratr))*
      , (1.0e20/anui2)*(anuf/anui2)*di2*vala
-      if(val2.lt.0.0)val2=0.0
-      if(val1.eq.0.0.or.val2.eq.0.0)go to 845
+      if(val2.lt.1.0d-40)val2=0.0d0
+      if(val1.eq.0.0d0.or.val2.eq.0.0d0)go to 845
       test=abs((anui1-anui2)/anui1)
       if(test.lt.0.001)go to 847
       ratnu=anui2/anui1
-      a=1.0+alog10(val2/val1)/alog10(ratnu)
+      a=1.0+dlog10(val2/val1)/alog10(ratnu)
       if(abs(a).lt.0.01.or.abs(a).gt.5.0)go to 845
       addit=val1*(ratnu**a-1.0)*anui1/a
       go to 846
@@ -511,7 +577,8 @@ c     Set up loop 2 to integrate over incident photon frequency anui
       go to 1005
  1002 continue
       do 1003 id=2,22
- 1003 if(anumin.le.dnu(id))go to 1004
+      if(anumin.le.dnu(id))go to 1004
+ 1003 continue
       id=22
  1004 continue
       a=alog10(di(id-1)/di(id))/alog10(dnu(id-1)/dnu(id))
@@ -519,7 +586,9 @@ c     Set up loop 2 to integrate over incident photon frequency anui
  1005 ide=22
       if(anumax.ge.dnu(22))go to 1008
       do 1006 idd=id,22
- 1006 if(anumax.le.dnu(idd))go to 1007
+      if(anumax.le.dnu(idd))go to 1007
+ 1006 continue
+      idd=22
  1007 a=alog10(di(idd-1)/di(idd))/alog10(dnu(idd-1)/dnu(idd))
       die=di(idd-1)*(anumax/dnu(idd-1))**a
       ide=idd
@@ -531,7 +600,7 @@ c     Set up loop 2 to integrate over incident photon frequency anui
       ratr=0.25*rat
  1025 val1=(8.0+2.0*rat-rat*rat+4.0*rat*alog(ratr))*
      , (1.0e20/anui1)*(anuf/anui1)*di1*valb
-      if(val1.lt.0.0)val1=0.0
+      if(val1.lt.1.0d-40)val1=0.0d0
       gran2=0.0
 c     Loop 2 to integrate over incoming photon frequency anui for upper gam value
       do 1600 nu=id,ide
@@ -544,20 +613,20 @@ c     Loop 2 to integrate over incoming photon frequency anui for upper gam valu
       ratr=0.25*rat
  1525 val2=(8.0d0+2.0d0*rat-rat*rat+4.0d0*rat*alog(ratr))*
      , (1.0e20/anui2)*(anuf/anui2)*di2*valb
-      if(val2.lt.0.0)val2=0.0
-      if(val1.eq.0.0.or.val2.eq.0.0)go to 1845
+      if(val2.lt.1.0d-40)val2=0.0d0
+      if(val1.le.0.0d0.or.val2.le.0.0d0)go to 1845
       test=abs((anui1-anui2)/anui1)
       if(test.lt.0.001)go to 1847
       ratnu=anui2/anui1
-      a=1.0+alog10(val2/val1)/alog10(ratnu)
+      a=1.0+dlog10(val2/val1)/alog10(ratnu)
       if(abs(a).lt.0.01.or.abs(a).gt.5.0)go to 1845
       addit=val1*(ratnu**a-1.0)*anui1/a
       go to 1846
  1845 addit=0.5*(val1+val2)*(anui2-anui1)
  1846 gran2=gran2+addit
  1847 continue
-c      if(anuf.gt.1.0e20.and.anuf.lt.2.0e20)
-c     ,write(5,9050)anuf,gran2,val1,val2,di1,di2,anui1,anui2,
+c      if(anuf.gt.1.0e15.and.anuf.lt.2.0e15)
+c     ,write(5,9050)nu,anuf,gran2,val1,val2,di1,di2,anui1,anui2,
 c     , rat,addit
       anui1=anui2
       val1=val2
@@ -565,7 +634,7 @@ c     , rat,addit
  1600 continue
 c     End anui loop 2
  1601 continue
-      if(gran1.eq.0.0.or.gran2.eq.0.0)go to 2845
+      if(gran1.le.0.0.or.gran2.le.0.0)go to 2845
       a=1.0+alog10(gran2/gran1)/ratgl
       if(abs(a).lt.0.01.or.abs(a).gt.5.0)go to 2845
       addit=gran1*(ratg**a-1.0)*g1/a
@@ -582,7 +651,7 @@ c     End gam loop
       ecdust=gran*1.0e-20
 c      if(anuf.gt.1.0e20.and.anuf.lt.2.0e20)
 c     ,write(5,9050)anuf,gran,rat,addit
- 9050 format(1p15e9.2)
+c 9050 format(i5,2x,1p15e9.2)
  4000 return
       end
 
@@ -622,15 +691,14 @@ c     Set up loop 1 to integrate over incident photon frequency anui
       di1=di(1)
       id=2
       anumin=0.25*anuf/(g1*g1)
-c      write(5,6667)g1,anuf,dnu(nuhi),anumin,anumax
-c 6667 format('g1, anuf, dnu(nuhi), anumin, anumax: ',1p5e9.2)
       if(anumin.ge.anumax)go to 601
       if(anumin.gt.dnu(1))go to 2
       anumin=dnu(1)
       go to 5
     2 continue
       do 3 id=2,nuhi
-    3 if(anumin.le.dnu(id))go to 4
+      if(anumin.le.dnu(id))go to 4
+    3 continue
       id=nuhi
     4 continue
       di1=0.0
@@ -640,7 +708,9 @@ c 6667 format('g1, anuf, dnu(nuhi), anumin, anumax: ',1p5e9.2)
     5 ide=nuhi
       if(anumax.ge.dnu(nuhi))go to 8
       do 6 idd=id,nuhi
-    6 if(anumax.le.dnu(idd))go to 7
+      if(anumax.le.dnu(idd))go to 7
+    6 continue
+      idd=nuhi
     7 a=alog10(di(idd-1)/di(idd))/alog10(dnu(idd-1)/dnu(idd))
       die=di(idd-1)*(anumax/dnu(idd-1))**a
       ide=idd
@@ -700,7 +770,8 @@ c 6668 format('*g1, anuf, dnu(nuhi), anumin, anumax: ',1p5e9.2)
       go to 1005
  1002 continue
       do 1003 id=2,nuhi
- 1003 if(anumin.le.dnu(id))go to 1004
+      if(anumin.le.dnu(id))go to 1004
+ 1003 continue
       id=nuhi
  1004 continue
       di1=0.0
@@ -711,7 +782,9 @@ c 6668 format('*g1, anuf, dnu(nuhi), anumin, anumax: ',1p5e9.2)
  1005 ide=nuhi
       if(anumax.ge.dnu(nuhi))go to 1008
       do 1006 idd=id,nuhi
- 1006 if(anumax.le.dnu(idd))go to 1007
+      if(anumax.le.dnu(idd))go to 1007
+ 1006 continue
+      idd=nuhi
  1007 a=alog10(di(idd-1)/di(idd))/alog10(dnu(idd-1)/dnu(idd))
       die=di(idd-1)*(anumax/dnu(idd-1))**a
       ide=idd
@@ -776,6 +849,7 @@ c     ,write(5,9050)anuf,gran,rat,addit
  9050 format('***',2i5,2x,1p15e9.2)
  4000 return
       end
+
 c
 c     polcalc computes the polarization angle chi based on relations
 c       derived by Lyutikov et al. 2005, MNRAS, 360, 869
@@ -809,5 +883,143 @@ c      term2=ey/dsqrt(term)
       if(ey.gt.1.0d0.and.ey.lt.1.000001d0)ey=0.99999999d0
       if(ey.lt.-1.0d0.and.ey.gt.-1.000001d0)ey=-0.99999999d0
       chi=asin(ey)
+      return
+      end
+c
+c     vdcalc computes downstream velocity vector Lorentz transformation of unit
+c     vector along shock front follows Lyutikov et al. (2003, ApJ, 597, 998)
+c
+      subroutine vdcalc(vx,vy,vz,sx,sy,sz,vdx,vdy,vdz,vd,gd,eta)
+      real*8 vx,vy,vz,sx,sy,sz,v2,v,g,spx,spy,spz,s,g2,
+     ,  dotprd,vparx,vpary,vparz,vprpx,vprpy,vprpz,vprp2,vprp,uprp,
+     ,  vd,gd,vd2,vdx,vdy,vdz,vfact,vdprpx,vdprpy,vdprpz,vdprp2,
+     ,  gdprp,eta
+      v2=vx*vx+vy*vy+vz*vz
+      v=dsqrt(v2)
+      g2=1.0d0/(1.0d0-v2)
+      g=dsqrt(g2)
+      dotprd=vx*sx+vy*sy+vz*sz
+c     Calculate components of velocity vector parallel and perpendicular to shock front
+      vparx=dotprd*sx
+      vpary=dotprd*sy
+      vparz=dotprd*sz
+      vprpx=vx-vparx
+      vprpy=vy-vpary
+      vprpz=vz-vparz
+      vprp2=vprpx*vprpx+vprpy*vprpy+vprpz*vprpz
+      vprp=dsqrt(vprp2)
+c     Shock jump condition, from Konigl (1980, Phys. Fluids, 23, 1083)
+      vfact=1.0d0
+      uprp=g*vprp
+c     uprp must exceed the proper sound speed, 1/sqrt(2)b for a shock
+c     Otherwise, it is a sound wave and the velocity does not change significantly
+      if(uprp.gt.0.7071e0)vfact=(1.0d0+1.0d0/(g2*vprp2))/(3.0d0)
+      vdprpx=vprpx*vfact
+      vdprpy=vprpy*vfact
+      vdprpz=vprpz*vfact
+      vdprp2=vdprpx*vdprpx+vdprpy*vdprpy+vdprpz*vdprpz
+c     Shock compression ratio (downstream density/upstream density)
+      eta=dsqrt(vprp2*(1.0d0-vdprp2)/(vdprp2*(1.0d0-vprp2)))
+      vdx=vparx+vdprpx
+      vdy=vpary+vdprpy
+      vdz=vparz+vdprpz
+      vd2=vdx*vdx+vdy*vdy+vdz*vdz
+      vd=dsqrt(vd2)
+      gd=1.0d0/dsqrt(1.0d0-vd2)
+c      write(5,9999)v,g,vd,gd,eta
+c 9999 format(1p5e12.4)
+      return
+      end
+c
+c     bdcalc computes magnetic field components downstream of shock
+c
+      subroutine bdcalc(vx,vy,vz,sx,sy,sz,bx,by,bz,eta,bdx,bdy,bdz)
+      real*8 vx,vy,vz,sx,sy,sz,s,v2,v,g,g1,g2,gp1,eta,
+     ,  dotprd,bsx,bsy,bsz,bparx,bpary,bparz,bprpx,esx,esy,esz,
+     ,  bprpy,bprpz,bpx,bpy,bpz
+c     v is velocity in units of c, s is a unit vector normal to the shock front
+c     b is magnetic field vector
+      v2=vx*vx+vy*vy+vz*vz
+      v=dsqrt(v2)
+      g2=1.0d0/(1.0d0-v2)
+      g=dsqrt(g2)
+      g1=g-1.0d0
+      gp1=g+1.0d0
+c     Transform magnetic field into shock frame
+      dotprd=bx*vx+by*vy+bz*vz
+      bsx=g*bx-g1*dotprd*vx/v2
+      bsy=g*by-g1*dotprd*vy/v2
+      bsz=g*bz-g1*dotprd*vz/v2
+c     Electric field divided by c in shock frame (= 0 in plasma frame)
+      esx=-g*(vy*bz-vz*by)
+      esy=-g*(vz*bx-vx*bz)
+      esz=-g*(vx*by-vy*bx)
+c     Compute component of B that is normal to the shock front
+      dotprd=bsx*sx+bsy*sy+bsz*sz
+c     Calculate components of B field parallel and perpendicular to shock normal
+      bparx=dotprd*sx
+      bpary=dotprd*sy
+      bparz=dotprd*sz
+      bprpx=bsx-bparx
+      bprpy=bsy-bpary
+      bprpz=bsz-bparz
+c     Components perpendicular to shock normal are amplified by factor of eta
+      bpx=bprpx*eta+bparx
+      bpy=bprpy*eta+bpary
+      bpz=bprpz*eta+bparz
+c     transform back to plasma frame
+      dotprd=bpx*vx+bpy*vy+bpz*vz
+      bdx=g*(bpx-(vy*esz-vz*esy))-g1*dotprd*vx/v2
+      bdy=g*(bpy-(vz*esx-vx*esz))-g1*dotprd*vy/v2
+      bdz=g*(bpz-(vx*esy-vy*esx))-g1*dotprd*vz/v2
+c      write(6,9999)bx,by,bz,bsx,bsy,bsz,
+c     ,  bpx,bpy,bpz,bdx,bdy,bdz
+c 9999 format('*',1p18e11.3)
+      return
+      end
+c
+c     bcalc computes magnetic field component parallel and perpendicular to shock
+c     front or line of sight; follows Lyutikov et al. (2003, ApJ, 597, 998)
+c
+      subroutine bcalc(vx,vy,vz,sx,sy,sz,bx,by,bz,bparx,bpary,
+     ,  bparz,bprpx,bprpy,bprpz,bpar,bprp)
+      real*8 vx,vy,vz,sx,sy,sz,s,v2,v,g,g1,g2,gp1,spx,spy,spz,
+     ,  denom,spx2,spy2,spz2
+c     v is velocity in units of c, s is line-of-sight or shock front unit vector
+c     b is magnetic field vector
+      v2=vx*vx+vy*vy+vz*vz
+      v=dsqrt(v2)
+      g2=1.0d0/(1.0d0-v2)
+      g=dsqrt(g2)
+      g1=g-1.0d0
+      gp1=g+1.0d0
+      b=bx*bx+by*by+bz*bz
+      b=sqrt(b)
+c     Determine unit vector of shock front or l.o.s. in plasma frame
+      dotprd=vx*sx+vy*sy+vz*sz
+      spx=g*sx-g1*dotprd*vx/v2
+      spy=g*sy-g1*dotprd*vy/v2
+      spz=g*sz-g1*dotprd*vz/v2
+      s=spx*spx+spy*spy+spz*spz
+      s=dsqrt(s)
+      spx=spx/s
+      spy=spy/s
+      spz=spz/s
+c     Calculate components of B field parallel and perpendicular to shock front
+c     or l.o.s.
+      dotprd=bx*spx+by*spy+bz*spz
+      bparx=dotprd*spx
+      bpary=dotprd*spy
+      bparz=dotprd*spz
+      bpar=bparx*bparx+bpary*bpary+bparz*bparz
+      bpar=sqrt(bpar)
+      bprpx=bx-bparx
+      bprpy=by-bpary
+      bprpz=bz-bparz
+      bprp=bprpx*bprpx+bprpy*bprpy+bprpz*bprpz
+      bprp=sqrt(bprp)
+c      write(5,9999)sx,sy,sz,spx,spy,spz,s,spx2,spy2,spz2,
+c     ,  bparx,bpary,bparz,bprpx,bprpy,bprpz,bpar,bprp
+c 9999 format('**',1p18e12.4)
       return
       end

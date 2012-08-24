@@ -82,6 +82,20 @@ class BlzSim {
   double ssc(const double anuf);
   double polcalc(const double b, const double bx, const double by, const double bz, 
                  const double clos, const double slos);
+  void vdcalc(const double vx, const double vy,const double vz,
+              const double sx, const double sy,const double sz,
+              double* vdx, double* vdy, double* vdz, double *vd, // outputs
+              double* gd, double* eta);
+  void bdcalc(const double vx, const double vy, const double vz, const double sx, const double sy, const double sz,
+              const double bx, const double by, const double bz, const double eta,
+              double* bdx, double*bdy, double* bdz); // outputs
+  void bcalc(const double vx, const double vy, const double vz,
+             const double sx, const double sy, const double sz,
+             const double bx, const double by, const double bz,
+             double* bparx, double* bpary, double* bparz, // outputs
+             double* bprpx, double* bprpy, double* bprpz,
+             double* bpar, double* bprp);
+
  private:
   void initRandFromTime(bool bTestMode = false);
   static const double ONETHIRD = .33333333;

@@ -11,6 +11,12 @@
 
 static const char FORMAT1[] = "i %5d j %5d inu %5d flux %10.3f\n";
 static const char FORMAT2[] = "j %5d imax %5d\n";
+static const char FORMAT3_1[] = "md%6d inu%5d fsync(inu)%15.3f\n";
+static const char FORMAT3_2[] = "md%6d inu%5d fsynmd(inu,md)%15.2f\n";
+static const char FORMAT3_3[] = "md%6d inu%5d fsscmd(inu,md)%10.5f\n";
+static const char FORMAT14001[] = "%5d i%5d j%5d md%6d inu%5d %s%10.4f\n";
+
+
 
 BlzSimCommon::BlzSimCommon() {}
 BlzSimCommon::~BlzSimCommon() {}
@@ -41,8 +47,8 @@ void BlzSim::psdsim(const int N, const double beta1, const double beta2, const d
   fac_norm2=pow((double)N,2)/(2.*N*t_incre1);
 
   // randObj is an instance of BlzRand inside this BlzSim instance
-  ISEED1=58;
-  ISEED2=256871;
+  ISEED1=59;
+  ISEED2=256872;
   randObj.setIX(ISEED1,ISEED2);
   BlzLog::debugScalarPair("1) ISEED1/ISEED2", ISEED1, ISEED2);
   randObj.rnstnr(R,N/2);
@@ -277,7 +283,7 @@ double BlzSim::ecdust(const double anuf)
     int id=2;
     double anumin=0.25*anuf/(g1*g1);
     // skip over loop 1 entirely if this condition is not satisfied
-    if(anumin <= anumax) {
+    if(anumin <= anumax) { // go to 601
       if(anumin <= dnu[0]) {
         anumin = dnu[0];
       }
@@ -312,7 +318,7 @@ double BlzSim::ecdust(const double anuf)
       double rat = anuf/(anui1*g1*g1);
       double ratr = 0.25 * rat;
       val1=(8.0+2.0*rat-rat*rat+4.0*rat*log(ratr))*(1.0e20/anui1)*(anuf/anui1)*di1*vala;
-      if(val1 < 0.0)
+      if(val1 < 1.0e-40)
         val1 = 0.0;
       //
       // Loop 1 to integrate over incoming photon frequency anui for lower gam value
@@ -327,8 +333,8 @@ double BlzSim::ecdust(const double anuf)
         rat = anuf/(anui2*g1*g1);
         ratr = 0.25 * rat;
         val2=(8.0+2.0*rat-rat*rat+4.0*rat*log(ratr))*(1.0e20/anui2)*(anuf/anui2)*di2*vala;
-        if(val2 < 0.0)
-          val2=0.0;
+        if(val2 < 1.0e-40)
+          val2 = 0.0;
 
         if((val1==0.0) || (val2==0.0)) {
           addit=0.5*(val1+val2)*(anui2-anui1);
@@ -405,7 +411,7 @@ double BlzSim::ecdust(const double anuf)
       double rat = anuf/(anui1*g2*g2);
       double ratr = 0.25 * rat;
       val1=(8.0+2.0*rat-rat*rat+4.0*rat*log(ratr))*(1.0e20/anui1)*(anuf/anui1)*di1*valb;
-      if(val1 < 0.0)
+      if(val1 < 1.0e-40)
         val1 = 0.0;
       //
       // Loop 2 to integrate over incoming photon frequency anui for lower gam value
@@ -420,10 +426,10 @@ double BlzSim::ecdust(const double anuf)
         rat = anuf/(anui2*g2*g2);
         ratr = 0.25 * rat;
         val2=(8.0+2.0*rat-rat*rat+4.0*rat*log(ratr))*(1.0e20/anui2)*(anuf/anui2)*di2*valb;
-        if(val2 < 0.0)
+        if(val2 < 1.0e-40)
           val2=0.0;
 
-        if((val1==0.0) || (val2==0.0)) {
+        if((val1<=0.0) || (val2<=0.0)) {
           addit=0.5*(val1+val2)*(anui2-anui1);
           gran1 = gran1 + addit;
         }
@@ -450,7 +456,7 @@ double BlzSim::ecdust(const double anuf)
     } // if(anumin > anumax) Loop 2
 
     addit = 0.5 * (gran1 + gran2) * (g2 -g1);
-    if((gran1!=0.0) && (gran2!=0.0)) {
+    if((gran1>0.0) && (gran2>0.0)) {
       double a = 1.0 + log10(gran2/gran1)/ratgl;
       double aa = abs(a);
       if((aa>=.01) && (aa<=5.0)) {
@@ -756,13 +762,156 @@ void BlzSim::initRandFromTime(bool bTestMode)
   double dummy = randObj.rand(iseed);
 }
 
+//
+//    vdcalc computes downstream velocity vector Lorentz transformation of unit
+//    vector along shock front follows Lyutikov et al. (2003, ApJ, 597, 998)
+//
+void BlzSim::vdcalc(const double vx, const double vy,const double vz,
+                    const double sx, const double sy,const double sz,
+                    double* vdx, double* vdy, double* vdz, double *vd, // outputs
+                    double* gd, double* eta)
+{
+  double  v2,v,g,spx,spy,spz,s,g2;
+  double  dotprd,vparx,vpary,vparz,vprpx,vprpy,vprpz,vprp2,vprp,uprp;
+  double  vd2,vfact, vdprpx,vdprpy,vdprpz,vdprp2,gdprp;
+  vfact = 1.0;
+  v2 = vx*vx+vy*vy+vz*vz;
+  v = sqrt(v2);
+  g2 =1.0/(1.0-v2);
+  g = sqrt(g2);
+  dotprd = vx*sx+vy*sy+vz*sz;
+  // Calculate components of velocity vector parallel and perpendicular to shock front
+  vparx=dotprd*sx;
+  vpary=dotprd*sy;
+  vparz=dotprd*sz;
+  vprpx=vx-vparx;
+  vprpy=vy-vpary;
+  vprpz=vz-vparz;
+  vprp2=vprpx*vprpx+vprpy*vprpy+vprpz*vprpz;
+  vprp=sqrt(vprp2);
+  // Shock jump condition, from Konigl (1980, Phys. Fluids, 23, 1083)
+  uprp=g*vprp;
+  // uprp must exceed the proper sound speed, 1/sqrt(2)b for a shock
+  // Otherwise, it is a sound wave and the velocity does not change significantly
+  if(uprp > 0.7071)
+    vfact=(1.0+1.0/(g2*vprp2))/(3.0);
+  vdprpx=vprpx*vfact;
+  vdprpy=vprpy*vfact;
+  vdprpz=vprpz*vfact;
+  vdprp2=BlzMath::magSquared(vdprpx, vdprpy, vdprpz);
+  // Shock compression ratio (downstream density/upstream density)
+  *eta=sqrt(vprp2*(1.0-vdprp2)/(vdprp2*(1.0-vprp2)));
+  *vdx=vparx+vdprpx;
+  *vdy=vpary+vdprpy;
+  *vdz=vparz+vdprpz;
+  vd2=BlzMath::magSquared(*vdx, *vdy, *vdz);
+  *vd=sqrt(vd2);
+  *gd=1.0/sqrt(1.0-vd2);
+}
+
+//
+//    bdcalc() computes magnetic field components downstream of shock
+//
+void BlzSim::bdcalc(const double vx, const double vy, const double vz, const double sx, const double sy, const double sz,
+                    const double bx, const double by, const double bz, const double eta,
+                    double* bdx, double*bdy, double* bdz) // outputs
+{
+  double s,v2,v,g,g1,g2,gp1,dotprd,bsx,bsy,bsz,bparx,bpary,bparz,bprpx,esx,esy,esz,bprpy,bprpz,bpx,bpy,bpz;
+  // v is velocity in units of c, s is a unit vector normal to the shock front
+  // b is magnetic field vector
+  v2 = BlzMath::magSquared(vx, vy, vz);
+  v = sqrt(v2);
+  g2 = 1.0/(1.0-v2);
+  g = sqrt(g2);
+  g1 = g-1.0;
+  gp1 = g+1.0;
+  // Transform magnetic field into shock frame
+  dotprd = bx*vx+by*vy+bz*vz;
+  bsx = g*bx-g1*dotprd*vx/v2;
+  bsy = g*by-g1*dotprd*vy/v2;
+  bsz = g*bz-g1*dotprd*vz/v2;
+  // Electric field divided by c in shock frame (= 0 in plasma frame)
+  esx = -g*(vy*bz-vz*by);
+  esy = -g*(vz*bx-vx*bz);
+  esz = -g*(vx*by-vy*bx);
+  // Compute component of B that is normal to the shock front
+  dotprd = bsx*sx+bsy*sy+bsz*sz;
+  // Calculate components of B field parallel and perpendicular to shock normal
+  bparx = dotprd*sx;
+  bpary = dotprd*sy;
+  bparz = dotprd*sz;
+  bprpx = bsx-bparx;
+  bprpy = bsy-bpary;
+  bprpz = bsz-bparz;
+  // Components perpendicular to shock normal are amplified by factor of eta
+  bpx = bprpx*eta+bparx;
+  bpy = bprpy*eta+bpary;
+  bpz = bprpz*eta+bparz;
+  // transform back to plasma frame
+  dotprd = bpx*vx+bpy*vy+bpz*vz;
+  *bdx = g*(bpx-(vy*esz-vz*esy))-g1*dotprd*vx/v2;
+  *bdy = g*(bpy-(vz*esx-vx*esz))-g1*dotprd*vy/v2;
+  *bdz = g*(bpz-(vx*esy-vy*esx))-g1*dotprd*vz/v2;
+}
+
+//
+//    bcalc computes magnetic field component parallel and perpendicular to shock
+//    front or line of sight; follows Lyutikov et al. (2003, ApJ, 597, 998)
+//
+void BlzSim::bcalc(const double vx, const double vy, const double vz,
+                   const double sx, const double sy, const double sz,
+                   const double bx, const double by, const double bz,
+                   double* bparx, double* bpary, double* bparz, // outputs
+                   double* bprpx, double* bprpy, double* bprpz,
+                   double* bpar, double* bprp)
+{
+  double s,v2,v,g,g1,g2,gp1,denom,spx,spy,spz;
+  double b,dotprd;
+  // v is velocity in units of c, s is line-of-sight or shock front unit vector
+  // b is magnetic field vector
+  v2 = BlzMath::magSquared(vx, vy, vz);
+  v = sqrt(v2);
+  g2 = 1.0/(1.0-v2);
+  g = sqrt(g2);
+  g1 = g-1.0;
+  gp1 = g+1.0;
+  b = BlzMath::mag(bx, by, bz);
+  // Determine unit vector of shock front or l.o.s. in plasma frame
+  dotprd = vx*sx+vy*sy+vz*sz;
+  spx = g*sx-g1*dotprd*vx/v2;
+  spy = g*sy-g1*dotprd*vy/v2;
+  spz = g*sz-g1*dotprd*vz/v2;
+  s = BlzMath::mag(spx, spy, spz);
+  spx = spx/s;
+  spy = spy/s;
+  spz = spz/s;
+  // Calculate components of B field parallel and perpendicular to shock front
+  // or l.o.s.
+  dotprd = bx*spx+by*spy+bz*spz;
+  *bparx = dotprd*spx;
+  *bpary = dotprd*spy;
+  *bparz = dotprd*spz;
+  *bpar = BlzMath::mag(*bparx, *bpary, *bparz);
+  *bprpx = bx-*bparx;
+  *bprpy = by-*bpary;
+  *bprpz = bz-*bparz;
+  *bprp = BlzMath::mag(*bprpx, *bprpy, *bprpz);
+}
+
+double adjustTrig(double in) 
+{
+  double retVal = in;
+  if(in >= 1.0) retVal=0.999999;
+  else if(in <= -1.0) retVal=-0.999999;
+  return retVal;
+}
 
 void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 {
   // This is where a most of the code ported from the "main" Fortran program will go, mostly as-is.
   // Then hopefully will have time to make it more modular after it is ported.
   const int D68=68;
-  const int D100=100;
+  const int D400=400;
   const int D35=35;
   const int D1140=1140;
   const int D1141=1141;
@@ -772,7 +921,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   const int D110=110;
 
   bool bOutputFilesCreated = false;
-  bool bTestOut = false;
+  int  nTestOut = 4;
   FILE* pfSpec = NULL; // 3 ctemzspec.txt
   FILE* pfLc = NULL; // 4 ctemzlc.txt
   FILE* pfPol = NULL; // 5 ctemzpol.txt
@@ -781,40 +930,51 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   std::string lcFile("ctemzlc.txt");
   std::string polFile("ctemzpol.txt");
   std::string testOutFile("ctestout.txt");
-  if(bTestOut) pfTestOut = fopen (testOutFile.c_str(),"w");
+  if(nTestOut>0) pfTestOut = fopen (testOutFile.c_str(),"w");
 
   static int itarra[3];
-  static double pq[D100][D1140][D68], pu[D100][D1140][D68], fpol[D100][D1140][D68],
-    flux[D100][D1141][D68],gammin[D100][D1141],gammax[D100][D1141],
-    xcell[D1141],gmax0[D100][D1141],egam[D100][D1141][44],
+  static double pq[D400][D1140][D68], pu[D400][D1140][D68], fpol[D400][D1140][D68],
+    flux[D400][D1141][D68],gammin[D400][D1141],gammax[D400][D1141],
+    xcell[D1141],gmax0[D400][D1141],egam[D400][D1141][44],
     phcell[D1141],rcell[D1141],ycell[D1141],cosph[D1141],
-    sinph[D1141],bperp[D1141],bfield[D1141],n0[D100][D1141],
-    zcell[D100][D1141],betadx[D100][D1141],betady[D100][D1141],
-    betadz[D100][D1141],betad[D100][D1141],gammad[D100][D1141],
+    sinph[D1141],bperp[D1141],bfield[D1141],n0[D400][D1141],
+    zcell[D400][D1141],betadx[D400][D1141],betady[D400][D1141],
+    betadz[D400][D1141],betad[D400][D1141],gammad[D400][D1141],
     betaux[D1141],betauy[D1141],betauz[D1141],
     betau[D1141],gammau[D1141],
-    nu[D68],bx[D100][D1141],by[D100][D1141],bz[D100][D1141],
-    delta[D100][D1141],enofe[D100][D1141][D44],fsync[D68],
+    nu[D68],bx[D400][D1141],by[D400][D1141],bz[D400][D1141],
+    delta[D400][D1141],enofe[D400][D1141][D44],fsync[D68],
     ididg[D1141],spsd[BLZSIM_DIM16384],
     gcnt[D44],igcnt[D44],fsynmd[D68][D4000],nouter[D1140],
     fsscmd[D68][D4000],fmdall[D68],deltmd[D1140],dmd[D1140],
     tlf[100],betamx[D1140],betamy[D1140],
     betamz[D1140],betamr[D1140],gamamr[D1140],bmdx[D4000],
     bmdy[D4000],bmdz[D4000],bmdtot[D4000],tlf1[D1140],
-    flsync[D100][D1141][D68],flcomp[D100][D1141][D68],absorb[D68][D4000],
+    flsync[D400][D1141][D68],flcomp[D400][D1141][D68],absorb[D68][D4000],
     fsync2[D68],cosmr[D1140],alphmd[D68][D4000],dustii[D110][D22],
-    flec[D100][D1141][D68],flssc[D100][D1141][D68],mdd[D4000],useed[D110],
+    flec[D400][D1141][D68],flssc[D400][D1141][D68],mdd[D4000],useed[D110],
     phots[D68],phalph[D68],seedpk[D110],
     abexmd[D68][D4000],psi[D1140],sinpsi[D1140],cospsi[D1140],
-    tanpsi[D1140];
+    tanpsi[D1140],tauxmd[D68],phi1[D1141],phi2[D1141],
+    theta1[D1141],theta2[D1141],ididb[D1141],bfrac[D1141],
+    ididbd[D1141],bfracd[D1141],phi2d[D1141],thet2d[D1141],
+    phi1d[D1141],thet1d[D1141];
   static float alfmdc[D68][D4000],syseed[D68],scseed[D68];
   int icelmx[D1141], imax[D1141], ibreak;
   double pol,pqcum,pucum,pmean,polc,ai2, pcum,tanv0,cosv0,gamup,beta,sinz,cosz,
-    thlos,opang,tanop,cosop,sinop,zeta,tanz,slos,clos, eta,tanxi,xi,betacs,psiup,
-    dth1,dth2,n0ave, betamd,betarl, cosmd,tanmd,cosbm,bup,bprp,ustob,tlfact,delt,
+    thlos,opang,tanop,cosop,sinop,zeta,tanz,slos,clos, eta,tanxi,xi,betacs,
+    dth1,dth2,n0ave, betamd,betarl, cosmd,tanmd,bup,ustob,tlfact,delt,
     gamb,glow,gmratl,gmratm,tloss,t1,t2,tlmin, eterm1,eterm2,glim,t2max,
-    sinzps,coszps,tanzps,zetap, bd2,gm1,bmfact,n0mean,restnu;
+    sinzps,coszps,tanzps,zetap, bd2,gm1,angm,bmparx,bmpary,bmparz,
+    bmprpx,bmprpy,bmprpz,dtnth1,dtnth2,dotprd,
+    betupx,betupy,betupz,betatx,betaty,betatz,thetat,
+    sintht,costht,sinpht,cospht,btprpx,btprpy,btprpz,
+    btparx,btpary,btparz,sx,sy,sz,slx,sly,slz,
+    anx,any,anz;
+  double n0mean,restnu;
   double ssabs, sstau, srcfn, fq1, fsyn1, absrb1;
+  // I think we only need one dummy variable, but matching the Fortran for now
+  double dum1, dum2, dum3, dum4, dum5, dum6, dum7;
   int dstart, ig;
 
   // This line has no analog in the Fortran code, which has tdust 1) being filled in from the
@@ -828,8 +988,8 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   // numbers from a text file instead of actually generating new random numbers
   initRandFromTime(bTestMode);
   
-  const int ICELLS = 50; // ICELLS cells along the axial direction
-  const int NEND = 9; // NEND cells along each side of the hexagon
+  const int ICELLS = 50; // ICELLS cells along the axial direction. Needs to be increased to 400 eventually for NEND=20
+  const int NEND = inp.nend; // NEND cells along each side of the hexagon
   const int JCELLS = 3*NEND*(NEND-1)+1; // JCELLS cells along the transverse direction (perp to axial dir)
   int  ancol = 2*NEND-1;
   double rbound = ancol*inp.rsize; // inp is the BlzSimInput object passed into this method
@@ -870,7 +1030,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   double sen = 2.0*inp.alpha + 1.0;
   zeta = inp.zeta/DEG_PER_RAD; // apparently inp.zeta is specified in DEG
   opang = inp.opang/DEG_PER_RAD; // ...and same with inp.opang
-  // uratio is the ratio of energy density of electrons to that of mag. field
+  // uratio is the user-specified ratio of energy density of electrons to that of mag. field
   // set the normalization of the electron energy distribution accordingly:
   n0ave = inp.uratio*inp.bave*inp.bave*(sen-2.0)/(8.0*PI*EMC2)/(::pow(inp.gmin, 2.0-sen) - ::pow(inp.gmaxmn,2.0-sen));
   // Line of sight
@@ -881,15 +1041,13 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   cosz = cos(zeta);
   tanz = sinz/cosz;
   gamup = 1.0/sqrt(1.0 - inp.betaup*inp.betaup);
-  double betaus=inp.betaup*sinz;
-  double gamus=1.0/sqrt(1.0-betaus*betaus); // I don't see where this is ever used in the Fortran code
 
   // Compression ratio of Mach disk. Ultra-relativistic eq. of state assumed, so compression ratio is that
   // given by Hughes, Aller, & Aller (1989, ApJ, 341, 54)
   double etac = sqrt(8.0*::pow(gamup, 4) - 17.0*gamup*gamup + 9.0)/gamup;
   double betaup2 = inp.betaup*inp.betaup;
-  tanxi = (tanz*tanz*(3.0*betaup2-1.0) - (1-betaup2))/(tanz*(tanz*tanz + 1.0 + 2.0*betaup2));
-  xi = atan(tanxi);
+  // Speed downstream of conical shock if turbulent velocity = 0;
+  // for setting cell length zsize
   betad[0][0] = sqrt(::pow(1.0 - ::pow(inp.betaup*cosz,2), 2) + 9.0*::pow(betaup2*cosz*sinz, 2))/(3.0*inp.betaup*sinz);
   gammad[0][0] = 1.0/sqrt(1.0-betad[0][0]*betad[0][0]);
   common.betd = betad[0][0];
@@ -902,7 +1060,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   double volcp = volc/common.gamd;
   double svmd = sqrt(inp.vmd);
   double delobs = 1.0/(common.gamd*(1.0-common.betd*clos));
-  dstart = mdmax+(ICELLS+100)*delobs+2500;
+  dstart = mdmax+ICELLS*delobs;
   // Time step in observer's frame in days
   double dtfact = (1.0-common.betd*clos)/(common.betd*clos);
   double dtime = 1190.0*zsize*dtfact*common.zred1;
@@ -925,19 +1083,24 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   int id;
   // Computation of IR seed photon density from dust torus as function of distance down jet
   double zdist;
+  // Area filling factor of hot dust, from IR luminosity. 1.05E8 = 1E45/(parsec**2)
+  double filld = 1.05e8*inp.ldust/(5.67e-5*4.0*PI*inp.dtrad*inp.dtdist*::pow(inp.tdust,4));
 
-  for(id=1; id<=ICELLS+NEND; id++) {
+  for(id=1; id<=ICELLS+NEND; id++) { // do 333 id=1,(icells+nend)
     zdist = inp.zdist0+(id-NEND)*zsize+zshock;
     // Calculate min & max angles of dust torus in plasma frame
     double dphi1=asin(inp.dtrad/sqrt(zdist*zdist+inp.dtdist*inp.dtdist));
     double dphi2=atan(inp.dtdist/zdist);
-    dth1 = dphi1 + dphi2;
-    dth2 = dphi2 - dphi1;
-    common.dcsth1 = -(cos(dth1) - common.betd)/(1.0-common.betd * cos(dth1));
-    common.dcsth2 = -(cos(dth2) - common.betd)/(1.0-common.betd * cos(dth2));
+    dth1 = PI-(dphi1+dphi2);
+    dth2 = PI-(dphi2-dphi1);
+    double dtnth1 = tan(2.0*atan(tan(0.5*dth1)/(common.gamd*(1.0+common.betd))));
+    double dtnth2 = tan(2.0*atan(tan(0.5*dth2)/(common.gamd*(1.0+common.betd))));
+    common.dcsth1 = 1.0/sqrt(1.0+dtnth1*dtnth1);
+    common.dcsth2 = 1.0/sqrt(1.0+dtnth2*dtnth2);
     common.dsnth1 = sqrt(1.0 - common.dcsth1*common.dcsth1);
     common.dsnth2 = sqrt(1.0 - common.dcsth2*common.dcsth2);
     // Doppler factor of dust torus emission in frame of cells
+    // used to estimate frequency of peak intensity in plasma frame
     double tdel = 1.0/(common.gamd*(1.0-common.betd*common.dcsth1));
     common.dsang = TWOPI*(common.dsnth2 - common.dsnth1);
     // Calculate seed photon field from dust emission in plasma frame
@@ -946,15 +1109,15 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     // Use this to set the frequency array of the seed photons
     for(inu=1; inu<=D22; inu++) {
       common.dustnu[inu-1] = seedpk[id-1]*::pow(10.0,-1.6+(inu-1)*0.1);
-      common.dusti[inu-1] = seedph(common.dustnu[inu-1]);
+      common.dusti[inu-1] = filld *seedph(common.dustnu[inu-1]);
       // If too far downstream, dust torus angles are in 2nd quadrant; need to correct
       if(common.dusti[inu-1] < 0.0)
         common.dusti[inu-1] = -common.dusti[inu-1];
       dustii[id-1][inu-1] = common.dusti[inu-1];
     }
-  } // for(id=1; id<=ICELLS+NEND; id++)
+  } // for(id=1; id<=ICELLS+NEND; id++) 333 continue
 
-  for(id=1; id<=ICELLS+NEND; id++) {
+  for(id=1; id<=ICELLS+NEND; id++) { // do 336 id=1,icells+nend
     double dflux=0.0;
     for(inu=2; inu<=D22; inu++) {
       if((dustii[id-1][inu-2]<=0.0) || (dustii[id-1][inu-1]<=0)) {
@@ -965,7 +1128,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         dflux = dflux + dustii[id-1][inu-2]/(a+1.0)*common.dustnu[inu-2]*(::pow(common.dustnu[inu-1]/common.dustnu[inu-2], a+1.0) - 1.0);
       }
 
-      zdist = inp.zdist0 + (id-NEND)*zsize+zshock;
+      //zdist = inp.zdist0 + (id-NEND)*zsize+zshock;
     }
     useed[id-1] = dflux/C_CM_PER_SEC;
   }
@@ -977,9 +1140,10 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   
   double psdsum = 0.0;
   int ip;
-  for(ip=1; ip<=BLZSIM_DIM16384; ip++) {
-    double spexp=1.0/(0.5*expon+1.0);
-    spsd[ip-1] = ::pow(abs(spsd[ip-1]), spexp);
+  for(ip=1; ip<=BLZSIM_DIM16384; ip++) { // do 4998 ip=1,16384
+    //double spexp=1.0/(0.5*expon+1.0);
+    //spsd[ip-1] = ::pow(abs(spsd[ip-1]), spexp);
+    spsd[ip-1] = 1.0;
     psdsum = psdsum + (spsd[ip-1]/(double)BLZSIM_DIM16384);
   }
 
@@ -995,11 +1159,11 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   //write(4,6667)
   //write(5,6668)
   int i = 1, j = 0, nrow, ncol, neven, ncell, jold;
-  for(nrow=-(NEND-1); nrow<=NEND-1; nrow++) {
+  for(nrow=-(NEND-1); nrow<=NEND-1; nrow++) { // do 999 nrow=-(nend-1),(nend-1)
     ncol = 2*NEND-(abs(nrow)+1);
     neven = ncol % 2;
     ncol = ncol/2;
-    for(ncell=-ncol; ncell<=ncol; ncell++) {
+    for(ncell=-ncol; ncell<=ncol; ncell++) { // do 998 ncell=-ncol,ncol
       if((ncell==0) && (nrow==0)) {
         j=JCELLS;
         xcell[j-1]=0.0;
@@ -1012,13 +1176,20 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       else if((neven!=0) || (ncell!=0)) {
         j = j + 1;
         jold = j;
-        xcell[j-1] = 2.0*ncell*inp.rsize;
+        if((neven==0) && (ncell<0))
+          xcell[j-1] = (1.0+2.0*ncell)*inp.rsize;
+        if((neven==0) && (ncell>0))
+          xcell[j-1] = (-1.0+2.0*ncell)*inp.rsize;
+        if(neven == 1)
+          xcell[j-1] = 2.0*ncell*inp.rsize;
         ycell[j-1] = nrow*SQRT3*inp.rsize;
-        rcell[j-1] = sqrt(xcell[j-1]*xcell[j-1]+ycell[j-1]*ycell[j-1]);
+        rcell[j-1] = BlzMath::mag(xcell[j-1], ycell[j-1]);
         double zcol = rcell[j-1]/tanz;
-        imax[j-1] = BlzMath::round<double>(2.0*zcol/zsize);
-
-        //if(bTestOut) fprintf(pfTestOut, FORMAT2, j, imax[j-1]);
+        imax[j-1] = BlzMath::round<double>((2.0*zcol/zsize) + 0.01);
+        double xxx = xcell[j-1]/inp.rsize;
+        double yyy = ycell[j-1]/inp.rsize;
+        double zzz = zcol/zsize;
+        if(nTestOut==2) fprintf(pfTestOut, FORMAT2, j, imax[j-1]);
         if(imax[j-1] < 2)
           imax[j-1] = 2;
         // nouter[j-1] = approx. no. of cells between cell of interest and observer
@@ -1030,8 +1201,8 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         cospsi[j-1] = cos(psi[j-1]);
         sinpsi[j-1]=tanpsi[j-1]*cospsi[j-1];
       }        
-    } // for(ncell=-ncol; ncell<=ncol; ncell++)
-  } //  for(nrow=(-NEND-1); nrow<=NEND-1)
+    } // for(ncell=-ncol; ncell<=ncol; ncell++) 998 continue
+  } //  for(nrow=(-NEND-1); nrow<=NEND-1) 999 continue
 
   double zrf=zshock, xrf=0.0;
 
@@ -1056,26 +1227,66 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   double gminmd = 0.15*inp.gmaxmn;
 
   // Determine B vector of MD assuming random magnetic field orientation
-  for(md=1; md<=mdmax-1; md++) {
-    xrand = randObj.rand(0);
-    phi = TWOPI * xrand;
-    xrand = randObj.rand(0);
-    double costh = 2.0*(xrand-0.5);
-    xrand = randObj.rand(0);
-    double sign = xrand - 0.5;
-    sign = sign/abs(sign);
-    double thetab = sign*acos(costh);
+  for(j=1; j<=JCELLS; j++) { // do 6129 j=1,jcells
+    ididb[j-1] = 0;
+    phi1[j-1] = 0.0;
+    bfrac[j-1] = 0.0;
+  } 
+
+  // Randomly select magnetic field direction for every 10th cell, then interpolate
+  // inside loop to get direction for intermediate cells
+  // First need to set up field direction for the more downstream cell
+  xrand = randObj.rand(0);
+  phi2[JCELLS-1] = TWOPI*xrand;
+  xrand = randObj.rand(0);
+  double costh = 2.0*(xrand-0.5);
+  costh = adjustTrig(costh);
+  xrand = randObj.rand(0);
+  float sign = xrand-0.5;
+  sign = sign/abs(sign);
+  theta2[JCELLS-1] = sign*acos(costh);
+
+  // Loop over mdmax cells that pass through Mach disk
+  for(md=1; md<=mdmax-1; md++) { // do 130 md=1,(mdmax-1)
+
+    if(ididb[JCELLS-1] != 1) { // if(ididb(JCELLS).eq.1)go to 6130
+      xrand = randObj.rand(0);
+      phi1[JCELLS-1] = TWOPI * xrand;
+      xrand = randObj.rand(0);
+      costh = 2.0*(xrand-0.5);
+      costh = adjustTrig(costh);
+      xrand = randObj.rand(0);
+      double sign = xrand - 0.5;
+      sign = sign/abs(sign);
+      theta1[JCELLS-1] = sign*acos(costh);
+      ididb[JCELLS-1] = 1;
+    }
+
+    double thetab = (theta1[JCELLS-1]*bfrac[JCELLS-1]+theta2[JCELLS-1]*(1.0-bfrac[JCELLS-1])); // 6130
+    phi = (phi1[JCELLS-1]*bfrac[JCELLS-1]+phi2[JCELLS-1]*(1.0-bfrac[JCELLS-1]));
     double sinthb=sin(thetab);
     double costhb=cos(thetab);
     double sinphb=sin(phi);
     double cosphb=cos(phi);
+    bfrac[JCELLS-1] = bfrac[JCELLS-1]+0.1;
+
+    // Use .99 instead of 1 to deal with precision/error issues. Really should just
+    // use an integer counter for this ("every 10th cell") but just trying to match the
+    // Fortran code at this point (MSV 8/10/2012)
+    if(bfrac[JCELLS-1] >= .99) { // if(bfrac[jcells-1].lt.1.0)go to 6131
+      theta2[JCELLS-1] = theta1[JCELLS-1];
+      phi2[JCELLS-1] = phi1[JCELLS-1];
+      bfrac[JCELLS-1] = 0.0;
+      ididb[JCELLS-1] = 0;
+    } // 6131 continue
+
     // Compute B field components downstream of Mach disk shock
     int idelay = dstart-mdmax+md-idelmd;
     //if((idelay<1) || (idelay>(BLZSIM_DIM16384-ip0)))
     //  write(5,9222)idelay,i,j,md,ip0,zshock,zcell(i,j);
     double bavg = inp.bave*sqrt(spsd[idelay+ip0-1]);
     n0mean = n0ave*spsd[idelay+ip0-1];
-    double n0prev = n0ave*spsd[idelay+ip0-2];
+    int n0prev = n0ave*spsd[idelay+ip0-2];
     j = JCELLS;
     n0[i-1][j-1] = etac*n0mean;
     n0prev = etac * n0prev;
@@ -1090,8 +1301,8 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     bmdtot[md-1] = common.bfld;
     // Calculate the initial maximum electron energy in the Mach disk
     bup = bavg*BlzMath::mag(costhb, gamup*sinthb);
-    bprp = bavg*sqrt(::pow(costhb*sinz*sinz,2)+::pow(gamup*sinthb*cosz*cosz, 2) *
-                     (::pow(cosphb*cosph[j-1]*cosph[j-1],2)+::pow(sinphb*sinph[j-1]*sinph[j-1], 2)));
+    double bprp = bavg*sqrt(::pow(costhb*sinz*sinz,2)+::pow(gamup*sinthb*cosz*cosz, 2) *
+                            (::pow(cosphb*cosph[j-1]*cosph[j-1],2)+::pow(sinphb*sinph[j-1]*sinph[j-1], 2)));
     // Next line relates this to direction of B field relative to shock
     //  gmax0[i-1][j-1]=gmaxmn*(bprp/bup)**(2.0*pexp)
     // Next 3 lines assume a power-law distribution of gmax0, unrelated
@@ -1102,15 +1313,16 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     //  if(pexp.eq.0.0)gmax0[i-1][j-1]=gmaxmx
     //  if(pexp.lt.0.0)gmax0[i-1][j-1]=((gmaxmx**pexp-gmaxmn**pexp)*xrand+
     // ,  gmaxmn**pexp)**(1.0/pexp)
-    gmax0[i-1][j-1] = 0.2*inp.gmaxmn;
+    gmax0[i-1][j-1] = inp.gmaxmn;
+    gminmd = inp.gmin;
     // Calculate energy distribution in the Mach disk cell
     // Compute energy density of photons in Mach disk, time delayed by 1 step
     // Ignore photons from dust torus since beaming is small in Mach disk
     int mdi = md-1;
     if(mdi <= 0)
       mdi = 1;
-    // Value of SSC photon density for fast cooling case, from Sari and Esen (2001)
-    double uphmd = bmdtot[mdi-1]*bmdtot[mdi-1]/(8.0*PI)*(sqrt(1.0+4.0*inp.uratio)-1.0)/2.0;
+    // Value of SSC photon density for fast cooling case, from Sari and Esen (2001) multiplied by 2.0
+    double uphmd = bmdtot[mdi-1]*bmdtot[mdi-1]/(8.0*PI)*2.0*(sqrt(1.0+4.0*inp.uratio)-1.0)/2.0;
     ustob = 8.0*PI*uphmd/(bfield[j-1]*bfield[j-1]);
     tlfact = CC2*bfield[j-1]*bfield[j-1]*(1.0+ustob);
     // iend is the last slice of cells with energetic electrons
@@ -1127,7 +1339,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     ibreak = 0;
     if(gamb <= glow) ibreak = 1;
 
-    for(ie=1; ie<=D44; ie++) {
+    for(ie=1; ie<=D44; ie++) { // do 124 ie=1,44
       egam[i-1][j-1][ie-1] = gminmd*::pow(10.0, gmratl*(ie-12));
       if(ie < 12)
         egam[i-1][j-1][ie-1] = glow*::pow(10.0, gmratm*(ie-1));
@@ -1145,23 +1357,25 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       enofe[i-1][j-1][ie-1] = 0.0;
       eterm1 =1.0 - common.ggam[ie-1]*t1*tlfact;
       eterm2 =1.0 - common.ggam[ie-1]*t2*tlfact;
-      if((eterm1>=0.0) && (eterm2>=0.0)) {
+      if((eterm1>=0.0) && (eterm2>=0.0)) { // goto 5123
         enofe[i-1][j-1][ie-1] = n0[i-1][j-1]/((sen-1.0)*tlfact*::pow(common.ggam[ie-1],sen+1.0))
           * (1.0 - ::pow(eterm2, sen-1.0));
+        if(ie<12) {
+          enofe[i-1][j-1][ie-1] = n0[i-1][j-1]/((sen-1.0)*tlfact*::pow(common.ggam[ie-1], sen+1.0))*
+            (::pow(eterm1, sen-1.0) - ::pow(eterm2, sen-1.0));
+        }
+        //Divide by delt since integral is over time
+        enofe[i-1][j-1][ie-1] = enofe[i-1][j-1][ie-1]/delt;
+        if(enofe[i-1][j-1][ie-1]<0.0)
+          enofe[i-1][j-1][ie-1] = 0.0;
       }
-      if(ie<12) {
-        enofe[i-1][j-1][ie-1] = n0[i-1][j-1]/((sen-1.0)*tlfact*::pow(common.ggam[ie-1], sen+1.0))*
-          (::pow(eterm1, sen-1.0) - ::pow(eterm2, sen-1.0));
-      }
-      //Divide by delt since integral is over time
-      enofe[i-1][j-1][ie-1] = enofe[i-1][j-1][ie-1]/delt;
-      if(enofe[i-1][j-1][ie-1]<0.0)
-        enofe[i-1][j-1][ie-1] = 0.0;
-      common.edist[ie-1] = enofe[i-1][j-1][ie-1];
-    } // for(ie=1; ie<=D44; ie++)
+      common.edist[ie-1] = enofe[i-1][j-1][ie-1]; // 5123
+    } // for(ie=1; ie<=D44; ie++) 124 continue
     
-    common.bperpp = common.bfld * (2.0/3.0);
-    for(inu=1; inu<=40; inu++) { // TODO: what is the significance of 40??
+    common.bperpp = common.bfld;
+    common.nuhi = 1;
+
+    for(inu=1; inu<=40; inu++) { // 125  TODO: what is the significance of inu 40??
       alfmdc[inu-1][md-1] = 10.0;
       fsscmd[inu-1][md-1] = 0.0;
       common.snu[inu-1] = nu[inu-1];
@@ -1170,6 +1384,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       ssabs = 1.02e4*(sen+2.0)*akapnu(restnu)*common.bperpp/(nu[inu-1]*nu[inu-1]);
       sstau = ssabs*CM_PER_PARSEC*inp.rsize*svmd;
       fsync[inu-1]=ajnu(restnu)*common.bperpp*inp.rsize*svmd*(EMFACT*CM_PER_PARSEC);
+      if(nTestOut==3) fprintf(pfTestOut, FORMAT3_1, md, inu, fsync[inu-1]);
       if(fsync[inu-1] > 0.0) 
         common.nuhi=inu;
       if(sstau >= 0.01) {
@@ -1179,7 +1394,8 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         if((sstau>0.01) && (sstau<=5.0))
           fsync[inu-1]= srcfn*(1.0-exp(-sstau));
       }
-      // Now calculate synchrotron emission seen by other cells
+      if(nTestOut==3) fprintf(pfTestOut, FORMAT3_1, md, inu, fsync[inu-1]);
+      // Now estimate synchrotron emission seen by other cells
       // Need to add a lower frequency to get spectral index of nu(1)
       if(inu <= 1) {
         fq1 = 0.98*nu[0];
@@ -1200,11 +1416,12 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       fq1 = restnu;
       fsyn1 = fsynmd[inu-1][md-1];
       common.ssseed[inu-1] = fsync[inu-1];
+      if(nTestOut==3) fprintf(pfTestOut, FORMAT3_2, md, inu, fsynmd[inu-1][md-1]);
       // write(5,9911)md,j,dopref,bperpp,n0(i,j),ggam(44),edist(44),
       // ,  restnu,ssseed[inu-1],fsynmd[inu-1][md-1],fsscmd[inu-1][md-1]
-    } // for(inu=1; inu<=40; inu++)
+    } // for(inu=1; inu<=40; inu++)  125
 
-    for(inu=41; inu<=D68; inu++) {
+    for(inu=41; inu<=D68; inu++) { // 128
       common.snu[inu-1] = nu[inu-1];
       alphmd[inu-1][md-1] = 10.0;
       common.ssseed[inu-1] = 0.0;
@@ -1218,7 +1435,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     common.betd = betamd;
     common.gamd = gammd;
     double fssc1 = ssc(fq1/dopref)*dopref2;
-    for(inu=7; inu<=D68; inu++) { // why 7?
+    for(inu=7; inu<=D68; inu++) { // 129  why inu 7?
       restnu = nu[inu-1];
       fsscmd[inu-1][md-1] = ssc(restnu/dopref)*dopref2;
       alfmdc[inu-1][md-1] = 10.0;
@@ -1228,8 +1445,9 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       // ,  restnu,ssseed(inu),fsynmd[inu-1][md-1],fsscmd[inu-1][md-1]
       fq1 = restnu;
       fssc1 = fsscmd[inu-1][md-1];
+      if(nTestOut==3) fprintf(pfTestOut, FORMAT3_3, md, inu, fsscmd[inu-1][md-1]);
     }
-  } // for(md=1; md<=mdmax-1; md++)
+  } // for(md=1; md<=mdmax-1; md++) 130
 
   //
   //     *** End Mach disk set-up ***
@@ -1249,6 +1467,8 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     //
     // Start loop over all cells in first layer to set up physical parameters
     //
+    double ssx, ssy, ssz, bux, buy, buz, bterm, bprpx, bprpy, bprpz,bprp;
+
     for(j=1; j<=JCELLS; j++) { // do 80
 
       for(inu=1; inu<=D68; inu++) { // do 81
@@ -1264,9 +1484,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       // ,  write(5,9222)idelay,i,j,md,ip0,zshock,zcell(i,j)
       double bavg = inp.bave * sqrt(spsd[idelay+ip0-1]);
       n0mean = n0ave*spsd[idelay+ip0-1];
-      // if(idelay.gt.(dstart+40).and.idelay.lt.(dstart+51));
-      // ,  n0mean=10.0*n0mean
-      //  write(5,9333)it,idelay,i,j,zlos,bavg,n0mean
       phcell[j-1] = atan2(sinph[j-1],cosph[j-1]);
       // Velocity vector of laminar component of pre-shock flow
       double betupx = inp.betaup*cosph[j-1]*sinpsi[j-1];
@@ -1295,73 +1512,118 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       double btprpz = betatz-btparz;
       // Velocity vector of the pre-shock plasma including turbulent component
       double gamup2 = gamup*gamup;
-      betaux[j-1] = (betupx+btparx+btprpx/gamup2)/(1.0+dotprd);
-      betauy[j-1] = (betupy+btpary+btprpy/gamup2)/(1.0+dotprd);
-      betauz[j-1] = (betupz+btparz+btprpz/gamup2)/(1.0+dotprd);
+      betaux[j-1] = (betupx+btparx+btprpx/gamup)/(1.0+dotprd);
+      betauy[j-1] = (betupy+btpary+btprpy/gamup)/(1.0+dotprd);
+      betauz[j-1] = (betupz+btparz+btprpz/gamup)/(1.0+dotprd);
       betau[j-1] = BlzMath::mag(betaux[j-1], betauy[j-1], betauz[j-1]);
       gammau[j-1] = 1.0/sqrt(1.0-betau[j-1]*betau[j-1]);
-      // Shock compression factor in terms of upstream speed and angle of shock zeta From Cawthorne & Cobb (1990)
-      double sinzps = sin(zeta+psi[j-1]);
-      double coszps = cos(zeta+psi[j-1]);
-      double tanzps = sinzps/coszps;
-      double eta = gammau[j-1]*betau[j-1]*sinzps*sqrt((8.0*::pow(betau[j-1]*sinzps, 2)
-                                                       -1.0/(gammau[j-1]*gammau[j-1]))/(1.0-::pow(betau[j-1]*coszps,2)));
-
-      //  Deflection angle of velocity vector crossing shock, in rest frame of shock
-      tanxi = (tanzps*tanzps*(3.0*betau[j-1]*betau[j-1]-1.0)-1.0/(gammau[j-1]*gammau[j-1]))/(tanzps*(tanzps*tanzps+1.0+2.0*betau[j-1]*betau[j-1]));
-      xi = atan(tanxi);
+      // Unit vector of shock front at current position
+      double sx = -sinz*cosph[j-1];
+      double sy =-sinz*sinph[j-1];
+      double sz = cosz;
       // Velocity vector downstream of shock
-      double cszp2=coszps*coszps;
-      betad[i-1][j-1] = sqrt(::pow(1.0-betau[j-1]*betau[j-1]*cszp2, 2)+9.0*::pow(betau[j-1],4)*cszp2*(1.0-cszp2))/(3.0*betau[j-1]*sqrt(1.0-cszp2));
-      gammad[i-1][j-1] = 1.0/sqrt(1.0-betad[i-1][j-1]*betad[i-1][j-1]);
-      double sinpsx = sin(psi[j-1]-xi);
-      double cospsx = cos(psi[j-1]-xi);
-      betadx[i-1][j-1] = betad[i-1][j-1]*cosph[j-1]*sinpsx;
-      betady[i-1][j-1] = betad[i-1][j-1]*sinph[j-1]*sinpsx;
-      betadz[i-1][j-1] = betad[i-1][j-1]*cospsx;
+      vdcalc(betaux[j-1],betauy[j-1],betauz[j-1],sx,sy,sz,&(betadx[i-1][j-1]),
+             &(betady[i-1][j-1]),&(betadz[i-1][j-1]),&(betad[i-1][j-1]),&(gammad[i-1][j-1]),&eta);
       // Determine B vector of cell assuming random magnetic field orientation
       // 11 continue (line from the Fortran code to help me orient myself :-)  )
-      xrand = randObj.rand(0);
-      phi = TWOPI * xrand;
-      xrand = randObj.rand(0);
-      costh = 2.0*(xrand-0.5);
-      xrand = randObj.rand(0);
-      sign = xrand-0.5;
-      sign = sign/abs(sign);
-      double thetab = sign*acos(costh);
+      // For Mach disk, continue from previous calculation of B direction
+      if((j!=JCELLS) || (ididb[j-1]!=1)) { // go to 6030
+        if(j != JCELLS) { // go to 6029
+          if(ididb[j-1] != 1) { // go to 6030
+            // Randomly select magnetic field direction for every 10th cell, then interpolate
+            // inside loop to get direction for intermediate cells
+            // First need to set up field direction for the more downstream cell
+            xrand = randObj.rand(0);
+            phi2[j-1] = TWOPI*xrand;
+            xrand = randObj.rand(0);
+            costh = 2.0*(xrand-0.5);
+            costh = adjustTrig(costh);
+            xrand = randObj.rand(0);
+            sign = xrand-0.5;
+            sign = sign/abs(sign);
+            theta2[j-1]=sign*acos(costh);
+            ididb[j-1] = 1;
+            // Now set up field direction for cell just crossing the shock
+            xrand = randObj.rand(0);
+            phi1[j-1] = TWOPI*xrand;
+            xrand = randObj.rand(0);
+            costh = 2.0*(xrand-0.5);
+            costh = adjustTrig(costh);
+            xrand = randObj.rand(0);
+            sign = xrand-0.5;
+            sign = sign/abs(sign);
+            theta1[j-1] = sign*acos(costh);
+          } 
+          else {
+            // go to 6030
+          }
+        } // if(j != JCELLS) { // go to 6029
+        else {
+          if(phi1[j-1] == 0.0) { // go to 6030 // 6029 (goto 6030)
+            // Now set up field direction for cell just crossing the shock
+            xrand = randObj.rand(0);
+            phi1[j-1] = TWOPI*xrand;
+            xrand = randObj.rand(0);
+            costh = 2.0*(xrand-0.5);
+            costh = adjustTrig(costh);
+            xrand = randObj.rand(0);
+            sign = xrand-0.5;
+            sign = sign/abs(sign);
+            theta1[j-1] = sign*acos(costh);
+          }
+          else {
+            // go to 6030
+          }
+        } // if(j != JCELLS) { // go to 6029
+      } //  if((j!=CELLS) || (ididb[j-1]!=1))
+
+      // This is Fortran label 6030
+      double thetab = (theta2[j-1]*bfrac[j-1]+theta1[j-1]*(1.0-bfrac[j-1]));
+      phi = (phi2[j-1]*bfrac[j-1]+phi1[j-1]*(1.0-bfrac[j-1]));
       double sinthb = sin(thetab);
       double costhb = cos(thetab);
       double sinphb = sin(phi);
       double cosphb = cos(phi);
+      bfrac[j-1]=bfrac[j-1]+0.1;
+      // Use .99 here instead of 1.0 to account for accuracy variations
+      if(bfrac[j-1] > .99) {  // go to 6031  (Fortran checks bfrac against 1.0)
+        theta1[j-1] = theta2[j-1];
+        phi1[j-1] = phi2[j-1];
+        bfrac[j-1] = 0.0;
+        ididb[j-1] = 0;
+      } // 6031 continue
+
+      bux = bavg*sinthb*cosphb;
+      buy = bavg*sinthb*sinphb;
+      buz = bavg*costhb;
 
       // Compute B field components downstream of shock in the plasma frame
       // From equation derived by transforming from the upstream plasma
       // frame, compressing the component of B
       // parallel to the shock, and transforming the result to the rest frame
       // of the downstream plama
-      double ssx, ssy, ssz, bux, buy, buz, bterm, bprpx, bprpy, bprpz;
 
+      // Unit vector of shock front at current position
+      sx = -sinz*cosph[j-1];
+      sy=-sinz*sinph[j-1];
+      sz = cosz;
+      
+      // If Mach disk, compute separately
       if(j != JCELLS) {
-        zetap = atan(gammau[j-1]*tanzps)-atan(gammau[j-1]*tan(psi[j-1]));
-        ssx = sin(zetap)*cosph[j-1];
-        ssy = sin(zetap)*sinph[j-1];
-        ssz = cos(zetap);
-        bux = bavg*sinthb*cosphb;
-        buy = bavg*sinthb*sinphb;
-        buz = bavg*costhb;
-        bterm = bux*ssx+buy*ssy+buz*ssz;
-        // Finally, the downstream B field components
-        bx[i-1][j-1] = bux+(eta-1.0)*bterm*ssx;
-        by[i-1][j-1] = buy+(eta-1.0)*bterm*ssy;
-        bz[i-1][j-1] = buz+(eta-1.0)*bterm*ssz;
+        double anx = cosz*cosph[j-1];
+        double any = cosz*sinph[j-1];
+        double anz = sinz;
+        bdcalc(betaux[j-1],betauy[j-1],betauz[j-1],anx,any,anz,
+               bux,buy,buz,eta,&(bx[i-1][j-1]),&(by[i-1][j-1]),&(bz[i-1][j-1]));
+        // Unit vector of shock front at current position
+        sx = -sinz*cosph[j-1];
+        sy = -sinz*sinph[j-1];
+        sz = cosz;
         // Calculate upstream B field component perpendicular to the shock front bprp
-        bup = sqrt(bux*bux+buy*buy+buz*buz);
-        bprpx = bux-bterm*ssx;
-        bprpy = buy-bterm*ssy;
-        bprpz = buz-bterm*ssz;
-        bprp = BlzMath::mag(bprpx, bprpy, bprpz);
+        bcalc(betaux[j-1],betauy[j-1],betauz[j-1],sx,sy,sz,bux,buy,buz,
+              &dum1,&dum2,&dum3,&dum4,&dum5,&dum6,&dum7,&bprp);
       }
-      else {
+      else { // if(j != JCELLS)
         // Set field of plasma in central cell, which is a Mach disk
         n0[i-1][j-1] = etac*n0mean;
         bx[i-1][j-1] = bavg*sinthb*cosphb*etac;
@@ -1373,10 +1635,15 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         bmdy[md-1] = by[i-1][j-1];
         bmdz[md-1] = bz[i-1][j-1];
         bmdtot[md-1] = common.bfld;
+        // Unit vector of shock front at current position
+        sx = 1.0/SQRT2;
+        sy=  1.0/SQRT2;
+        sz = 0.0;
+        // Calculate upstream B field component perpendicular to the shock front bprp
+        bcalc(betaux[j-1],betauy[j-1],betauz[j-1],sx,sy,sz,bux,buy,buz,
+              &dum1,&dum2,&dum3,&dum4,&dum5,&dum6,&dum7,&bprp);
         // Calculate the initial maximum electron energy in the Mach disk
         bup = bavg*sqrt(costhb*costhb+::pow(gamup*sinthb, 2));
-        bprp = bavg*sqrt(::pow(costhb*sinz*sinz,2)+::pow(gamup*sinthb*cosz*cosz,2)
-                         *(::pow(cosphb*cosph[j-1]*cosph[j-1],2)+::pow(sinphb*sinph[j-1]*sinph[j-1],2)));
         //Next line relates this to direction of B field relative to shock
         //  gmax0[i-1][j-1]=gmaxmn*(bprp/bup)**(2.0*pexp)
         // Next 3 lines assume a power-law distribution of gmax0, unrelated
@@ -1388,7 +1655,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         //  if(pexp.lt.0.0)gmax0[i-1][j-1]=((gmaxmx**pexp-gmaxmn**pexp)*xrand+
         // ,  gmaxmn**pexp)**(1.0/pexp)
         gmax0[i-1][j-1] = 0.2*inp.gmaxmn;
-        // gminmd = 0.15*inp.gmaxmn; gminmd already calculated earlier and value should not have changed by  ow
+        gminmd = 0.15*inp.gmin;
 
         // Calculate energy distribution in the Mach disk cell
         // Compute energy density of photons in Mach disk, time delayed by 1 step
@@ -1396,7 +1663,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         int mdi = md-1;
         if(mdi <= 0)
           mdi = 1;
-        double uphmd = bmdtot[mdi-1]*bmdtot[mdi-1]/(8.0*PI)*(sqrt(1.0+4.0*inp.uratio)-1.0)/2.0;
+        double uphmd = bmdtot[mdi-1]*bmdtot[mdi-1]/(8.0*PI)*2.0*(sqrt(1.0+4.0*inp.uratio)-1.0)/2.0;
         ustob = 8.0*PI*uphmd/(bfield[j-1]*bfield[j-1]);
         tlfact = CC2*bfield[j-1]*bfield[j-1]*(1.0+ustob);
         // iend is the last slice of cells with energetic electrons
@@ -1413,7 +1680,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         if(gamb <= glow) ibreak = 1;
         //  write(5,9996)bfield[j-1],n0[i-1][j-1],gmax0[i-1][j-1],useed,usdmd,ustob,tlfact,
         // ,  delt,gamb,glow
-        for(ie=1; ie<=D44; ie++) {
+        for(ie=1; ie<=D44; ie++) { // 1124
           egam[i-1][j-1][ie-1] = gminmd*::pow(10.0, gmratl*(ie-12));
           if(ie < 12)
             egam[i-1][j-1][ie-1] = glow*::pow(10.0, gmratm*(ie-1));
@@ -1424,7 +1691,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
             ibreak = 1;
           }
         
-          common.ggam[ie-1] = egam[i-1][j-1][ie-1];
+          common.ggam[ie-1] = egam[i-1][j-1][ie-1]; // 1123
           tloss = (gmax0[i-1][j-1]-common.ggam[ie-1])/(tlfact*common.ggam[ie-1]*gmax0[i-1][j-1]);
           t1=(gminmd-common.ggam[ie-1])/(tlfact*common.ggam[ie-1]*gminmd);
           t2 = min(tloss,delt);
@@ -1432,25 +1699,26 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
           enofe[i-1][j-1][ie-1] = 0.0;
           eterm1 = 1.0-common.ggam[ie-1]*t1*tlfact;
           eterm2 = 1.0-common.ggam[ie-1]*t2*tlfact;
-          if((eterm1>=0.0) && (eterm2>=0.0)) {
+          if((eterm1>=0.0) && (eterm2>=0.0)) { // go to 5124
             enofe[i-1][j-1][ie-1] = n0[i-1][j-1]/((sen-1.0)*tlfact*::pow(common.ggam[ie-1],sen+1.0))
               * (1.0 - ::pow(eterm2, sen-1.0));
-          }
-          if(ie<12) {
-            enofe[i-1][j-1][ie-1] = n0[i-1][j-1]/((sen-1.0)*tlfact*::pow(common.ggam[ie-1], sen+1.0))*
-              (::pow(eterm1, sen-1.0) - ::pow(eterm2, sen-1.0));
-          }
-          // Divide by delt since integral is over time
-          enofe[i-1][j-1][ie-1] = enofe[i-1][j-1][ie-1]/delt;
-          if(enofe[i-1][j-1][ie-1] < 0.0)
-            enofe[i-1][j-1][ie-1] = 0.0;
-          common.edist[ie-1] = enofe[i-1][j-1][ie-1];
+            if(ie<12) {
+              enofe[i-1][j-1][ie-1] = n0[i-1][j-1]/((sen-1.0)*tlfact*::pow(common.ggam[ie-1], sen+1.0))*
+                (::pow(eterm1, sen-1.0) - ::pow(eterm2, sen-1.0));
+            }
+            // Divide by delt since integral is over time
+            enofe[i-1][j-1][ie-1] = enofe[i-1][j-1][ie-1]/delt;
+            if(enofe[i-1][j-1][ie-1] < 0.0)
+              enofe[i-1][j-1][ie-1] = 0.0;          
+          } // if((eterm1>=0.0) && (eterm2>=0.0)) { // go to 5124
+
+          common.edist[ie-1] = enofe[i-1][j-1][ie-1]; // 5124
         } // for(ie=1; ie<=D44; ie++)   1124 continue
     
-        common.bperpp = common.bfld*(2.0/3.0);
+        common.bperpp = common.bfld;
         common.nuhi = 1;
 
-        for(inu=1; inu<=40; inu++) {
+        for(inu=1; inu<=40; inu++) { // 1125
           alfmdc[inu-1][md-1] = 10.0;
           fsscmd[inu-1][md-1] = 0.0;
           common.snu[inu-1] = nu[inu-1];
@@ -1458,10 +1726,13 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
           // Synchrotron mean intensity for SSC calculation inside Mach disk
           ssabs = 1.02e4*(sen+2.0)*akapnu(restnu)*common.bperpp/(nu[inu-1]*nu[inu-1]);
           sstau = ssabs*CM_PER_PARSEC*inp.rsize*svmd;
+          // fsync[inu-1] is the optically thin intensity
           fsync[inu-1] = ajnu(restnu)*common.bperpp*inp.rsize*svmd*(EMFACT*CM_PER_PARSEC);
           if(fsync[inu-1] > 0.0)
             common.nuhi = inu;
           if(sstau >= 0.01) {
+            // Optically thick source function = emis. coef./abs. coef.
+            // Note that the length of the path through the source cancels out
             srcfn = fsync[inu-1]/sstau;
             if(sstau > 5.0)
               fsync[inu-1] = srcfn;
@@ -1469,7 +1740,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
               fsync[inu-1] = srcfn*(1.0-exp(-sstau));
           } // 1126 continue
 
-          // Now calculate synchrotron emission seen by other cells
+          // Now estimate synchrotron emission seen by other cells
           // Need to add a lower frequency to get spectral index of nu(1)
           if(inu <= 1) {
             fq1 = 0.98*nu[0];
@@ -1490,6 +1761,8 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
           fq1 = restnu;
           fsyn1 = fsynmd[inu-1][md-1];
           common.ssseed[inu-1] = fsync[inu-1];
+          if(nTestOut==4) fprintf(pfTestOut, FORMAT14001, 1125, i, j, md, inu, "fsync(inu)", fsync[inu-1]);
+          if(nTestOut==4) fprintf(pfTestOut, FORMAT14001, 1125, i, j, md, inu, "fsynmd(inu,md)", fsynmd[inu-1][md-1]);
         } // 1125 continue
 
         for(inu=41; inu<=D68; inu++) { // do 1128 inu=41,68
@@ -1519,37 +1792,24 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
           fssc1 = fsscmd[inu-1][md-1];
         } // 1129 continue
 
-
         // Exit the for(j=1; j<=JCELLS; j++) loop
         break;
-      }
+      } // if(j != JCELLS)
 
       // 13 continue
       // Calculate component of magnetic field that is perpendicular to
       // the aberrated line of sight in the plasma frame
-      // Line-of-sight vector in plasma frame
-      bd2 = betad[i-1][j-1]*betad[i-1][j-1];
-      gm1 = gammad[i-1][j-1]-1.0;
-      double spx = (1.0+gm1*::pow(common.bdx/betad[i-1][j-1],2))*slos+gm1*common.bdx*common.bdz/bd2*clos;
-      double spy = gm1*common.bdx*common.bdy/bd2*slos+gm1*common.bdy*common.bdz/bd2*clos;
-      double spz = (1.0+gm1*::pow(common.bdz/betad[i-1][j-1],2))*clos+gm1*common.bdx*common.bdz/bd2*slos;
-      //Need to normalize the line-of-sight vector - should be unit vector
-      double spnorm = BlzMath::mag(spx, spy, spz);
-      dotprd = (bx[i-1][j-1]*spx+by[i-1][j-1]*spy+bz[i-1][j-1]*spz)/spnorm;
-      double bpx = bx[i-1][j-1]-dotprd*spx/spnorm;
-      double bpy = by[i-1][j-1]-dotprd*spy/spnorm;
-      double bpz = bz[i-1][j-1]-dotprd*spz/spnorm;
-      bperp[j-1] = BlzMath::mag(bpx, bpy, bpz);
+      // Line-of-sight unit vector
+      slx = slos;
+      sly = 0.0;
+      slz = clos;
+      bcalc(betadx[i-1][j-1],betady[i-1][j-1],betadz[i-1][j-1],slx,sly,slz,
+            bx[i-1][j-1],by[i-1][j-1],bz[i-1][j-1],
+            &dum1,&dum2,&dum3,&dum4,&dum5,&dum6,&dum7,&(bperp[j-1]));
       bfield[j-1] = BlzMath::mag(bx[i-1][j-1], by[i-1][j-1], bz[i-1][j-1]);
       n0[i-1][j-1] = eta*n0mean;
       // Calculate the initial maximum electron energy in each cell
       // from the ratio of B(perp. to shock) to B_total in shock frame
-      // Calculate upstream B field component perpendicular to the shock front bprp
-      bprpx = bux-bterm*ssx;
-      bprpy = buy-bterm*ssy;
-      bprpz = buz-bterm*ssz;
-      bprp = BlzMath::mag(bprpx, bprpy, bprpz);
-      // Next line relates this to direction of B field relative to shock
       // gmax0[i-1][j-1]=gmaxmn*(bprp/bup)**(2.0*pexp)
       // Next 3 lines assume a power-law distribution of gmax0, unrelated
       // to direction of B field
@@ -1574,12 +1834,11 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 
     for(j=1; j<=(JCELLS-1); j++) { // do 100 j=1,JCELLS-1
       ncells++;
-      //if(bTestOut) fprintf(pfTestOut, "ncells %8d j %5d\n", ncells, j);
+      if(nTestOut==2) fprintf(pfTestOut, "ncells %8d j %5d\n", ncells, j);
       emisco = 0.0;
       ecflux = 0.0;
       zcell[i-1][j-1] = zshock-(rcell[j-1]-inp.rsize)/tanz;
       // Determine Doppler factor relative to the observer
-      psiup = opang;
       common.bdx = betadx[i-1][j-1];
       common.bdy = betady[i-1][j-1];
       common.bdz = betadz[i-1][j-1];
@@ -1589,21 +1848,29 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       common.bperpp = bperp[j-1];
       common.bfld = bfield[j-1];
       // Determine velocity of the cell plasma relative to the MD plasma
-      bmfact = 3.0*gammad[i-1][j-1]*betad[i-1][j-1]*betad[i-1][j-1];
-      betamx[j-1] = (bmfact+(gammad[i-1][j-1]-1.0)*common.bdz)*common.bdx/(bmfact*(1.0+common.bdz/3.0));
-      betamy[j-1] = (bmfact+(gammad[i-1][j-1]-1.0)*common.bdz)*common.bdy/(bmfact*(1.0+common.bdz/3.0));
-      betamz[j-1] = ((bmfact+1.0)*betad[i-1][j-1]*betad[i-1][j-1]+(gammad[i-1][j-1]-1.0)*common.bdz*common.bdz)/(bmfact*(1.0+common.bdz/3.0));
+      double betadij2 = betad[i-1][j-1]*betad[i-1][j-1];
+      bmparx = betamd*common.bdx*common.bdz/betadij2;
+      bmpary = betamd*common.bdy*common.bdz/betadij2;
+      bmparz = betamd*common.bdz*common.bdz/betadij2;
+      bmprpx = -bmparx;
+      bmprpy = -bmpary;
+      bmprpz = betamd-bmparz;
+      betamx[j-1] = (common.bdx-bmparx-bmprpx/gammad[i-1][j-1])/(1.0-betamd*common.bdz);
+      betamy[j-1] = (common.bdy-bmpary-bmprpy/gammad[i-1][j-1])/(1.0-betamd*common.bdz);
+      betamz[j-1] = (common.bdz-bmparz-bmprpz/gammad[i-1][j-1])/(1.0-betamd*common.bdz);
       betamr[j-1] = BlzMath::mag(betamx[j-1], betamy[j-1], betamz[j-1]);
       gamamr[j-1] = 1.0/sqrt(1.0-(betamr[j-1]*betamr[j-1]));
-      cosmr[j-1] = 0.0;
       double zcl = zcell[i-1][j-1];
-      dmd[j-1] = sqrt(::pow(zshock-0.5*zsize-zcl, 2.0)+rcell[j-1]*rcell[j-1]);
-      if(zshock != zcell[i-1][j-1]) {
-        //  Determine Doppler factor of the MD emission in the cell's frame
-        cosmr[j-1]=betamx[j-1]*xcell[j-1]+betamy[j-1]*ycell[j-1]+betamz[j-1]*(zshock-0.5*zsize-zcl)/gamamr[j-1];
-        cosmr[j-1]=cosmr[j-1]/(betamr[j-1]*dmd[j-1]);
-      }
-      deltmd[j-1] = 1.0/(gamamr[j-1]*(1.0-betamr[j-1]*cosmr[j-1]));
+      double zrel = zshock-0.5*zsize-zcl;
+      dmd[j-1] = BlzMath::mag(zrel,rcell[j-1]);
+      // Determine Doppler factor of the MD emission in the cell's frame
+      double dmdp = BlzMath::mag(rcell[j-1],zrel/gamamr[j-1]);
+      cosmd = (betamx[j-1]*xcell[j-1]+betamy[j-1]*ycell[j-1]+betamz[j-1]*zrel/gamamr[j-1])/(betamr[j-1]*dmdp);
+      tanmd = sqrt(1.0/(cosmd*cosmd)-1.0);
+      angm = atan(tanmd);
+      tanmd = tan(2.0*atan(tan(0.5*angm)/(gamamr[j-1]*(1.0+betamr[j-1]))));
+      cosmd = 1.0/sqrt(1.0+tanmd*tanmd);
+      deltmd[j-1] = 1.0/(gamamr[j-1]*(1.0-betamr[j-1]*cosmd));
       // Determine time step of Mach disk seed photons from light-travel delay
       double delcor = deltmd[j-1]/dopref;
       int mdmid = mdmax-(((zrf-zcl)*clos+(xrf-xcell[j-1])*slos)-dmd[j-1])/(dtfact*zsize);
@@ -1618,24 +1885,23 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 
       for(md=md1; md<=md2; md++) { // do 2147 md=md1,md2
 
-        for(inu=1; inu<=D68; inu++) { 
+        for(inu=1; inu<=D68; inu++) { // 3146
           syseed[inu-1] = 0.0;
           scseed[inu-1] = 0.0;
+          tauxmd[inu-1] = 0.0;
           common.ssseed[inu-1] = 0.0;
         }
 
-        double bp2cor = 0.0;
-
-        // Cosine of Mach disk's B field in frame of cell plasma, from Lyutikov et al. (2003)
-        double term1 = (bmdx[md-1]+bmdy[md-1]+bmdz[md-1])/(SQRT3*bmdtot[md-1]);
-        double term2a = gamamr[j-1]/(bmdtot[md-1]*betamr[j-1])*(bmdx[md-1]*betamx[j-1]+bmdy[md-1]*betamy[j-1]+bmdz[md-1]*betamz[j-1]);
-        double term2b = (gamamr[j-1]/(gamamr[j-1]+1.0))*(betamx[j-1]+betamy[j-1]+betamz[j-1])/SQRT3;
-        double term3 = gamamr[j-1]*(1.0-(betamx[j-1]+betamy[j-1]+betamz[j-1])/SQRT3);
-        cosbm = (term1+term2a*(term2b-1.0))/term3;
-        // Correct for round-off error in case cosbm not within -1 to +1
-        if(cosbm > 1.0) cosbm = 1.0;
-        if(cosbm < -1.0) cosbm = -1.0;
-        double bpcorr = sqrt(1.0-cosbm*cosbm)*1.5;
+        // Mach disk's B field in frame of cell plasma transverse to cell's
+        // line of sight to Mach disk (for synchrotron calculation)
+        sx = rcell[j-1]*cosph[j-1];
+        sy = rcell[j-1]*sinph[j-1];
+        sz = zrel;
+        double bmperp;
+        bcalc(betamx[j-1],betamy[j-1],betamz[j-1],sx,sy,sz, bmdx[md-1],bmdy[md-1],bmdz[md-1],
+              &dum1,&dum2,&dum3,&dum4,&dum5,&dum6,&dum7,&bmperp);
+        // Apply as a correction factor to previous estimate of B_perpendicular
+        double bpcorr=bmperp/bmdtot[md-1];
 
         // 
         // Calculate emission from various processes
@@ -1656,8 +1922,9 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
               syseed[inu-1] = srcfn;
             if((sstau>0.1) && (sstau<=5.0))
               syseed[inu-1] = srcfn*(1.0-exp(-sstau));
-            syseed[inu-1] = syseed[inu-1]*volc*inp.vmd/(4.0*PI*zsize*dmd[j-1]*dmd[j-1]);
+            syseed[inu-1] = syseed[inu-1]*volc*inp.vmd/(zsize*dmd[j-1]*dmd[j-1]);
             double tauexp = sstau*dmd[j-1]/zsize;
+            tauxmd[inu-1] = tauexp;
             if(tauexp > 15.0)
               syseed[inu-1] = 0.0;
             if(tauexp <= 15.0)
@@ -1676,7 +1943,11 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
           // Inverse Compton mean intensity from Mach disk for 2nd-order
           // inverse Compton calculation in cells
           scseed[inu-1] = fsscmd[inu-1][md-1]*::pow(delcor, 2.0+alfmdc[inu-1][md-1]);
-          scseed[inu-1] = scseed[inu-1]*volcp*inp.vmd/(4.0*PI*dmd[j-1]*dmd[j-1]);
+          scseed[inu-1] = scseed[inu-1]*volc*(AMJY*CM_PER_PARSEC)*inp.vmd/(dmd[j-1]*dmd[j-1]);
+          if(tauxmd[inu-1] > 15.0)
+            scseed[inu-1] = 0.0;
+          if(tauxmd[inu-1] <= 15.0)
+            scseed[inu-1]=scseed[inu-1]/exp(tauxmd[inu-1]);
           fmdall[inu-1] = fmdall[inu-1] + (syseed[inu-1]+scseed[inu-1])/amdrng;
         } // 147 continue
 
@@ -1698,7 +1969,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
           break; // 150 continue
         if((fmdall[inu-1]>0.0) && (fmdall[inu-2]>0.0)) {
           aaa = log10(fmdall[inu-2]/fmdall[inu-1])/log10(common.snu[inu-1]/common.snu[inu-2]);
-          usdmd = usdmd+4.0*PI/C_CM_PER_SEC/(1.0-aaa)*fmdall[inu-2]*common.snu[inu-2]*(::pow(common.snu[inu-1]/common.snu[inu-2],1.0-aaa)-1.0);
+          usdmd = usdmd+0.5/C_CM_PER_SEC/(1.0-aaa)*fmdall[inu-2]*common.snu[inu-2]*(::pow(common.snu[inu-1]/common.snu[inu-2],1.0-aaa)-1.0);
         }
       } //  149 continue
 
@@ -1729,7 +2000,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
           ibreak = 1;
         }
 
-        common.ggam[ie-1] = egam[i-1][j-1][ie-1];
+        common.ggam[ie-1] = egam[i-1][j-1][ie-1]; // 89
         tloss = (gmax0[i-1][j-1]-common.ggam[ie-1])/(tlfact*common.ggam[ie-1]*gmax0[i-1][j-1]);
         t1 = (inp.gmin-common.ggam[ie-1])/(tlfact*common.ggam[ie-1]*inp.gmin);
         t2 = min(tloss,delt);
@@ -1737,15 +2008,16 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         enofe[i-1][j-1][ie-1] = 0.0;
         eterm1 = 1.0-common.ggam[ie-1]*t1*tlfact;
         eterm2 = 1.0-common.ggam[ie-1]*t2*tlfact;
-        if((eterm1>=0.0) && (eterm2>=0.0))
+        if((eterm1>=0.0) && (eterm2>=0.0)) {
           enofe[i-1][j-1][ie-1] = n0[i-1][j-1]/((sen-1.0)*tlfact*::pow(common.ggam[ie-1], sen+1.0))*(1.0-::pow(eterm2,sen-1.0));
-        if(ie< 12)
-          enofe[i-1][j-1][ie-1] = n0[i-1][j-1]/((sen-1.0)*tlfact*::pow(common.ggam[ie-1], sen+1.0))*(::pow(eterm1,sen-1.0)-::pow(eterm2,sen-1.0));
-        // Divide by delt since integral is over time
-        enofe[i-1][j-1][ie-1] = enofe[i-1][j-1][ie-1]/delt;
-        if(enofe[i-1][j-1][ie-1] < 0.0)
-          enofe[i-1][j-1][ie-1] = 0.0;
-        common.edist[ie-1] = enofe[i-1][j-1][ie-1];
+          if(ie< 12)
+            enofe[i-1][j-1][ie-1] = n0[i-1][j-1]/((sen-1.0)*tlfact*::pow(common.ggam[ie-1], sen+1.0))*(::pow(eterm1,sen-1.0)-::pow(eterm2,sen-1.0));
+          // Divide by delt since integral is over time
+          enofe[i-1][j-1][ie-1] = enofe[i-1][j-1][ie-1]/delt;
+          if(enofe[i-1][j-1][ie-1] < 0.0)
+            enofe[i-1][j-1][ie-1] = 0.0;
+        }
+        common.edist[ie-1] = enofe[i-1][j-1][ie-1]; // 5089
       } // for(ie=1; ie<=D44; ie++)  90 continue
 
       delt = zsize*3.26*SEC_PER_YEAR/(gammad[i-1][j-1]*betad[i-1][j-1]);
@@ -1761,7 +2033,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       double spxec, spxssc, anumin, alnumn, emeold, emsold;
       int inumin, iinu;
 
-      for(inu=1; inu<=D68; inu++)  { // do 95 inu=1,22
+      for(inu=1; inu<=D68; inu++)  { // do 95 inu=1,68
         restnu = nu[inu-1]*common.zred1/delta[i-1][j-1];
         common.snu[inu-1] = nu[inu-1];
         double specin = 0.0001;
@@ -1775,11 +2047,11 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         flec[i-1][j-1][inu-1] = 0.0;
         flssc[i-1][j-1][inu-1] = 0.0;
         flux[i-1][j-1][inu-1] = 0.0;
-        if(inu <= D44) {
-          emisco = ajnu(restnu)*common.bperpp*delta[i-1][j-1]*delta[i-1][j-1];
+        if(inu <= D44) { // 92
+          emisco = ajnu(restnu)*bperp[j-1]*delta[i-1][j-1]*delta[i-1][j-1];
           fsync2[inu-1] = emisco*zsize*(EMFACT*CM_PER_PARSEC);
-          if(ithin != 1) {
-            ssabs = 1.02e4*(sen+2.0)*akapnu(restnu)*common.bperpp/(nu[inu-1]*nu[inu-1])/delta[i-1][j-1];
+          if(ithin != 1) { // 91
+            ssabs = 1.02e4*(sen+2.0)*akapnu(restnu)*bperp[j-1]/(nu[inu-1]*nu[inu-1])/delta[i-1][j-1];
             ssabs = ssabs*CM_PER_PARSEC*zsize*delta[i-1][j-1];
             //  Attenuate Mach disk emission from synchrotron absorption on way to cell
             double ssabsm = ssabs*dmd[j-1]/zsize;
@@ -1816,7 +2088,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 
         flsync[i-1][j-1][inu-1] = fsync2[inu-1]*(volc/zsize)*common.zred1/(1.0e18*AMJY*inp.dgpc*inp.dgpc)*FGEOM;
         flux[i-1][j-1][inu-1] = flsync[i-1][j-1][inu-1];
-        if(bTestOut) fprintf(pfTestOut, FORMAT1, i, j, inu, flux[i-1][j-1][inu-1]);
+        if(nTestOut==1) fprintf(pfTestOut, FORMAT1, i, j, inu, flux[i-1][j-1][inu-1]);
         common.betd = betad[i-1][j-1];
         common.gamd = gammad[i-1][j-1];
         if(inu == 1) // looks like Fortran calculates polarization angle once - for the first frequency
@@ -1824,8 +2096,10 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         if(specin < inp.alpha)
           specin = inp.alpha;
         double poldeg = (specin+1.0)/(specin+5.0/3.0);
-        if(ssabs > 1.0)
+        if(ssabs > 1.0) {
           poldeg = 3.0/(12.0*specin+19);
+          chipol = chipol-PIOVERTWO;
+        }
         fpol[i-1][j-1][inu-1] = poldeg*flsync[i-1][j-1][inu-1];
         pq[i-1][j-1][inu-1] = fpol[i-1][j-1][inu-1]*cos(2.0*chipol);
         pu[i-1][j-1][inu-1] = fpol[i-1][j-1][inu-1]*sin(2.0*chipol);
@@ -1877,7 +2151,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
           flssc[i-1][j-1][inu-1] = sscflx;
           flcomp[i-1][j-1][inu-1] = ecflux+sscflx;
           flux[i-1][j-1][inu-1] = flsync[i-1][j-1][inu-1]+flcomp[i-1][j-1][inu-1];
-          if(bTestOut) fprintf(pfTestOut, FORMAT1, i, j, inu, flux[i-1][j-1][inu-1]);
+          if(nTestOut==1) fprintf(pfTestOut, FORMAT1, i, j, inu, flux[i-1][j-1][inu-1]);
           if((emeold>0.0) && (ecflux>0.0))
             spxec = log10(emeold/ecflux)/log10(nu[inu-1]/nu[inu-2]);
           if((emsold>0.0) && (sscflx>0.0))
@@ -1913,7 +2187,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         for(i=istart; i<=imax[j-1]; i++) { // do 200 i=istart,imax[j-1]
           icelmx[j-1] = i;
           ncells = ncells+1;
-          //if(bTestOut) fprintf(pfTestOut, "1908 ncells %8d j %5d i %5d\n", ncells, j, i);
+          if(nTestOut==2) fprintf(pfTestOut, "1908 ncells %8d j %5d i %5d\n", ncells, j, i);
           if(it <= 1) { // if(it.gt.1)go to 110
             zcell[i-1][j-1] = (i-1)*zsize+zshock-(rcell[j-1]-inp.rsize)/tanz;
             // Set up physical parameters of downstream cells at first time step
@@ -1951,69 +2225,96 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
             double btprpz = betatz-btparz;
             // Velocity vector of the pre-shock plasma including turbulent component
             double gamup2 = gamup*gamup;
-            betaux[j-1] = (betupx+btparx+btprpx/gamup2)/(1.0+dotprd);
-            betauy[j-1] = (betupy+btpary+btprpy/gamup2)/(1.0+dotprd);
-            betauz[j-1] = (betupz+btparz+btprpz/gamup2)/(1.0+dotprd);
+            betaux[j-1] = (betupx+btparx+btprpx/gamup)/(1.0+dotprd);
+            betauy[j-1] = (betupy+btpary+btprpy/gamup)/(1.0+dotprd);
+            betauz[j-1] = (betupz+btparz+btprpz/gamup)/(1.0+dotprd);
             betau[j-1] = BlzMath::mag(betaux[j-1], betauy[j-1], betauz[j-1]);
             gammau[j-1] = 1.0/sqrt(1.0-betau[j-1]*betau[j-1]);
-            // Shock compression factor in terms of upstream speed and angle of shock zeta From Cawthorne & Cobb (1990)
-            double sinzps = sin(zeta+psi[j-1]);
-            double coszps = cos(zeta+psi[j-1]);
-            double tanzps = sinzps/coszps;
-            double eta = gammau[j-1]*betau[j-1]*sinzps*sqrt((8.0*::pow(betau[j-1]*sinzps, 2)
-                                                             -1.0/(gammau[j-1]*gammau[j-1]))/(1.0-::pow(betau[j-1]*coszps,2)));
-
-            //  Deflection angle of velocity vector crossing shock, in rest frame of shock
-            tanxi = (tanzps*tanzps*(3.0*betau[j-1]*betau[j-1]-1.0)-1.0/(gammau[j-1]*gammau[j-1]))/(tanzps*(tanzps*tanzps+1.0+2.0*betau[j-1]*betau[j-1]));
-            xi = atan(tanxi);
+            // Unit vector of shock front at current position
+            sx = -sinz*cosph[j-1];
+            sy = -sinz*sinph[j-1];
+            sz = -cosz;
             // Velocity vector downstream of shock
-            double cszp2=coszps*coszps;
-            betad[i-1][j-1] = sqrt(::pow(1.0-betau[j-1]*betau[j-1]*cszp2, 2)+9.0*::pow(betau[j-1],4)*cszp2*(1.0-cszp2))/(3.0*betau[j-1]*sqrt(1.0-cszp2));
-            gammad[i-1][j-1] = 1.0/sqrt(1.0-betad[i-1][j-1]*betad[i-1][j-1]);
-            double sinpsx = sin(psi[j-1]-xi);
-            double cospsx = cos(psi[j-1]-xi);
-            betadx[i-1][j-1] = betad[i-1][j-1]*cosph[j-1]*sinpsx;
-            betady[i-1][j-1] = betad[i-1][j-1]*sinph[j-1]*sinpsx;
-            betadz[i-1][j-1] = betad[i-1][j-1]*cospsx;
+            vdcalc(betaux[j-1],betauy[j-1],betauz[j-1],sx,sy,sz,
+                   &(betadx[i-1][j-1]),&(betady[i-1][j-1]),&(betadz[i-1][j-1]),
+                   &(betad[i-1][j-1]),&(gammad[i-1][j-1]),&eta);
             double betacs = betadx[i-1][j-1]*slos+betadz[i-1][j-1]*clos;
             delta[i-1][j-1] = 1.0/(gammad[i-1][j-1]*(1.0-betacs));
-            // Determine B vector of cell assuming random magnetic field orientation
             // 103 continue <-- in the Fortran but can't find a reference to it
-            xrand = randObj.rand(0);
-            phi = 2.0*PI*xrand;
-            xrand = randObj.rand(0);
-            costh = 2.0*(xrand-0.5);
-            xrand = randObj.rand(0);
-            sign = xrand-0.5;
-            sign = sign/abs(sign);
-            double thetab = sign*acos(costh);
+            // Randomly select magnetic field direction for every 10th cell, then interpolate
+            // inside loop to get direction for intermediate cells
+            // First need to initialize values to maintain continuity with it=1,i=1 values
+            if(i <= 2) { // go to 6229
+              ididbd[j-1]=ididb[j-1];
+              bfracd[j-1]=bfrac[j-1];
+              thet1d[j-1]=theta1[j-1];
+              thet2d[j-1]=theta2[j-1];
+              phi1d[j-1]=phi1[j-1];
+              phi2d[j-1]=phi2[j-1];
+            }
+
+            if(ididbd[j-1] != 1) { //6229 go to 6230
+              xrand = randObj.rand(0);
+              phi2d[j-1] = TWOPI*xrand;
+              xrand = randObj.rand(0);
+              costh = 2.0*(xrand-0.5);
+              costh = adjustTrig(costh);
+              xrand = randObj.rand(0);
+              sign = xrand-0.5;
+              sign = sign/abs(sign);
+              thet2d[j-1] = sign*acos(costh);
+              ididbd[j-1] = 1;
+              if(i <= 2) { // go to 6230
+                xrand = randObj.rand(0);
+                phi1d[j-1] = TWOPI*xrand;
+                xrand = randObj.rand(0);
+                costh = 2.0*(xrand-0.5);
+                costh = adjustTrig(costh);
+                xrand = randObj.rand(0);
+                sign = xrand-0.5;
+                sign = sign/abs(sign);
+                thet1d[j-1] = sign*acos(costh);
+              }
+            } //  if(ididbd[j-1] != 1) {  6230
+
+            double thetab = (thet2d[j-1]*bfracd[j-1]+thet1d[j-1]*(1.0-bfracd[j-1])); // 6230
+            phi = (phi2d[j-1]*bfracd[j-1]+phi1d[j-1]*(1.0-bfracd[j-1]));
             double sinthb = sin(thetab);
             double costhb = cos(thetab);
             double sinphb = sin(phi);
             double cosphb = cos(phi);
+            bfracd[j-1]=bfracd[j-1]+0.1;
+            // Use .99 here instead of 1.0 because of precision issues
+            if(bfracd[j-1] >= .99) { // go to 6231
+              thet1d[j-1] = thet2d[j-1];
+              phi1d[j-1] = phi2d[j-1];
+              bfracd[j-1] = 0.0;
+              ididbd[j-1] = 0;
+            }
+            // 6231 continue
+
+            // Determine B vector of cell assuming random magnetic field orientation
             // Compute B field components downstream of shock in the plasma frame
             // From equation derived by transforming from the upstream plasma
             // frame, compressing the component of B
             // parallel to the shock, and transforming the result to the rest frame
             // of the downstream plama
-            zetap = atan(gammau[j-1]*tanzps)-atan(gammau[j-1]*tan(psi[j-1]));
-            double ssx = sin(zetap)*cosph[j-1];
-            double ssy = sin(zetap)*sinph[j-1];
-            double ssz = cos(zetap);
             double bux = bavg*sinthb*cosphb;
             double buy = bavg*sinthb*sinphb;
             double buz = bavg*costhb;
-            double bterm = bux*ssx+buy*ssy+buz*ssz;
-            // Finally, the downstream B field components
-            bx[i-1][j-1] = bux+(eta-1.0)*bterm*ssx;
-            by[i-1][j-1] = buy+(eta-1.0)*bterm*ssy;
-            bz[i-1][j-1] = buz+(eta-1.0)*bterm*ssz;
+            // Unit vector of shock normal at current position
+            anx = cosz*cosph[j-1];
+            any = cosz*sinph[j-1];
+            anz = sinz;
+            bdcalc(betaux[j-1],betauy[j-1],betauz[j-1],anx,any,anz,
+                   bux,buy,buz,eta,&(bx[i-1][j-1]),&(by[i-1][j-1]),&(bz[i-1][j-1]));
+            // Unit vector of shock front at current position
+            sx = -sinz*cosph[j-1];
+            sy = -sinz*sinph[j-1];
+            sz = cosz;
             // Calculate upstream B field component perpendicular to the shock front bprp
-            bup = BlzMath::mag(bux, buy, buz);
-            double bprpx = bux-bterm*ssx;
-            double bprpy = buy-bterm*ssy;
-            double bprpz = buz-bterm*ssz;
-            bprp = BlzMath::mag(bprpx, bprpy, bprpz);
+            bcalc(betaux[j-1],betauy[j-1],betauz[j-1],sx,sy,sz,bux,buy,buz,
+                  &dum1,&dum2,&dum3,&dum4,&dum5,&dum6,&dum7,&bprp);
             // if(idelay.gt.(dstart+40).and.idelay.lt.(dstart+51))
             // ,  n0mean=10.0*n0mean
             n0[i-1][j-1] = eta*n0mean;
@@ -2042,21 +2343,12 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
           // Calculate component of magnetic field that is perpendicular to
           // the aberrated line of sight in the plasma frame
           // Line-of-sight vector in plasma frame
-          bd2 = betad[i-1][j-1]*betad[i-1][j-1];
-          gm1 = gammad[i-1][j-1]-1.0;
-          double spx = (1.0+gm1*::pow(common.bdx/betad[i-1][j-1],2))*slos+gm1*common.bdx*common.bdz/bd2*clos;
-          double spy = gm1*common.bdx*common.bdy/bd2*slos+gm1*common.bdy*common.bdz/bd2*clos;
-          double spz = (1.0+gm1*::pow(common.bdz/betad[i-1][j-1],2))*clos+gm1*common.bdx*common.bdz/bd2*slos;
-          // Need to normalize the line-of-sight vector - should be unit vector
-          double spnorm = BlzMath::mag(spx, spy, spz);
-          double dotprd = (bx[i-1][j-1]*spx+by[i-1][j-1]*spy+bz[i-1][j-1]*spz)/spnorm;
-          double bpx = bx[i-1][j-1]-dotprd*spx/spnorm;
-          double bpy = by[i-1][j-1]-dotprd*spy/spnorm;
-          double bpz = bz[i-1][j-1]-dotprd*spz/spnorm;
-          bperp[j-1] = BlzMath::mag(bpx, bpy, bpz);
+          slx = slos;
+          sly = 0.0;
+          slz = clos;
+          bcalc(betadx[i-1][j-1],betady[i-1][j-1],betadz[i-1][j-1],slx,sly,slz, bx[i-1][j-1],by[i-1][j-1],bz[i-1][j-1],
+                &dum1,&dum2,&dum3,&dum4,&dum5,&dum6,&dum7,&(bperp[j-1]));
           bfield[j-1] = BlzMath::mag(bx[i-1][j-1], by[i-1][j-1], bz[i-1][j-1]);
-          // write(5,9996)bperp[j-1],bfield[j-1],bx[i-1][j-1],by[i-1][j-1],bz[i-1][j-1],
-          // ,  slos,clos
           emisco = 0.0;
           ecflux = 0.0;
           for(inu=1; inu<=D68; inu++) { // do 111 inu=1,68
@@ -2074,24 +2366,29 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
           common.bperpp = bperp[j-1];
           common.bfld = bfield[j-1];
           // Determine velocity of the cell plasma relative to the MD plasma
-          bmfact = 3.0*gammad[i-1][j-1]*betad[i-1][j-1]*betad[i-1][j-1];
-          betamx[j-1] = (bmfact+(gammad[i-1][j-1]-1.0)*common.bdz)*common.bdx/(bmfact*(1.0+common.bdz/3.0));
-          betamy[j-1] = (bmfact+(gammad[i-1][j-1]-1.0)*common.bdz)*common.bdy/(bmfact*(1.0+common.bdz/3.0));
-          betamz[j-1] = ((bmfact+1.0)*betad[i-1][j-1]*betad[i-1][j-1]+(gammad[i-1][j-1]-1.0)
-                         *common.bdz*common.bdz)/(bmfact*(1.0+common.bdz/3.0));
+          double betadij2 = betad[i-1][j-1]*betad[i-1][j-1];
+          bmparx = betamd*common.bdx*common.bdz/betadij2;
+          bmpary = betamd*common.bdy*common.bdz/betadij2;
+          bmparz = betamd*common.bdz*common.bdz/betadij2;
+          bmprpx = -bmparx;
+          bmprpy = -bmpary;
+          bmprpz = betamd-bmparz;
+          betamx[j-1] = (common.bdx-bmparx-bmprpx/gammad[i-1][j-1])/(1.0-betamd*common.bdz);
+          betamy[j-1] = (common.bdy-bmpary-bmprpy/gammad[i-1][j-1])/(1.0-betamd*common.bdz);
+          betamz[j-1] = (common.bdz-bmparz-bmprpz/gammad[i-1][j-1])/(1.0-betamd*common.bdz);
           betamr[j-1] = BlzMath::mag(betamx[j-1], betamy[j-1], betamz[j-1]);
           gamamr[j-1] = 1.0/sqrt(1.0-betamr[j-1]*betamr[j-1]);
-          cosmr[j-1] = 0.0;
           double zcl = zcell[i-1][j-1];
-          dmd[j-1] = sqrt(::pow(zshock-0.5*zsize-zcl,2)+(rcell[j-1]*rcell[j-1]));
-
-          if(zshock != zcell[i-1][j-1]) {
-            // Determine Doppler factor of the MD emission in the cell's frame
-            cosmr[j-1]=betamx[j-1]*xcell[j-1]+betamy[j-1]*ycell[j-1]+betamz[j-1]*(zshock-0.5*zsize-zcl)/gamamr[j-1];
-            cosmr[j-1] = cosmr[j-1]/(betamr[j-1]*dmd[j-1]);
-          }
-
-          deltmd[j-1]=1.0/(gamamr[j-1]*(1.0-betamr[j-1]*cosmr[j-1]));
+          double zrel = zshock-0.5*zsize-zcl;
+          dmd[j-1] = BlzMath::mag(zrel,rcell[j-1]);
+          // Determine Doppler factor of the MD emission in the cell's frame
+          double dmdp = BlzMath::mag(rcell[j-1],zrel/gamamr[j-1]);
+          cosmd = (betamx[j-1]*xcell[j-1]+betamy[j-1]*ycell[j-1]+betamz[j-1]*zrel/gamamr[j-1])/(betamr[j-1]*dmdp);
+          tanmd = sqrt(1.0/(cosmd*cosmd)-1.0);
+          angm = atan(tanmd);
+          tanmd = tan(2.0*atan(tan(0.5*angm)/(gamamr[j-1]*(1.0+betamr[j-1]))));
+          cosmd = 1.0/sqrt(1.0+tanmd*tanmd);
+          deltmd[j-1] = 1.0/(gamamr[j-1]*(1.0-betamr[j-1]*cosmd));
           // Determine time step of Mach disk seed photons from light-travel delay
           double delcor = deltmd[j-1]/dopref;
           int mdmid = mdmax-(((zrf-zcl)*clos+(xrf-xcell[j-1])*slos)-dmd[j-1])/(dtfact*zsize);
@@ -2113,19 +2410,19 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
               syseed[inu-1] = 0.0;
               scseed[inu-1] = 0.0;
               common.ssseed[inu-1] = 0.0;
+              tauxmd[inu-1] = 0.0;
             }
 
-            double bp2cor = 0.0;
-            // Cosine of Mach disk's B field in frame of cell plasma, from Lyutikov et al. (2003)
-            double term1 = (bmdx[md-1]+bmdy[md-1]+bmdz[md-1])/(SQRT3*bmdtot[md-1]);
-            double term2a = gamamr[j-1]/(bmdtot[md-1]*betamr[j-1])*(bmdx[md-1]*betamx[j-1]+bmdy[md-1]*betamy[j-1]+bmdz[md-1]*betamz[j-1]);
-            double term2b = (gamamr[j-1]/(gamamr[j-1]+1.0))*(betamx[j-1]+betamy[j-1]+betamz[j-1])/SQRT3;
-            double term3 = gamamr[j-1]*(1.0-(betamx[j-1]+betamy[j-1]+betamz[j-1])/SQRT3);
-            cosbm = (term1+term2a*(term2b-1.0))/term3;
-            // Correct for round-off error in case cosbm not within -1 to +1
-            if(cosbm > 1.0) cosbm = 1.0;
-            if(cosbm < -1.0) cosbm = -1.0;
-            double bpcorr = sqrt(1.0-cosbm*cosbm)*1.5;
+            // Mach disk's B field in frame of cell plasma transverse to cell's
+            // line of sight to Mach disk (for synchrotron calculation)
+            sx=rcell[j-1]*cosph[j-1];
+            sy=rcell[j-1]*sinph[j-1];
+            sz=zrel;
+            double bmperp;
+            bcalc(betamx[j-1],betamy[j-1],betamz[j-1],sx,sy,sz, bmdx[md-1],bmdy[md-1],bmdz[md-1],
+                  &dum1,&dum2,&dum3,&dum4,&dum5,&dum6,&dum7,&bmperp);
+            // Apply as a correction factor to previous estimate of B_perpendicular
+            double bpcorr = bmperp/bmdtot[md-1];
 
             //
             //  Calculate emission from various processes
@@ -2146,8 +2443,9 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
                   syseed[inu-1] = srcfn;
                 if((sstau>0.1) && (sstau<=5.0))
                   syseed[inu-1] = srcfn*(1.0-exp(-sstau));
-                syseed[inu-1] = syseed[inu-1]*volc*inp.vmd/(4.0*PI*zsize*dmd[j-1]*dmd[j-1]);
+                syseed[inu-1] = syseed[inu-1]*volc*inp.vmd/(zsize*dmd[j-1]*dmd[j-1]);
                 double tauexp = sstau*dmd[j-1]/zsize;
+                tauxmd[inu-1] = tauexp;
                 if(tauexp > 15.0)
                   syseed[inu-1] = 0.0;
                 if(tauexp<=15.0)
@@ -2167,7 +2465,11 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
               // Inverse Compton mean intensity from Mach disk for 2nd-order
               // inverse Compton calculation in cells
               scseed[inu-1] = fsscmd[inu-1][md-1]*::pow(delcor,2.0+alfmdc[inu-1][md-1]);
-              scseed[inu-1] = scseed[inu-1]*volcp*inp.vmd/(4.0*PI*dmd[j-1]*dmd[j-1]);
+              scseed[inu-1] = scseed[inu-1]*volc*(AMJY*CM_PER_PARSEC)*inp.vmd/(dmd[j-1]*dmd[j-1]);
+              if(tauxmd[inu-1] > 15.0) 
+                scseed[inu-1] = 0.0;
+              if(tauxmd[inu-1] <= 15.0)
+                scseed[inu-1]=scseed[inu-1]/exp(tauxmd[inu-1]);
               fmdall[inu-1] = fmdall[inu-1] + (syseed[inu-1]+scseed[inu-1])/amdrng;
             } // 1147 continue
           } //  for(md=md1; md<=md2; md++) 4147 continue
@@ -2188,7 +2490,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
               break; // go to 1150
             if((fmdall[inu-1]>0.0) && (fmdall[inu-2]>0.0)) { // go to 1148
               aaa = log10(fmdall[inu-2]/fmdall[inu-1])/log10(common.snu[inu-1]/common.snu[inu-2]);
-              usdmd = usdmd+4.0*PI/C_CM_PER_SEC/(1.0-aaa)*fmdall[inu-2]*common.snu[inu-2]*(::pow(common.snu[inu-1]/common.snu[inu-2], 1.0-aaa)-1.0);
+              usdmd = usdmd+0.5/C_CM_PER_SEC/(1.0-aaa)*fmdall[inu-2]*common.snu[inu-2]*(::pow(common.snu[inu-1]/common.snu[inu-2], 1.0-aaa)-1.0);
             }  // 1148 continue
           } //for(inu=2; inu<=common.nuhi; inu++) 1149 continue
 
@@ -2199,9 +2501,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
           id = (zcell[i-1][j-1]-zshock)/zsize+NEND;
           if(id < 1)
             id = 1;
-          if(id > (ICELLS+NEND)) {
-            // write(5,9992)i,j,id,zcell[i-1][j-1],zshock,zsize;
-          }
           ustob = 8.0*PI*(useed[id-1]+usdmd)/(bfield[j-1]*bfield[j-1]);
           // Calculate the maximum electron energy from gmax0 and solution to equation
           // d gamma/dt = - cc2*(b**2+8*pi*useed)*gamma**2
@@ -2276,13 +2575,14 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
                   t1 = tlmin;
                 eterm1 = 1.0-common.ggam[ie-1]*t1*tlfact;
                 eterm2 = 1.0-common.ggam[ie-1]*t2*tlfact;
-                if((eterm1>=0.0) && (eterm2>=0.0))
+                if((eterm1>=0.0) && (eterm2>=0.0)) { // go to 188
                   enofe[i-1][j-1][ie-1] = n0[i-1][j-1]/((sen-1.0)*tlavg*::pow(common.ggam[ie-1], sen+1.0))
                     *(::pow(eterm1,sen-1.0)-::pow(eterm2,sen-1.0));
-                // Divide by cell crossing time since integral is over time
-                enofe[i-1][j-1][ie-1] = enofe[i-1][j-1][ie-1]/delt;
-                if(enofe[i-1][j-1][ie-1] < 0.0)
-                  enofe[i-1][j-1][ie-1] = 0.0;
+                  // Divide by cell crossing time since integral is over time
+                  enofe[i-1][j-1][ie-1] = enofe[i-1][j-1][ie-1]/delt;
+                  if(enofe[i-1][j-1][ie-1] < 0.0)
+                    enofe[i-1][j-1][ie-1] = 0.0;
+                }
               } // if(tloss > t1) go to 188
 
               common.edist[ie-1] = enofe[i-1][j-1][ie-1]; // 188
@@ -2318,10 +2618,10 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
               ecflux = 0.0;
               double sscflx = 0.0;
               if(inu <= D44) { // go to 192
-                emisco = ajnu(restnu)*common.bperpp*delta[i-1][j-1]*delta[i-1][j-1];
+                emisco = ajnu(restnu)*bperp[j-1]*delta[i-1][j-1]*delta[i-1][j-1];
                 fsync2[inu-1] = emisco*zsize*(EMFACT*CM_PER_PARSEC);
                 if(ithin != 1){ // go to 191
-                  ssabs = 1.02e4*(sen+2.0)*akapnu(restnu)*common.bperpp/(nu[inu-1]*nu[inu-1])/delta[i-1][j-1];
+                  ssabs = 1.02e4*(sen+2.0)*akapnu(restnu)*bperp[j-1]/(nu[inu-1]*nu[inu-1])/delta[i-1][j-1];
                   ssabs = ssabs*CM_PER_PARSEC*zsize;
                   // Attenuate Mach disk emission from synchrotron absorption on way to cell
                   double ssabsm = ssabs*dmd[j-1]/zsize;
@@ -2357,7 +2657,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
               // 192 continue
               flsync[i-1][j-1][inu-1] = fsync2[inu-1]*(volc/zsize)*common.zred1/(1.0e18*AMJY*inp.dgpc*inp.dgpc)*FGEOM;
               flux[i-1][j-1][inu-1] = flsync[i-1][j-1][inu-1];
-              if(bTestOut) fprintf(pfTestOut, FORMAT1, i, j, inu, flux[i-1][j-1][inu-1]);
+              if(nTestOut==1) fprintf(pfTestOut, FORMAT1, i, j, inu, flux[i-1][j-1][inu-1]);
               common.betd = betad[i-1][j-1];
               common.gamd = gammad[i-1][j-1];
               if(inu == 1)
@@ -2365,8 +2665,10 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
               if(specin < inp.alpha)
                 specin = inp.alpha;
               double poldeg = (specin+1.0)/(specin+5.0/3.0);
-              if(ssabs > 1.0)
+              if(ssabs > 1.0) {
                 poldeg = 3.0/(12.0*specin+19);
+                chipol = chipol-PIOVERTWO;
+              }
               fpol[i-1][j-1][inu-1]=poldeg*flsync[i-1][j-1][inu-1];
               pq[i-1][j-1][inu-1]=fpol[i-1][j-1][inu-1]*cos(2.0*chipol);
               pu[i-1][j-1][inu-1]=fpol[i-1][j-1][inu-1]*sin(2.0*chipol);
@@ -2419,7 +2721,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
                 flssc[i-1][j-1][inu-1] = sscflx;
                 flcomp[i-1][j-1][inu-1] = ecflux+sscflx;
                 flux[i-1][j-1][inu-1] = flsync[i-1][j-1][inu-1]+flcomp[i-1][j-1][inu-1];
-                if(bTestOut) fprintf(pfTestOut, FORMAT1, i, j, inu, flux[i-1][j-1][inu-1]);
+                if(nTestOut==1) fprintf(pfTestOut, FORMAT1, i, j, inu, flux[i-1][j-1][inu-1]);
                 if((emeold>0.0) && (ecflux>0.0))
                   spxec = log10(emeold/ecflux)/log10(nu[inu-1]/nu[inu-2]);
                 if((emsold>0.0) && (sscflx>0.0))
@@ -2447,16 +2749,17 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       pfLc = fopen (lcFile.c_str(),"w");
       pfPol = fopen (polFile.c_str(),"w");
       bOutputFilesCreated = true;
-      std::string hformat("#redshift: %5.3f  Distance in Gpc: %5.3f\n#spectral index: %4.2f  filling factor exponent: %4.2f\n#mean unshocked magnetic field: %4.2f  ratio of electron to mag. energy: %7.1E\n#cell radius (pc): %6.3f\n#Min. value of gamma_max: %8.1f  ratio of max. to min. values of gamma_max: %5.1f\n#gamma_min: %6.1f\n#upstream laminar velocity: %9.5fc  upstream turbulent velocity: %9.5fc\n#shock angle: %6.3f  viewing angle: %6.3f  opening angle: %6.3f\n#Dust temperature: %6.0f  distance of center of dust torus from black hole: %3.1f pc\n#radius of torus: %3.1f pc   Distance of shock from central engine: %5.2f pc\n#Energy density of seed photons in plasma frame: %10.5f\n#-Slope of PSD: %5.1f     Area of Mach disk relative to other cell%9.2E\n");
-      fprintf(pfSpec, hformat.c_str(), inp.zred, inp.dgpc, inp.alpha, inp.p, inp.bave, inp.uratio, inp.rsize, inp.gmaxmn,
+      std::string hformat("No. of cells on each side of hexagonal grid: %3d\n#redshift: %5.3f  Distance in Gpc: %5.3f\n#spectral index: %4.2f  filling factor exponent: %4.2f\n#mean unshocked magnetic field: %4.2f  ratio of electron to mag. energy: %8.2E\n#cell radius (pc): %6.3f\n#Min. value of gamma_max: %8.1f  ratio of max. to min. values of gamma_max: %5.1f\n#gamma_min: %6.1f\n#upstream laminar velocity: %9.5fc  upstream turbulent velocity: %9.5fc\n#shock angle: %6.3f  viewing angle: %6.3f  opening angle: %6.3f\n#Dust temperature: %6.0f  dust luminosity %4.2fx10**45 erg/s\ndistance of center of dust torus from black hole: %3.1f pc\n#radius of torus: %3.1f pc   Distance of shock from central engine: %5.2f pc\n#Energy density of seed photons in plasma frame: %9.2E\n#-Slope of PSD: %5.1f     Area of Mach disk relative to other cell%9.2E\n# Area filling factor of dust emission: %9.2E\n");
+      int nendInt = static_cast<int>(inp.nend);
+      fprintf(pfSpec, hformat.c_str(), nendInt, inp.zred, inp.dgpc, inp.alpha, inp.p, inp.bave, inp.uratio, inp.rsize, inp.gmaxmn,
              gmrat_original, inp.gmin, inp.betaup, inp.betat, (inp.zeta), (thlos*DEG_PER_RAD), (inp.opang),
-             inp.tdust, inp.dtdist,inp.dtrad,inp.zdist0,useed[4],inp.psdslp,inp.vmd);
-      fprintf(pfLc, hformat.c_str(), inp.zred, inp.dgpc, inp.alpha, inp.p, inp.bave, inp.uratio, inp.rsize, inp.gmaxmn,
+              inp.tdust, inp.ldust, inp.dtdist,inp.dtrad,inp.zdist0,useed[4],inp.psdslp,inp.vmd,filld);
+      fprintf(pfLc, hformat.c_str(), nendInt, inp.zred, inp.dgpc, inp.alpha, inp.p, inp.bave, inp.uratio, inp.rsize, inp.gmaxmn,
              gmrat_original, inp.gmin, inp.betaup, inp.betat, (inp.zeta), (thlos*DEG_PER_RAD), (inp.opang),
-             inp.tdust, inp.dtdist,inp.dtrad,inp.zdist0,useed[4],inp.psdslp,inp.vmd);
-      fprintf(pfPol, hformat.c_str(), inp.zred, inp.dgpc, inp.alpha, inp.p, inp.bave, inp.uratio, inp.rsize, inp.gmaxmn,
+              inp.tdust, inp.ldust, inp.dtdist,inp.dtrad,inp.zdist0,useed[4],inp.psdslp,inp.vmd,filld);
+      fprintf(pfPol, hformat.c_str(), nendInt, inp.zred, inp.dgpc, inp.alpha, inp.p, inp.bave, inp.uratio, inp.rsize, inp.gmaxmn,
              gmrat_original, inp.gmin, inp.betaup, inp.betat, (inp.zeta), (thlos*DEG_PER_RAD), (inp.opang),
-             inp.tdust, inp.dtdist,inp.dtrad,inp.zdist0,useed[4],inp.psdslp,inp.vmd);
+              inp.tdust, inp.ldust, inp.dtdist,inp.dtrad,inp.zdist0,useed[4],inp.psdslp,inp.vmd,filld);
       fprintf(pfLc,"#\n#   time(d)     freq(Hz)  F(Jy Hz)  alpha     F(mJy)    freq(Hz)  F(Jy Hz)  alpha     F(muJy)   freq(Hz)  F(Jy Hz)   alpha     F(nJy)    F(EC)     F(SSC)  no. of live cells\n");
       fprintf(pfPol,"#\n#     time(d)  freq(Hz)   p(%%)   chi(deg)   freq      p      chi     freq       p      chi     freq      p       chi     freq       p      chi      freq       p      chi    freq       p       chi\n");
     }
@@ -2628,7 +2931,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   fclose(pfSpec);
   fclose(pfLc);
   fclose(pfPol);
-  if(bTestOut) fclose(pfTestOut);
+  if(nTestOut>0) fclose(pfTestOut);
   BlzLog::warn("Done closing output files");
 
 } // end run() method

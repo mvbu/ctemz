@@ -216,7 +216,78 @@ int main()
   BlzLog::debugScalar("polcalcResult", chi);
   BlzLog::debugScalar("expected", expectedChi);
   delete pSim;
-  
+
+  //
+  // Test vdcalc()
+  // 
+  BlzLog::debug("vdcalc()");
+  double vx,vy,vz,sx,sy,sz,vdx,vdy,vdz,vd,gd,eta;
+  vx=-0.019240988424703537;
+  vy=-0.031763915994522718;
+  vz=0.99428764521559587;
+  sx=0.086824050218871157;
+  sy=0.15038358911704655;
+  sz=0.98480777757993587;
+  pSim = new BlzSim();
+  pSim->vdcalc(vx,vy,vz,sx,sy,sz,&vdx,&vdy,&vdz,&vd,&gd,&eta);
+  BlzLog::debugScalarPair("vdx", 0.041984204418010367, vdx);
+  BlzLog::debugScalarPair("vdy", 0.073358681218656629, vdy);
+  BlzLog::debugScalarPair("vdz", 0.972837232139588060, vdz);
+  BlzLog::debugScalarPair("vd", 0.97650215041635646, vd);
+  BlzLog::debugScalarPair("gd", 4.6402063567000154, gd);
+  BlzLog::debugScalarPair("eta", 2.4875972258196399, eta);
+  delete pSim;
+
+  //
+  // Test bdcalc()
+  //
+  double bxbd, bybd, bzbd,bdxbd,bdybd,bdzbd;
+  vx=-0.019240988424703537;
+  vy=-0.031763915994522718;
+  vz=0.99428764521559587;
+  sx=-0.49240406488732119;
+  sy=-0.85286842052300182;
+  sz=0.17364803833636447;
+  bxbd=0.107818834;
+  bybd=-0.0286603495;
+  bzbd=0.0073269424;
+  eta=2.4875972258196399;
+  BlzLog::debug("bdcalc()");
+  pSim = new BlzSim();
+  pSim->bdcalc(vx,vy,vz,sx,sy,sz,bxbd,bybd,bzbd,eta,&bdxbd,&bdybd,&bdzbd);
+  BlzLog::debugScalarPair("bdx", 14.07147766, bdxbd);
+  BlzLog::debugScalarPair("bdy", -7.848277665, bdybd);
+  BlzLog::debugScalarPair("bdz", 0.1261698678, bdzbd);
+  delete pSim;
+
+  //
+  // Test bcalc()
+  //
+  double bparx,bpary,bparz,bprpx,bprpy,bprpz,bpar,bprp;
+  vx=-0.019240988424703537;
+  vy=-0.031763915994522718;
+  vz=0.99428764521559587;
+  sx=0.086824050218871157;
+  sy=0.15038358911704655;
+  sz=0.98480777757993587;
+  bx=0.107818834;
+  by=-0.0286603495;
+  bz=0.0073269424;
+  BlzLog::debug("bcalc()");
+  pSim = new BlzSim();
+  pSim->bcalc(vx,vy,vz,sx,sy,sz,bx,by,bz,
+              &bparx,&bpary,&bparz,&bprpx,&bprpy,&bprpz,
+              &bpar,&bprp);
+  BlzLog::debugScalarPair("bparx", 0.0132327536, bparx);
+  BlzLog::debugScalarPair("bpary", 0.0227437261, bpary);
+  BlzLog::debugScalarPair("bparz", 0.0134581225, bparz);
+  BlzLog::debugScalarPair("bprpx", 0.0945860818, bprpx);
+  BlzLog::debugScalarPair("bprpy", -0.0514040738, bprpy);
+  BlzLog::debugScalarPair("bprpz", -0.0061311801, bprpz);
+  BlzLog::debugScalarPair("bpar", 0.0295550991, bpar);
+  BlzLog::debugScalarPair("bprp", 0.107826233, bprp);
+
+  /*  
   //
   // Test run()
   //
@@ -229,6 +300,7 @@ int main()
   // true means run in test mode, second param is number of days to simulate
   pSim->run(inp, 10, true);
   delete pSim;
+  */
 }
 
 

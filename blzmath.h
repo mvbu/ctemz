@@ -15,6 +15,7 @@ static const double MIN_PER_HOUR = 60.;
 static const double MIN_PER_DAY = 1440.;
 static const double HOUR_PER_DAY = 24.;
 static const double SEC_PER_YEAR = 3.16e7;
+static const double SQRT2 = 1.41421;
 static const double SQRT3 = 1.73205;
 static const double M_PER_PARSEC = 3.086e16;
 static const double CM_PER_PARSEC = 3.086e18;

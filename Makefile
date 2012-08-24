@@ -1,6 +1,6 @@
 # Automated Makefile
 CC = g++
-CFLAGS = -g # -Wall -O2
+CFLAGS = -g -mcmodel=medium # -Wall -O2
 COMPILE = $(CC) $(CFLAGS) -c
 OBJFILES := $(patsubst %.cpp,%.o,$(wildcard *.cpp))
 

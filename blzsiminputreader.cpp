@@ -21,6 +21,7 @@ void BlzSimInputReader::read(BlzSimInput& simInput)
   // read in and discard the first line (just some descriptive text)
   filestream.getline(dummy, 32768);
   cout << "Read in: " << dummy << endl;
+  filestream >> simInput.nend;
   filestream >> simInput.zred;
   filestream >> simInput.dgpc;
   filestream >> simInput.alpha;
@@ -33,7 +34,7 @@ void BlzSimInputReader::read(BlzSimInput& simInput)
   filestream >> simInput.gmrat;
   filestream >> simInput.gmin;
   filestream >> simInput.betaup;
-  filestream >> dummy;
+  filestream >> dummy; // these dummy reads are to skip past the "d0"
   filestream >> simInput.betat;
   filestream >> dummy;
   filestream >> simInput.zeta;
@@ -43,6 +44,7 @@ void BlzSimInputReader::read(BlzSimInput& simInput)
   filestream >> simInput.opang;
   filestream >> dummy;
   filestream >> simInput.tdust;
+  filestream >> simInput.ldust;
   filestream >> simInput.dtdist;
   filestream >> simInput.dtrad;
   filestream >> simInput.zdist0;

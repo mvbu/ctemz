@@ -57,6 +57,12 @@ class BlzMath {
   static double mag(double x, double y, double z, double w);
   static double magSquared(double x, double y, double z, double w);
 
+  // Rotate unit vector a by an angle psi about unit vector c along a great circle to create new vector v
+  static void vecRot(const double ax, const double ay, const double az, // a: unit vector to rotate
+                     const double cx, const double cy, const double cz, // c: unit vector rotation axis
+                     const double psi,                                  // rotation angle about c
+                     double* vx, double* vy, double* vz);               // v: resulting vector
+
   // round the input value (presumably a double or float) to the nearest int
 	template<class T>
   static int round(const T input) {

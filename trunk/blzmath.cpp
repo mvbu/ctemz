@@ -95,6 +95,20 @@ double BlzMath::qg5(double a, double b, QgFunctionPtr pFunction, void *pObject)
   return retVal;
 }
 
+// Rotate unit vector a by an angle psi about unit vector c along a great circle to create new vector v
+void BlzMath::vecRot(const double ax, const double ay, const double az, // a: unit vector to rotate
+                     const double cx, const double cy, const double cz, // c: unit vector rotation axis
+                     const double psi,                                  // rotation angle about c
+                     double* vx, double* vy, double* vz)                // v: resulting vector
+{
+  double cs = cos(psi);
+  double s = sin(psi);
+  double cs1 = 1.0 - cs;
+  *vx = ax*(1.0+cs1*(cx*cx-1.0))-ay*(cz*s-cs1*cx*cy)+az*(cy*s+cs1*cx*cz);
+  *vy = ax*(cz*s+cs1*cx*cy)+ay*(1.0+cs1*(cy*cy-1.0))-az*(cx*s-cs1*cy*cz);
+  *vz = ax*(-cy*s+cs1*cx*cz)+ay*(cx*s+cs1*cy*cz)+az*(1.0+cs1*(cz*cz-1.0));
+}
+
 double BlzMath::mag(double x, double y, double z) {  return sqrt(magSquared(x,y,z)); }
 double BlzMath::magSquared(double x, double y, double z){ return x*x + y*y + z*z; }
 double BlzMath::mag(double x, double y) {  return sqrt(magSquared(x,y)); }

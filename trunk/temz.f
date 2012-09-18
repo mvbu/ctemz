@@ -9,13 +9,13 @@ c     Includes synchrotron radiation and IC of seed photons from a dust torus
 c       and from a Mach disk
       dimension fixedRandData(100000)
       dimension itarra(3),
-     , pq(200,1140,68),pu(200,1140,68),fpol(200,1140,68),
-     , flux(200,1141,68),gammin(200,1141),gammax(200,1141),
-     , xcell(1141),gmax0(200,1141),egam(200,1141,44),
+     , pq(400,1140,68),pu(400,1140,68),fpol(400,1140,68),
+     , flux(400,1141,68),gammin(400,1141),gammax(400,1141),
+     , xcell(1141),gmax0(400,1141),egam(400,1141,44),
      , phcell(1141),rcell(1141),ycell(1141),cosph(1141),
-     , sinph(1141),bperp(1141),bfield(1141),n0(200,1141),
-     , zcell(200,1141),betadx(200,1141),betady(200,1141),
-     , betadz(200,1141),betad(200,1141),gammad(200,1141),
+     , sinph(1141),bperp(1141),bfield(1141),n0(400,1141),
+     , zcell(400,1141),betadx(400,1141),betady(400,1141),
+     , betadz(400,1141),betad(400,1141),gammad(400,1141),
      , betaux(1141),betauy(1141),betauz(1141),
      , betau(1141),gammau(1141),
      , nu(68),bx(200,1141),by(200,1141),bz(200,1141),
@@ -26,16 +26,20 @@ c       and from a Mach disk
      , tlf(200),betamx(1140),betamy(1140),
      , betamz(1140),betamr(1140),gamamr(1140),bmdx(4000),
      , bmdy(4000),bmdz(4000),bmdtot(4000),tlf1(1140),
-     , flsync(200,1141,68),flcomp(200,1141,68),absorb(68,4000),
-     , fsync2(68),alphmd(68,4000),dustii(210,22),
+     , flsync(400,1141,68),flcomp(400,1141,68),absorb(68,4000),
+     , fsync2(68),alphmd(68,4000),dustii(420,22),
      , alfmdc(68,4000),syseed(68),scseed(68),snu(68),ssseed(68),
-     , flec(200,1141,68),flssc(200,1141,68),mdd(4000),useed(210),
-     , phots(68),phalph(68),icelmx(1141),imax(1141),seedpk(210),
+     , flec(400,1141,68),flssc(400,1141,68),mdd(4000),useed(420),
+     , phots(68),phalph(68),icelmx(1141),imax(1141),seedpk(420),
      , abexmd(68,4000),psi(1140),sinpsi(1140),cospsi(1140),
      , tanpsi(1140),tauxmd(68),phi1(1141),phi2(1141),
      , theta1(1141),theta2(1141),ididb(1141),bfrac(1141),
      , ididbd(1141),bfracd(1141),phi2d(1141),thet2d(1141),
-     , phi1d(1141),thet1d(1141)
+     , phi1d(1141),thet1d(1141),angrot(1141),cosrot(1141),
+     , bu1x(1141),bu1y(1141),bu1z(1141),bu2x(1141),bu2y(1141),
+     , bu2z(1141),cu1x(1141),cu1y(1141),cu1z(1141),angrtd(1141),
+     , cosrtd(1141),bu1xd(1141),bu1yd(1141),bu1zd(1141),bu2xd(1141),
+     , bu2yd(1141),bu2zd(1141),cu1xd(1141),cu1yd(1141),cu1zd(1141)
       character*10 dumdum, fstat
       real*8 pol,pqcum,pucum,pq,pu,pmean,polc,ai2,
      ,  pcum,tanv0,cosv0,betaup,gamup,beta,sinz,cosz,phcell,
@@ -51,7 +55,7 @@ c       and from a Mach disk
      ,  tanpsi,betd,gamd,bd2,gm1,angm,bmparx,bmpary,bmparz,
      ,  bmprpx,bmprpy,bmprpz,dtnth1,dtnth2,dotprd,
      ,  betupx,betupy,betupz,betatx,betaty,betatz,thetat,
-     ,  sintht,costht,sinpht,cospht,btprpx,btprpy,btprpz,
+     ,  sintht,costht,phit,btprpx,btprpy,btprpz,
      ,  btparx,btpary,btparz,sx,sy,sz,slx,sly,slz,
      ,  anx,any,anz
       real*4 n0mean,n0,nu,ldust
@@ -93,7 +97,9 @@ c      common/ci/i,j
      , status=fstat)
       open (6,iostat=ios, err=9000, file='temzcheck.txt',
      , status=fstat)
-      if(nTestOut.ne.0) open (7,iostat=ios, err=9000, file='testout.txt',
+      open (7,iostat=ios, err=9000, file='temzmap.txt',
+     , status=fstat)
+      if(nTestOut.ne.0) open (9,iostat=ios, err=9000, file='testout.txt',
      , status=fstat)
 c     Input file format: 1st line characters, then values of parameters,
 c       one per line
@@ -106,7 +112,7 @@ c       one per line
       iseed = randproto(ita)
       randstart=randproto(iseed)
 c     icells along axial direction, jcells along transverse direction
-      icells=50 !! This needs to be changed to 200 to accomodate nend up to 20
+      icells=50 !! This needs to be changed to 400 eventually
       jcells=3*nend*(nend-1)+1
       ancol=2*nend-1
       rbound=ancol*rsize
@@ -117,7 +123,11 @@ c     An SED will be printed out every ispecs time steps
 c     Set up frequencies
       do 1 inu=1,68
       phots(inu)=0.0
-    1 nu(inu)=10.0**(10.0+0.25*(inu-1))
+      nu(inu)=10.0**(10.0+0.25*(inu-1))
+      if(inu.eq.2)nu(inu)=1.5e10
+      if(inu.eq.3)nu(inu)=4.3e10
+      if(inu.eq.4)nu(inu)=8.6e10
+    1 if(inu.eq.6)nu(inu)=2.3e11
 c     alpha = (s-1)/2 is the underlying spectral index, where s = slope of 
 c       electron E dist.
 c     gmaxmn,gmaxmx are the min/max values of initial gamma_max of
@@ -127,7 +137,7 @@ c     gmin is the minimum value of initial gamma of electrons
 c     2p is the slope of the volume vs. initial gamma-max law over all cells,
 c          V = V0*gamma_max**(-2p)
       pexp=-2.0*p
-      amppsd=5.0
+      amppsd=20.0
 c     Set up compilation of distribution of initial gamma_max values
       gmrf=gmaxmx/gmaxmn
       gmrfl=alog10(gmrf)/43.0
@@ -173,13 +183,17 @@ c     Compression ratio of Mach disk
 c       Ultra-relativistic eq. of state assumed, so compression ratio is that
 c       given by Hughes, Aller, & Aller (1989, ApJ, 341, 54)
       etac=dsqrt(8.0d0*gamup**4-1.70d1*gamup**2+9.0d0)/gamup
-c     Speed downstream of conical shock if turbulent velocity = 0;
-c        for setting cell length zsize
-      betad(1,1)=dsqrt((1.0d0-(betaup*cosz)**2)**2+9.0d0*
-     ,(betaup**2*cosz*sinz)**2)/(3.0*betaup*sinz)
-      gammad(1,1)=1.0d0/dsqrt(1.0d0-betad(1,1)**2)
-      betd=betad(1,1)
-      gamd=gammad(1,1)
+c     Speed downstream of conical shock if turbulent velocity is transverse to axis;
+c        for setting cell length zsize and for first estimate of time delay
+      betup=dsqrt(betaup**2+betat**2-(betaup*betat)**2)
+      betadd=dsqrt((1.0d0-(betup*cosz)**2)**2+9.0d0*
+     ,(betup**2*cosz*sinz)**2)/(3.0*betup*sinz)
+      if(betadd.lt.betup)go to 7891
+      write(6,9891)betup,betaup,betat,betadd,sinz,cosz
+      go to 9000
+ 7891 gammdd=1.0d0/dsqrt(1.0d0-betadd**2)
+      betd=betadd
+      gamd=gammdd
 c     Length of a cylindrical cell in pc
       zsize=2.0*rsize/tanz ! temzd.f has 2.0 as 0.2 which takes too long to run for testing.
       volc=pi*rsize**2*zsize
@@ -193,7 +207,7 @@ c     Time step in observer's frame in days
       dtfact=(1.0d0-betd*clos)/(betd*clos)
       dtime=1190.0*zsize*dtfact*zred1
       itlast=daysToSimulate/dtime
-      !if(nTestOut.ne.0) write (7,*) 'itlast ', itlast
+      !if(nTestOut.ne.0) write(9,*) 'itlast ', itlast
       mdrang=0.5*(1.0/dtfact+1.0)
 c     Distance of shock from axis and apex of conical jet
       tanop=dtan(opang)
@@ -304,14 +318,17 @@ c       1992, ApJ, 400, 138, eq. B1
       psdsum=0.0
       do 4998 ip=1,16384
       spexp=1.0/(0.5*expon+1.0)
-c      spsd(ip)=abs(spsd(ip))**(spexp)
-      spsd(ip)=1.0
+      spsd(ip)=abs(spsd(ip))**(spexp)
+c      spsd(ip)=1.0
       psdsum=psdsum+spsd(ip)/16384.0
  4998 continue
       do 4999 ip=1,16384
 c      if(ip.lt.100)write(3,9996)spsd(ip)
+c     Normalize spsd and multiply by amplitude.
+c     **Note that mean energy density = amppsd times value set from bavg in input file
  4999 spsd(ip)=amppsd*spsd(ip)/psdsum
-      ip0=randproto(0)*5000
+c      ip0=randproto(0)*5000
+      ip0=100
       it=0
  1000 continue
 c     Set parameters of each cell at initial time
@@ -324,6 +341,7 @@ c      is ignored, but it is an  important source of IC seed photons
       j=0
       do 999 nrow=-(nend-1),(nend-1)
       ncol=2*nend-(abs(nrow)+1)
+c     neven=0 means that there are an even number of columns in the row
       neven=mod(ncol,2)
       ncol=ncol/2
       do 998 ncell=-ncol,ncol
@@ -347,14 +365,7 @@ c      is ignored, but it is an  important source of IC seed photons
     8 rcell(j)=sqrt(xcell(j)**2+ycell(j)**2)
       zcol=rcell(j)/tanz
       imax(j)=round((2.0*zcol/zsize)+0.01)
-c      if(j.eq.1)write(6,9233)tanz,zsize,rsize
-c 9233 format('tanz, zsize, rsize: ',3f10.5)
-      xxx=xcell(j)/rsize
-      yyy=ycell(j)/rsize
-      zzz=zcol/zsize
-c      if(imax(j).gt.icells)write(6,9234)j,imax(j),xxx,yyy,zzz
-c 9234 format('j, imax, x, y, zcol: ',2i6,3f10.5)
-      if(nTestOut.eq.2) write(7, 9219) j, imax(j)
+      if(nTestOut.eq.2) write(9, 9219) j, imax(j)
       if(imax(j).lt.2)imax(j)=2
 c     nouter(j) = approx. no. of cells between cell of interest and observer
       nouter(j)=imax(j)
@@ -374,7 +385,7 @@ c
 c     *** Set up Mach disk emission for earlier times ***
 c
 c     Compute time delay (no. of time steps) between when plasma passes Mach disk
-c       and when it passes reference point of conical shock at column 30, in plasma frame
+c       and when it passes reference point of conical shock, in plasma frame
       zmd=zrf-zshock
       idelmd=zmd/(zsize/betd)
 c      write(5,9595)mdmax,dstart,idelmd,ip0,zshock,rshock,zrf,zmd,
@@ -382,6 +393,7 @@ c     , zsize
 c 9595 format('mdmax = ',i7,' dstart = ',i7,' idelmd = ',i7,
 c     ,  '  ip0 = ',i7/'zshock, rshock, zrf, zmd, zsize ',
 c     ,     1p5e10.2)
+c     Velocity parameters of plasma in Mach disk
       betadx(1,jcells)=0.0
       betady(1,jcells)=0.0
       betadz(1,jcells)=1.0d0/3.0d0
@@ -391,48 +403,53 @@ c     ,     1p5e10.2)
       gammad(1,jcells)=gammd
       dopref=gamd/gammd
       i=1
-c     Determine B vector of MD assuming random magnetic field orientation
+c     Initialize some parameters for selecting magnetic field vector
       do 6129 j=1,jcells
       ididb(j)=0
       phi1(j)=0.0
  6129 bfrac(j)=0.0
+c     Determine B vector of MD assuming random magnetic field orientation
 c     Randomly select magnetic field direction for every 10th cell, then interpolate
 c       inside loop to get direction for intermediate cells
 c     First need to set up field direction for the more downstream cell
-      xrand=randproto(0)
-      phi2(jcells)=2.0*pi*xrand
-      xrand=randproto(0)
-      costh=2.0*(xrand-0.5)
+      phi2(jcells)=2.0*pi*randproto(0)
+      costh=2.0*(randproto(0)-0.5)
       if(costh.ge.1.0)costh=0.999999
       if(costh.le.-1.0)costh=-0.999999
-      xrand=randproto(0)
-      sign=xrand-0.5
-      sign=sign/abs(sign)
-      theta2(jcells)=sign*acos(costh)
+      theta2(jcells)=acos(costh)
 c     Loop over mdmax cells that pass through Mach disk
       do 130 md=1,(mdmax-1)
       if(ididb(jcells).eq.1)go to 6130
-      xrand=randproto(0)
-      phi1(jcells)=2.0*pi*xrand
-      xrand=randproto(0)
-      costh=2.0*(xrand-0.5)
+      phi1(jcells)=2.0*pi*randproto(0)
+      costh=2.0*(randproto(0)-0.5)
       if(costh.ge.1.0)costh=0.999999
       if(costh.le.-1.0)costh=-0.999999
-      xrand=randproto(0)
-      sign=xrand-0.5
-      sign=sign/abs(sign)
-      theta1(jcells)=sign*acos(costh)
+      theta1(jcells)=acos(costh)
+      sint1=sin(theta1(jcells))
+      sint2=sin(theta2(jcells))
+      bu1x(jcells)=sint1*cos(phi1(jcells))
+      bu1y(jcells)=sint1*sin(phi1(jcells))
+      bu1z(jcells)=costh
+      bu2x(jcells)=sint2*cos(phi2(jcells))
+      bu2y(jcells)=sint2*sin(phi2(jcells))
+      bu2z(jcells)=cos(theta2(jcells))
+      cosrot(jcells)=bu1x(jcells)*bu2x(jcells)+bu1y(jcells)*
+     ,  bu2y(jcells)+bu1z(jcells)*bu2z(jcells)
+      if(cosrot(jcells).ge.1.0)cosrot(jcells)=0.999999
+      if(cosrot(jcells).le.-1.0)cosrot(jcells)=-0.999999
+      angrot(jcells)=acos(cosrot(jcells))
+      xsign=randproto(0)-0.5
+      xsign=xsign/abs(xsign)
+      if(xsign.lt.0.0)angrot(jcells)=angrot(jcells)-2.0*pi
+      cu1x(jcells)=bu1y(jcells)*bu2z(jcells)-bu1z(jcells)*bu2y(jcells)
+      cu1y(jcells)=-bu1x(jcells)*bu2z(jcells)+bu1z(jcells)*bu2x(jcells)
+      cu1z(jcells)=bu1x(jcells)*bu2y(jcells)-bu1y(jcells)*bu2x(jcells)
       ididb(jcells)=1
- 6130 thetab=(theta1(jcells)*bfrac(jcells)+theta2(jcells)*
-     ,  (1.0-bfrac(jcells)))
-      phi=(phi1(jcells)*bfrac(jcells)+phi2(jcells)*
-     ,  (1.0-bfrac(jcells)))
-      sinthb=sin(thetab)
-      costhb=cos(thetab)
-      sinphb=sin(phi)
-      cosphb=cos(phi)
+ 6130 call vecrot(bu1x(jcells),bu1y(jcells),bu1z(jcells),
+     ,  cu1x(jcells),cu1y(jcells),cu1z(jcells),
+     ,  (bfrac(jcells)*angrot(jcells)),bux,buy,buz)
       bfrac(jcells)=bfrac(jcells)+0.1
-      if(bfrac(jcells).lt.1.0)go to 6131
+      if(bfrac(jcells).le.1.0)go to 6131
       theta2(jcells)=theta1(jcells)
       phi2(jcells)=phi1(jcells)
       bfrac(jcells)=0.0
@@ -441,23 +458,19 @@ c     Loop over mdmax cells that pass through Mach disk
 c     Compute B field components downstream of Mach disk shock
       idelay=dstart-mdmax+md-idelmd
       if(idelay.lt.1.or.idelay.gt.(16384-ip0))
-     ,  write(5,9222)idelay,i,j,md,ip0,zshock,zcell(i,j)
+     ,  write(6,9299)idelay,i,jcells,md,idelmd,ip0,mdmax,dstart,
+     ,  zshock,delobs,gamd,betd,clos
       bavg=bave*sqrt(spsd(idelay+ip0))
       n0mean=n0ave*spsd(idelay+ip0)
-      n0prev=n0ave*spsd(idelay+ip0-1)
 ccccccccccc Test
 c      if(idelay.gt.(dstart+40).and.idelay.lt.(dstart+51))
 c     ,  n0mean=10.0*n0mean
-c      if(idelay.gt.(dstart+41).and.idelay.lt.(dstart+52))
-c     ,  n0prev=10.0*n0prev
 cc      write(5,9333)md,idelay,dstart,idelmd,bavg,n0mean
- 9333 format(4i7,1p8e10.2)
       j=jcells
       n0(i,j)=etac*n0mean
-      n0prev=etac*n0prev
-      bx(i,j)=bavg*sinthb*cosphb*etac
-      by(i,j)=bavg*sinthb*sinphb*etac
-      bz(i,j)=bavg*costhb
+      bx(i,j)=bavg*bux*etac
+      by(i,j)=bavg*buy*etac
+      bz(i,j)=bavg*buz
       bfield(j)=sqrt(bx(i,j)**2+by(i,j)**2+bz(i,j)**2)
       bfld=bfield(j)
       bmdx(md)=bx(i,j)
@@ -465,14 +478,13 @@ cc      write(5,9333)md,idelay,dstart,idelmd,bavg,n0mean
       bmdz(md)=bz(i,j)
       bmdtot(md)=bfld
 c     Calculate the initial maximum electron energy in the Mach disk
-      bup=bavg*dsqrt(costhb**2+(gamup*sinthb)**2)
-      bprp=bavg*dsqrt((costhb*sinz**2)**2+(gamup*sinthb*cosz**2)**2*
-     ,  ((cosphb*cosph(j)**2)**2+(sinphb*sinph(j)**2)**2))
+      bprp=sqrt(bux*bux+buy*buy)
 c      write(6,9996)thetab,phi,theta1(jcells),theta2(jcells),
 c     ,   phi1(jcells),phi2(jcells),etac,bmdx(md),
 c     ,  bmdy(md),bmdz(md),bfld,bprp
-c     Next line relates this to direction of B field relative to shock
-c      gmax0(i,j)=gmaxmn*(bprp/bup)**(2.0*pexp)
+c     Next line relates this to direction of upstream B field relative to shock
+c      gmax0(i,j)=gmaxmn*bprp**(2.0*pexp)
+
 c     Next 3 lines assume a power-law distribution of gmax0, unrelated
 c         to direction of B field
 c     See http://mathworld.wolfram.com/RandomNumber.html for choosing
@@ -488,8 +500,8 @@ c     Compute energy density of photons in Mach disk, time delayed by 1 step
 c       Ignore photons from dust torus since beaming is small in Mach disk
       mdi=md-1
       if(mdi.le.0)mdi=1
-c     Value of SSC photon density for fast cooling case, from Sari and Esen (2001) multiplied by 2.0
-      uphmd=bmdtot(mdi)**2/(8.0*pi)*2.0*(sqrt(1.0+4.0*uratio)-1.0)/2.0
+c     Value of SSC photon density for fast cooling case, from Sari and Esen (2001)
+      uphmd=bmdtot(mdi)**2/(8.0*pi)*(sqrt(1.0+4.0*uratio)-1.0)/2.0
       ustob=8.0*pi*uphmd/(bfield(j))**2
       tlfact=cc2*bfield(j)**2*(1.0+ustob)
 c     iend is the last slice of cells with energetic electrons
@@ -546,7 +558,7 @@ c     Synchrotron mean intensity for SSC calculation inside Mach disk
       ssabs=1.02e4*(sen+2.0)*akapnu(restnu)*bperpp/nu(inu)**2
       sstau=ssabs*parsec*rsize*svmd
       fsync(inu)=ajnu(restnu)*bperpp*rsize*svmd*(emfact*parsec)
-      if(nTestOut.eq.3) write(7, 9217) md, inu, fsync(inu)
+      if(nTestOut.eq.3) write(9, 9217) md, inu, fsync(inu)
       if(fsync(inu).gt.0.0)nuhi=inu
       if(sstau.lt.0.01)go to 126
       srcfn=fsync(inu)/sstau
@@ -554,7 +566,7 @@ c     Synchrotron mean intensity for SSC calculation inside Mach disk
       if(sstau.gt.0.01.and.sstau.le.5.0)fsync(inu)=
      ,  srcfn*(1.0-exp(-sstau))
   126 continue
-      if(nTestOut.eq.3) write(7, 9217) md, inu, fsync(inu)
+      if(nTestOut.eq.3) write(9, 9217) md, inu, fsync(inu)
 c     Now estimate synchrotron emission seen by other cells
 c     Need to add a lower frequency to get spectral index of nu(1)
       if(inu.gt.1)go to 127
@@ -577,7 +589,7 @@ c     ,   absorb(inu,md),alphmd(inu,md),bperpp,dopref
       fq1=restnu
       fsyn1=fsynmd(inu,md)
       ssseed(inu)=fsync(inu)
-      if(nTestOut.eq.3) write(7, 9216) md, inu, fsynmd(inu,md)
+      if(nTestOut.eq.3) write(9, 9216) md, inu, fsynmd(inu,md)
 c      write(5,9911)md,j,dopref,bperpp,n0(i,j),ggam(43),edist(43),
 c     ,  restnu,ssseed(inu),fsynmd(inu,md),fsscmd(inu,md)
   125 continue
@@ -605,7 +617,7 @@ c      write(5,9911)md,j,dopref,bfld,bperpp,n0(i,j),ggam(43),edist(43),
 c     ,  restnu,ssseed(inu),fsynmd(inu,md),fsscmd(inu,md)
       fq1=restnu
       fssc1=fsscmd(inu,md)
-      if(nTestOut.eq.3) write(7, 9215) md, inu, fsscmd(inu,md)
+      if(nTestOut.eq.3) write(9, 9215) md, inu, fsscmd(inu,md)
   129 continue
   130 continue
 c
@@ -628,10 +640,13 @@ c
    81 continue
       ididg(j)=0
       zcell(i,j)=zshock-(rcell(j)-rsize)/tanz
+      betadi=betad(i,j)
+      if(betadi.lt.0.577)betadi=betadd
       idelay=dstart+it-1+((zrf-zcell(i,j))
-     ,   +(xrf-xcell(j))*slos/(betad(1,1)*clos))/zsize
-      if(idelay.lt.1.or.idelay.gt.(16384-ip0))
-     ,  write(5,9222)idelay,i,j,md,ip0,zshock,zcell(i,j)
+     ,   +(xrf-xcell(j))*slos/(betadi*clos))/zsize
+      if(idelay.le.0.or.idelay.gt.(16384-ip0))
+     ,  write(5,9222)idelay,dstart,j,md,ip0,zshock,zrf,zcell(i,j),
+     ,  xrf,xcell(j),betadi,zsize
       bavg=bave*sqrt(spsd(idelay+ip0))
       n0mean=n0ave*spsd(idelay+ip0)
 c      if(idelay.gt.(dstart+40).and.idelay.lt.(dstart+51))
@@ -642,17 +657,14 @@ c     Velocity vector of laminar component of pre-shock flow
       betupy=betaup*sinph(j)*sinpsi(j)
       betupz=betaup*cospsi(j)
 c     Velocity vector of the turbulent component of pre-shocked plasma
-      phi=2.0*pi*randproto(0)
-      costh=2.0*(randproto(0)-0.5)
-      sign=randproto(0)-0.5
-      sign=sign/abs(sign)
-      thetat=sign*acos(costh)
-      sintht=sin(thetat)
-      costht=cos(thetat)
-      sinpht=sin(phi)
-      cospht=cos(phi)
-      betatx=betat*cospht*sintht
-      betaty=betat*sinpht*sintht
+      phit=2.0*pi*randproto(0)
+      costht=2.0d0*(randproto(0)-0.5d0)
+      if(costht.gt.1.0d0)costht=0.99999
+      if(costht.lt.-1.0d0)costht=-0.99999
+      thetat=dacos(costht)
+      sintht=dsin(thetat)
+      betatx=betat*dcos(phit)*sintht
+      betaty=betat*dsin(phit)*sintht
       betatz=betat*costht
       dotprd=betupx*betatx+betupy*betaty+betupz*betatz
       btparx=dotprd*betupx/betaup**2
@@ -671,7 +683,7 @@ c     Unit vector of shock front at current position
       sx=-sinz*cosph(j)
       sy=-sinz*sinph(j)
       sz=cosz
-c     Velocity vector downstream of shock
+c     Velocity vector downstream of shock + compression ratio of shock
       call vdcalc(betaux(j),betauy(j),betauz(j),sx,sy,sz,betadx(i,j),
      ,   betady(i,j),betadz(i,j),betad(i,j),gammad(i,j),eta)
 c      write(6,9994)i,j,betaux(j),betauy(j),betauz(j),betau(j),
@@ -681,40 +693,65 @@ c     Determine B vector of cell assuming random magnetic field orientation
    11 continue
 c     For Mach disk, continue from previous calculation of B direction
       if(j.eq.jcells.and.ididb(j).eq.1)go to 6030
-      if(j.eq.jcells)go to 6029
+      if(j.eq.jcells)go to 6028
       if(ididb(j).eq.1)go to 6030
 c     Randomly select magnetic field direction for every 10th cell, then interpolate
 c       inside loop to get direction for intermediate cells
 c     First need to set up field direction for the more downstream cell
-      xrand=randproto(0)
-      phi2(j)=2.0*pi*xrand
-      xrand=randproto(0)
-      costh=2.0*(xrand-0.5)
+      phi2(j)=2.0*pi*randproto(0)
+      costh=2.0*(randproto(0)-0.5)
       if(costh.ge.1.0)costh=0.999999
       if(costh.le.-1.0)costh=-0.999999
-      xrand=randproto(0)
-      sign=xrand-0.5
-      sign=sign/abs(sign)
-      theta2(j)=sign*acos(costh)
+      theta2(j)=acos(costh)
+      sint1=sin(theta1(j))
+      sint2=sin(theta2(j))
+      bu1x(j)=sint1*cos(phi1(j))
+      bu1y(j)=sint1*sin(phi1(j))
+      bu1z(j)=cos(theta1(j))
+      bu2x(j)=sint2*cos(phi2(j))
+      bu2y(j)=sint2*sin(phi2(j))
+      bu2z(j)=costh
+      cosrot(j)=bu1x(j)*bu2x(j)+bu1y(j)*bu2y(j)+bu1z(j)*bu2z(j)
+      if(cosrot(j).ge.1.0)cosrot(j)=0.999999
+      if(cosrot(j).le.-1.0)cosrot(j)=-0.999999
+      angrot(j)=acos(cosrot(j))
+      xsign=randproto(0)-0.5
+      xsign=xsign/abs(xsign)
+      if(xsign.lt.0.0)angrot(j)=angrot(j)-2.0*pi
+      cu1x(j)=bu1y(j)*bu2z(j)-bu1z(j)*bu2y(j)
+      cu1y(j)=-bu1x(j)*bu2z(j)+bu1z(j)*bu2x(j)
+      cu1z(j)=bu1x(j)*bu2y(j)-bu1y(j)*bu2x(j)
       ididb(j)=1
- 6029 if(phi1(j).ne.0.0)go to 6030
+      if(phi1(j).ne.0.0)go to 6030
+ 6028 continue
 c     Now set up field direction for cell just crossing the shock
-      xrand=randproto(0)
-      phi1(j)=2.0*pi*xrand
-      xrand=randproto(0)
-      costh=2.0*(xrand-0.5)
+      phi1(j)=2.0*pi*randproto(0)
+      costh=2.0*(randproto(0)-0.5)
       if(costh.ge.1.0)costh=0.999999
       if(costh.le.-1.0)costh=-0.999999
-      xrand=randproto(0)
-      sign=xrand-0.5
-      sign=sign/abs(sign)
-      theta1(j)=sign*acos(costh)
- 6030 thetab=(theta2(j)*bfrac(j)+theta1(j)*(1.0-bfrac(j)))
-      phi=(phi2(j)*bfrac(j)+phi1(j)*(1.0-bfrac(j)))
-      sinthb=sin(thetab)
-      costhb=cos(thetab)
-      sinphb=sin(phi)
-      cosphb=cos(phi)
+      theta1(j)=acos(costh)
+      sint1=sin(theta1(j))
+      sint2=sin(theta2(j))
+      bu1x(j)=sint1*cos(phi1(j))
+      bu1y(j)=sint1*sin(phi1(j))
+      bu1z(j)=costh
+      bu2x(j)=sint2*cos(phi2(j))
+      bu2y(j)=sint2*sin(phi2(j))
+      bu2z(j)=cos(theta2(j))
+      cosrot(j)=bu1x(j)*bu2x(j)+bu1y(j)*bu2y(j)+bu1z(j)*bu2z(j)
+      if(cosrot(j).ge.1.0)cosrot(j)=0.999999
+      if(cosrot(j).le.-1.0)cosrot(j)=-0.999999
+      angrot(j)=acos(cosrot(j))
+      xsign=randproto(0)-0.5
+      xsign=xsign/abs(xsign)
+      if(xsign.lt.0.0)angrot(j)=angrot(j)-2.0*pi
+      cu1x(j)=bu1y(j)*bu2z(j)-bu1z(j)*bu2y(j)
+      cu1y(j)=-bu1x(j)*bu2z(j)+bu1z(j)*bu2x(j)
+      cu1z(j)=bu1x(j)*bu2y(j)-bu1y(j)*bu2x(j)
+ 6030 call vecrot(bu1x(j),bu1y(j),bu1z(j),cu1x(j),cu1y(j),cu1z(j),
+     ,  (bfrac(j)*angrot(j)),bux,buy,buz)
+c      buang1=atan2(buy,bux)
+c      buang2=acos(buz)
       bfrac(j)=bfrac(j)+0.1
       if(bfrac(j).le.1.0)go to 6031
       theta1(j)=theta2(j)
@@ -722,10 +759,6 @@ c     Now set up field direction for cell just crossing the shock
       bfrac(j)=0.0
       ididb(j)=0
  6031 continue
-      bux=bavg*sinthb*cosphb
-      buy=bavg*sinthb*sinphb
-      buz=bavg*costhb
-      write(6,9994)
 c     
 c     Compute B field components downstream of shock in the plasma frame
 c       From equation derived by transforming from the upstream plasma
@@ -733,6 +766,9 @@ c       frame, compressing the component of B
 c       parallel to the shock, and transforming the result to the rest frame
 c       of the downstream plama
 c
+      bux=bavg*bux
+      buy=bavg*buy
+      buz=bavg*buz
 c     Unit vector of shock front at current position
       sx=-sinz*cosph(j)
       sy=-sinz*sinph(j)
@@ -745,8 +781,10 @@ c     Unit vector of shock normal at current position
       anz=sinz
       call bdcalc(betaux(j),betauy(j),betauz(j),anx,any,anz,
      ,  bux,buy,buz,eta,bx(i,j),by(i,j),bz(i,j))
-c      write(6,9994)i,j,bux,buy,buz,betaux(j),betauy(j),betauz(j),
-c     ,  bx(i,j),by(i,j),bz(i,j)
+c      if(i.eq.1.and.j.eq.12)write(6,9994)it,j,theta1(j),
+c     ,  theta2(j),phi1(j),phi2(j),buang1,buang2,cosrot(j),angrot(j),
+c     ,  bux,buy,buz
+c    ,  bx(i,j),by(i,j),bz(i,j)
 c     Unit vector of shock front at current position
       sx=-sinz*cosph(j)
       sy=-sinz*sinph(j)
@@ -757,24 +795,18 @@ c     Calculate upstream B field component perpendicular to the shock front bprp
       go to 13
 c     Set field of plasma in central cell, which is a Mach disk
    12 n0(i,j)=etac*n0mean
-      bx(i,j)=bavg*sinthb*cosphb*etac
-      by(i,j)=bavg*sinthb*sinphb*etac
-      bz(i,j)=bavg*costhb
+      bx(i,j)=bux*etac
+      by(i,j)=buy*etac
+      bz(i,j)=buz
       bfield(j)=sqrt(bx(i,j)**2+by(i,j)**2+bz(i,j)**2)
       bfld=bfield(j)
       bmdx(md)=bx(i,j)
       bmdy(md)=by(i,j)
       bmdz(md)=bz(i,j)
       bmdtot(md)=bfld
-c     Unit vector of shock front at current position
-      sx=1.0/sq2
-      sy=1.0/sq2
-      sz=0.0
-c     Calculate upstream B field component perpendicular to the shock front bprp
-      call bcalc(betaux(j),betauy(j),betauz(j),sx,sy,sz,
-     ,  bux,buy,buz,dum1,dum2,dum3,dum4,dum5,dum6,dum7,bprp)
 c     Calculate the initial maximum electron energy in the Mach disk
-      bup=bavg*dsqrt(costhb**2+(gamup*sinthb)**2)
+      bprp=bux*bux+buy*buy
+      bprp=sqrt(bprp)/sqrt(bprp+buz*buz)
 c     Next line relates this to direction of B field relative to shock
 c      gmax0(i,j)=gmaxmn*(bprp/bup)**(2.0*pexp)
 c     Next 3 lines assume a power-law distribution of gmax0, unrelated
@@ -785,14 +817,14 @@ c      random numbers from a power-law distribution
 c      if(pexp.eq.0.0)gmax0(i,j)=gmaxmx
 c      if(pexp.lt.0.0)gmax0(i,j)=((gmaxmx**pexp-gmaxmn**pexp)*xrand+
 c     ,  gmaxmn**pexp)**(1.0/pexp)
-      gmax0(i,j)=0.2*gmaxmn
-      gminmd=0.15*gmin
+      gmax0(i,j)=gmaxmn
+      gminmd=gmin
 c     Calculate energy distribution in the Mach disk cell
 c     Compute energy density of photons in Mach disk, time delayed by 1 step
 c       Ignore photons from dust torus since beaming is small in Mach disk
       mdi=md-1
       if(mdi.le.0)mdi=1
-      uphmd=bmdtot(mdi)**2/(8.0*pi)*2.0*(sqrt(1.0+4.0*uratio)-1.0)/2.0
+      uphmd=bmdtot(mdi)**2/(8.0*pi)*(sqrt(1.0+4.0*uratio)-1.0)/2.0
       ustob=8.0*pi*uphmd/(bfield(j))**2
       tlfact=cc2*bfield(j)**2*(1.0+ustob)
 c     iend is the last slice of cells with energetic electrons
@@ -877,8 +909,8 @@ c     ,   absorb(inu,md),alphmd(inu,md),bperpp
       fq1=restnu
       fsyn1=fsynmd(inu,md)
       ssseed(inu)=fsync(inu)
-      if(nTestOut.eq.4) write(7,14001) 1125,i,j,md,inu,'fsync(inu)',fsync(inu)
-      if(nTestOut.eq.4) write(7,14001) 1125,i,j,md,inu,'fsynmd(inu,md)',fsynmd(inu,md)
+      if(nTestOut.eq.4) write(9,14001) 1125,i,j,md,inu,'fsync(inu)',fsync(inu)
+      if(nTestOut.eq.4) write(9,14001) 1125,i,j,md,inu,'fsynmd(inu,md)',fsynmd(inu,md)
  1125 continue
       do 1128 inu=41,68
       snu(inu)=nu(inu)
@@ -916,6 +948,9 @@ c     Line-of-sight unit vector
      ,  bx(i,j),by(i,j),bz(i,j),dum1,dum2,dum3,dum4,dum5,dum6,dum7,
      ,  bperp(j))
       bfield(j)=sqrt(bx(i,j)**2+by(i,j)**2+bz(i,j)**2)
+c      if(i.eq.1.and.j.eq.12)write(6,9996)bperp(j),bfield(j),
+c     ,  bx(i,j),by(i,j),bz(i,j),
+c     ,  betadx(i,j),betady(i,j),betadz(i,j),slx,sly,slz
       n0(i,j)=eta*n0mean
 c     Calculate the initial maximum electron energy in each cell
 c       from the ratio of B(perp. to shock) to B_total in shock frame
@@ -941,7 +976,7 @@ c
    88 continue
       do 100 j=1,jcells-1
       ncells=ncells+1
-      if(nTestOut.eq.2) write(7,9220) ncells, j
+      if(nTestOut.eq.2) write(9,9220) ncells, j
       emisco=0.0
       ecflux=0.0
       zcell(i,j)=zshock-(rcell(j)-rsize)/tanz
@@ -1075,23 +1110,11 @@ c     Only calculate up to Klein-Nishina limit of gmin
   148 continue
   149 continue
   150 continue
-c      if(md.gt.(mdmax+1))write(5,9232)i,j,md,md1,md2,usdmd,dmd(j),
-c     ,  delcor,syseed(1),
-c     ,  syseed(8),scseed(15),scseed(20),scseed(25),scseed(30)
- 9232 format(2i4,3i6,1p12e10.2)
-c      do 8147 inu=1,68
-c      write(5,9911)j,md,nu(inu),(nu(inu)/deltmd(j)),
-c     ,  fsscmd(inu,md),dmd(j),syseed(inu),scseed(inu),ssseed(inu),
-c     ,  fsynmd(inu,md),alphmd(inu,md)
- 9911 format('seed:  ',2i5,1p11e10.3)
-c 8147 continue
-c      write(5,9996)ssseed
 c     Calculate energy distribution in the cell
       id=(zcell(i,j)-zshock)/zsize+nend
       if(id.lt.1)id=1
-c      if(id.gt.(icells+nend))write(3,9992)i,j,id,zcell(i,j),zshock,
-c     ,  zsize
-c      write(6,9992)i,j,id,zcell(i,j),zshock,zsize
+      if(id.gt.(icells+nend))write(6,9992)i,j,id,zcell(i,j),zshock,
+     ,  zsize
       ustob=8.0*pi*(useed(id)+usdmd)/(bfield(j))**2
       tlfact=cc2*bfield(j)**2*(1.0+ustob)
       tlf1(j)=tlfact
@@ -1129,11 +1152,6 @@ c     Divide by delt since integral is over time
       enofe(i,j,ie)=enofe(i,j,ie)/delt
       if(enofe(i,j,ie).lt.0.0)enofe(i,j,ie)=0.0
  5089 edist(ie)=enofe(i,j,ie)
-c      if(edist(ie).lt.0.0.or.edist(ie).gt.1.0e20)
-c     ,  write(5,9994)i,j,ggam(ie),edist(ie),tlfact,t2,tloss,
-c     ,  tlmin,t1,delt,glow,gmin,gmax0(i,j),n0(i,j)
-c      write(5,9994)i,j,ggam(ie),edist(ie),tlfact,t2,tloss,
-c     ,  t1,delt,glow,gmin,gmax0(i,j),n0(i,j)
    90 continue
       delt=zsize*3.26*yr/(gammad(i,j)*betad(i,j))
       gammax(i,j)=gmax0(i,j)/(1.0d0+tlfact*delt*gmax0(i,j))
@@ -1188,12 +1206,10 @@ c      if(tauexp.le.15.0)fsync2(inu)=fsync2(inu)/exp(tauexp)
       if(emold.gt.0.0.and.fsync2(inu).gt.0.0)specin=
      ,  alog10(emold/fsync2(inu))/alog10(nu(inu)/nu(inu-1))
    92 continue
-c      if(inu.eq.1)write(4,9996)gammax(i,j),
-c     ,  ggam,edist,restnu,bperpp
       flsync(i,j,inu)=fsync2(inu)*(volc/zsize)*zred1/
      ,  (1.0e18*amjy*dgpc**2)*fgeom
       flux(i,j,inu)=flsync(i,j,inu)
-      if(nTestOut.eq.1) write(7, 9218) i, j, inu, flux(i,j,inu)
+      if(nTestOut.eq.1) write(9, 9218) i, j, inu, flux(i,j,inu)
       betd=betad(i,j)
       gamd=gammad(i,j)
       if(inu.eq.1)call polcalc(bfield(j),bx(i,j),by(i,j),bz(i,j),
@@ -1201,13 +1217,12 @@ c     ,  ggam,edist,restnu,bperpp
       if(specin.lt.alpha)specin=alpha
       poldeg=(specin+1.0)/(specin+5.0/3.0)
       if(ssabs.gt.1.0)poldeg=3.0/(12.0*specin+19)
-      if(ssabs.gt.1.0)chipol=chipol-pio2
       fpol(i,j,inu)=poldeg*flsync(i,j,inu)
       pq(i,j,inu)=fpol(i,j,inu)*cos(2.0*chipol)
       pu(i,j,inu)=fpol(i,j,inu)*sin(2.0*chipol)
-c      write(6,9994)i,j,bfield(j),bx(i,j),by(i,j),bz(i,j),
-c     ,    clos,slos,chipol,fpol(i,j,inu),pq(i,j,inu),
-c     ,    pu(i,j,inu)
+c      if(i.eq.1.and.inu.eq.12)write(6,9992)it,i,j,bfield(j),
+c     ,    bx(i,j),by(i,j),bz(i,j),clos,slos,pq(i,j,inu),
+c     ,    pu(i,j,inu),fpol(i,j,inu),(chipol*rad)
 c      if(inu.eq.19)write(5,9989)i,j,idelay,restnu,n0(i,j),bperpp,
 c     ,  gammax(i,j),gammin(i,j),edist(30),edist(40)
       if(restnu.lt.1.0e14)go to 94
@@ -1256,7 +1271,7 @@ c     ,   phots(inumin),nu(inumin+10),phots(inumin+10)
       flssc(i,j,inu)=sscflx
       flcomp(i,j,inu)=ecflux+sscflx
       flux(i,j,inu)=flsync(i,j,inu)+flcomp(i,j,inu)
-      if(nTestOut.eq.1) write(7, 9218) i, j, inu, flux(i,j,inu)
+      if(nTestOut.eq.1) write(9, 9218) i, j, inu, flux(i,j,inu)
       if(emeold.gt.0.0.and.ecflux.gt.0.0)spxec=
      ,  alog10(emeold/ecflux)/alog10(nu(inu)/nu(inu-1))
       if(emsold.gt.0.0.and.sscflx.gt.0.0)spxssc=
@@ -1282,44 +1297,45 @@ cc     ,  n0(i,j),gammax(i,j),gammin(i,j),flec(i,j,52),flssc(i,j,52)
 c
 c     End loop over first layer of cells
 c
+c      go to 2200
       if(icells.eq.1)go to 2200
       i=i+1
       istart=i
 c     Start loop over downstream cells
       do 200 j=1,(jcells-1)
-c     iend is the last slice of cells with energetic electrons
+c     iend, to be computed, is the last slice of cells with energetic electrons
       iend=1
       ididg(j)=0
       do 200 i=istart,imax(j)
       icelmx(j)=i
       ncells=ncells+1
-      if(nTestOut.eq.2) write(7,9221) ncells, j, i 
+      if(nTestOut.eq.2) write(9,9221) ncells, j, i 
       if(it.gt.1)go to 110
+c
+c     *** Initial set-up of downstream cells; skip after 1st time step
+c
       zcell(i,j)=(i-1)*zsize+zshock-(rcell(j)-rsize)/tanz
 c     Set up physical parameters of downstream cells at first time step
       idelay=dstart+it-1-((zrf-zcell(i,j))*clos
      ,   +(xrf-xcell(j))*slos)/zsize
       if(idelay.lt.1.or.idelay.gt.(16384-ip0))
-     ,  write(5,9222)idelay,i,j,md,ip0,zshock,zcell(i,j)
+     ,  write(5,9223)idelay,dsart,j,md,ip0,zshock,zrf,zcell(i,j),
+     ,  xrf,xcell(j),betad(i,j),zsize
       bavg=bave*sqrt(spsd(idelay+ip0))
       n0mean=n0ave*spsd(idelay+ip0)
-      phcell(j)=datan2(sinph(j),cosph(j))
 c     Velocity vector of laminar component of pre-shock flow
       betupx=betaup*cosph(j)*sinpsi(j)
       betupy=betaup*sinph(j)*sinpsi(j)
       betupz=betaup*cospsi(j)
 c     Velocity vector of the turbulent component of pre-shocked plasma
-      phi=2.0*pi*randproto(0)
-      costh=2.0*(randproto(0)-0.5)
-      sign=randproto(0)-0.5
-      sign=sign/abs(sign)
-      thetat=sign*acos(costh)
-      sintht=sin(thetat)
-      costht=cos(thetat)
-      sinpht=sin(phi)
-      cospht=cos(phi)
-      betatx=betat*cospht*sintht
-      betaty=betat*sinpht*sintht
+      phit=2.0*pi*randproto(0)
+      costht=2.0d0*(randproto(0)-0.5d0)
+      if(costht.gt.1.0d0)costht=0.99999
+      if(costht.lt.-1.0d0)costht=-0.99999
+      thetat=dacos(costht)
+      sintht=dsin(thetat)
+      betatx=betat*dcos(phit)*sintht
+      betaty=betat*dsin(phit)*sintht
       betatz=betat*costht
       dotprd=betupx*betatx+betupy*betaty+betupz*betatz
       btparx=dotprd*betupx/betaup**2
@@ -1338,7 +1354,7 @@ c     Unit vector of shock front at current position
       sx=-sinz*cosph(j)
       sy=-sinz*sinph(j)
       sz=-cosz
-c     Velocity vector downstream of shock
+c     Velocity vector downstream of shock + compression ratio of shock
       call vdcalc(betaux(j),betauy(j),betauz(j),sx,sy,sz,betadx(i,j),
      ,   betady(i,j),betadz(i,j),betad(i,j),gammad(i,j),eta)
       betacs=betadx(i,j)*slos+betadz(i,j)*clos
@@ -1357,60 +1373,101 @@ c     First need to initialize values to maintain continuity with it=1,i=1 value
       thet2d(j)=theta2(j)
       phi1d(j)=phi1(j)
       phi2d(j)=phi2(j)
+      angrtd(j)=angrot(j)
+      cosrtd(j)=cos(angrtd(j))
+      bu1xd(j)=bu1x(j)
+      bu1yd(j)=bu1y(j)
+      bu1zd(j)=bu1z(j)
+      bu2xd(j)=bu2x(j)
+      bu2yd(j)=bu2y(j)
+      bu2zd(j)=bu2z(j)
+      cu1xd(j)=cu1x(j)
+      cu1yd(j)=cu1y(j)
+      cu1zd(j)=cu1z(j)
  6229 if(ididbd(j).eq.1)go to 6230
-      xrand=randproto(0)
-      phi2d(j)=2.0*pi*xrand
-      xrand=randproto(0)
-      costh=2.0*(xrand-0.5)
+      phi2d(j)=2.0*pi*randproto(0)
+      costh=2.0*(randproto(0)-0.5)
       if(costh.ge.1.0)costh=0.999999
       if(costh.le.-1.0)costh=-0.999999
-      xrand=randproto(0)
-      sign=xrand-0.5
-      sign=sign/abs(sign)
-      thet2d(j)=sign*acos(costh)
+      thet2d(j)=acos(costh)
+      if(i.le.2)go to 6228
+      sint1=sin(thet1d(j))
+      sint2=sin(thet2d(j))
+      bu1xd(j)=sint1*cos(phi1d(j))
+      bu1yd(j)=sint1*sin(phi1d(j))
+      bu1zd(j)=cos(thet1d(j))
+      bu2xd(j)=sint2*cos(phi2d(j))
+      bu2yd(j)=sint2*sin(phi2d(j))
+      bu2zd(j)=costh
+      cosrtd(j)=bu1xd(j)*bu2xd(j)+bu1yd(j)*bu2yd(j)+bu1zd(j)*bu2zd(j)
+      if(cosrtd(j).ge.1.0)cosrtd(j)=0.999999
+      if(cosrtd(j).le.-1.0)cosrtd(j)=-0.999999
+      angrtd(j)=acos(cosrtd(j))
+      xsign=randproto(0)-0.5
+      xsign=xsign/abs(xsign)
+      if(xsign.lt.0.0)angrtd(j)=angrtd(j)-2.0*pi
+      cu1xd(j)=bu1yd(j)*bu2zd(j)-bu1zd(j)*bu2yd(j)
+      cu1yd(j)=-bu1xd(j)*bu2zd(j)+bu1zd(j)*bu2xd(j)
+      cu1zd(j)=bu1xd(j)*bu2yd(j)-bu1yd(j)*bu2xd(j)
       ididbd(j)=1
       if(i.gt.2)go to 6230
-      xrand=randproto(0)
-      phi1d(j)=2.0*pi*xrand
-      xrand=randproto(0)
-      costh=2.0*(xrand-0.5)
+ 6228 phi1d(j)=2.0*pi*randproto(0)
+      costh=2.0*(randproto(0)-0.5)
       if(costh.ge.1.0)costh=0.999999
       if(costh.le.-1.0)costh=-0.999999
-      xrand=randproto(0)
-      sign=xrand-0.5
-      sign=sign/abs(sign)
-      thet1d(j)=sign*acos(costh)
- 6230 thetab=(thet2d(j)*bfracd(j)+thet1d(j)*(1.0-bfracd(j)))
-      phi=(phi2d(j)*bfracd(j)+phi1d(j)*(1.0-bfracd(j)))
-      sinthb=sin(thetab)
-      costhb=cos(thetab)
-      sinphb=sin(phi)
-      cosphb=cos(phi)
+      thet1d(j)=acos(costh)
+      sint1=sin(thet1d(j))
+      sint2=sin(thet2d(j))
+      bu1xd(j)=sint1*cos(phi1d(j))
+      bu1yd(j)=sint1*sin(phi1d(j))
+      bu1zd(j)=costh
+      bu2xd(j)=sint2*cos(phi2d(j))
+      bu2yd(j)=sint2*sin(phi2d(j))
+      bu2zd(j)=cos(thet2d(j))
+      cosrtd(j)=bu1xd(j)*bu2xd(j)+bu1yd(j)*bu2yd(j)+bu1zd(j)*bu2zd(j)
+      if(cosrtd(j).ge.1.0)cosrtd(j)=0.999999
+      if(cosrtd(j).le.-1.0)cosrtd(j)=-0.999999
+      angrtd(j)=acos(cosrtd(j))
+      xsign=randproto(0)-0.5
+      xsign=xsign/abs(xsign)
+      if(xsign.lt.0.0)angrtd(j)=angrtd(j)-2.0*pi
+      cu1xd(j)=bu1yd(j)*bu2zd(j)-bu1zd(j)*bu2yd(j)
+      cu1yd(j)=-bu1xd(j)*bu2zd(j)+bu1zd(j)*bu2xd(j)
+      cu1zd(j)=bu1xd(j)*bu2yd(j)-bu1yd(j)*bu2xd(j)
+      ididbd(j)=1
+ 6230 call vecrot(bu1xd(j),bu1yd(j),bu1zd(j),cu1xd(j),cu1yd(j),cu1zd(j),
+     ,  (bfracd(j)*angrtd(j)),bux,buy,buz)
       bfracd(j)=bfracd(j)+0.1
-c      if(j.eq.1)write(6,9623)i,j,thetab,phi,thet1d(j),thet2d(j),
-c     ,  phi1d(j),phi2d(j),theta1(j),theta2(j),phi1(j),phi2(j)
-      if(bfracd(j).lt.1.0)go to 6231
+c      buang1=acos(buz)
+c      buang2=atan2(buy,bux)
+      if(bfracd(j).le.1.0)go to 6231
       thet1d(j)=thet2d(j)
       phi1d(j)=phi2d(j)
       bfracd(j)=0.0
       ididbd(j)=0
  6231 continue
- 9623 format(' downstream ',2i5,10f7.2)
 c     Determine B vector of cell assuming random magnetic field orientation
 c     Compute B field components downstream of shock in the plasma frame
 c       From equation derived by transforming from the upstream plasma
 c       frame, compressing the component of B
 c       parallel to the shock, and transforming the result to the rest frame
 c       of the downstream plama
-      bux=bavg*sinthb*cosphb
-      buy=bavg*sinthb*sinphb
-      buz=bavg*costhb
+      bux=bavg*bux
+      buy=bavg*buy
+      buz=bavg*buz
+      bup=sqrt(bux*bux+buy*buy+buz*buz)
 c     Unit vector of shock normal at current position
       anx=cosz*cosph(j)
       any=cosz*sinph(j)
       anz=sinz
       call bdcalc(betaux(j),betauy(j),betauz(j),anx,any,anz,
      ,  bux,buy,buz,eta,bx(i,j),by(i,j),bz(i,j))
+c      if(j.eq.12)write(6,9623)it,i,j,thet1d(j),thet2d(j),
+c     ,  phi1d(j),phi2d(j),
+c     ,  buang1,buang2,cosrtd(j),angrtd(j),bux,buy,buz
+c     bx(i,j),by(i,j),bz(i,j)
+c      if(i.eq.1.and.j.eq.12)write(6,9994)i,j,betaux(j),betauy(j),
+c     ,  betauz(j),bux,bx(i,j),buy,by(i,j),buz,bz(i,j)
 c     Unit vector of shock front at current position
       sx=-sinz*cosph(j)
       sy=-sinz*sinph(j)
@@ -1435,7 +1492,9 @@ c      random numbers from a power-law distribution
       do 105 ig=1,43
   105 if(gmax0(i,j).le.gcnt(ig+1).and.gmax0(i,j).ge.gcnt(ig))
      , igcnt(ig)=igcnt(ig)+1
-c     Time loop resumes here
+c
+c     *** Time loop resumes here ***
+c
   110 continue
 c     Calculate component of magnetic field that is perpendicular to
 c       the aberrated line of sight in the plasma frame
@@ -1447,8 +1506,9 @@ c     Line-of-sight vector in plasma frame
      ,  bx(i,j),by(i,j),bz(i,j),dum1,dum2,dum3,dum4,dum5,dum6,dum7,
      ,  bperp(j))
       bfield(j)=sqrt(bx(i,j)**2+by(i,j)**2+bz(i,j)**2)
-c      write(6,9996)bperp(j),bfield(j),bx(i,j),by(i,j),bz(i,j),
-c     ,  slos,clos
+c      if(i.eq.1.and.j.eq.12)write(6,9996)bperp(j),bfield(j),
+c     ,  bx(i,j),by(i,j),bz(i,j),
+c     ,  betadx(i,j),betady(i,j),betadz(i,j),slx,sly,slz
       emisco=0.0
       ecflux=0.0
       do 111 inu=1,68
@@ -1580,17 +1640,13 @@ c     Only calculate up to Klein-Nishina limit of gmin
  1148 continue
  1149 continue
  1150 continue
-c      if(md.gt.(mdmax-1))write(5,9232)i,j,md,md1,md2,usdmd,dmd(j),
-c     ,  delcor,syseed(1),
-c     ,  syseed(8),scseed(15),scseed(20),scseed(25),scseed(30)
+      id=(zcell(i,j)-zshock)/zsize+nend
+      if(id.lt.1)id=1
+      if(id.gt.(icells+nend))write(6,9992)i,j,id,zcell(i,j),zshock,
+     ,  zsize
 c     Skip flux calculation for cell if gamma_max is too low to emit at lowest frequency
 c     Ratio of energy density of photons emitted by hot dust + Mach disk to
 c       energy density of the magnetic field
-      id=(zcell(i,j)-zshock)/zsize+nend
-      if(id.lt.1)id=1
-c      if(id.gt.(icells+nend))write(5,9992)i,j,id,zcell(i,j),zshock,
-c     ,  zsize
-c      write(6,9992)i,j,id,zcell(i,j),zshock,zsize
       ustob=8.0*pi*(useed(id)+usdmd)/(bfield(j))**2
 c     Calculate the maximum electron energy from gmax0 and solution to equation
 c       d gamma/dt = - cc2*(b**2+8*pi*useed)*gamma**2
@@ -1716,7 +1772,7 @@ c      if(tauexp.le.15.0)fsync2(inu)=fsync2(inu)/exp(tauexp)
       flsync(i,j,inu)=fsync2(inu)*(volc/zsize)*zred1/
      ,  (1.0e18*amjy*dgpc**2)*fgeom
       flux(i,j,inu)=flsync(i,j,inu)
-      if(nTestOut.eq.1) write(7, 9218) i, j, inu, flux(i,j,inu)
+      if(nTestOut.eq.1) write(9, 9218) i, j, inu, flux(i,j,inu)
       betd=betad(i,j)
       gamd=gammad(i,j)
       if(inu.eq.1)call polcalc(bfield(j),bx(i,j),by(i,j),bz(i,j),
@@ -1724,13 +1780,12 @@ c      if(tauexp.le.15.0)fsync2(inu)=fsync2(inu)/exp(tauexp)
       if(specin.lt.alpha)specin=alpha
       poldeg=(specin+1.0)/(specin+5.0/3.0)
       if(ssabs.gt.1.0)poldeg=3.0/(12.0*specin+19)
-      if(ssabs.gt.1.0)chipol=chipol-pio2
       fpol(i,j,inu)=poldeg*flsync(i,j,inu)
       pq(i,j,inu)=fpol(i,j,inu)*cos(2.0*chipol)
       pu(i,j,inu)=fpol(i,j,inu)*sin(2.0*chipol)
-c      write(6,9996)i,j,bfield(j),bx(i,j),by(i,j),bz(i,j),
-c     ,    clos,slos,chipol,fpol(i,j,inu),pq(i,j,inu),
-c     ,    pu(i,j,inu)
+c      if(inu.eq.12)write(6,9992)it,i,j,bfield(j),
+c     ,    bx(i,j),by(i,j),bz(i,j),clos,slos,pq(i,j,inu),
+c     ,    pu(i,j,inu),fpol(i,j,inu),(chipol*rad)
       if(restnu.lt.1.0e14)go to 194
       spxec=0.0001
       spxssc=0.0001
@@ -1774,7 +1829,7 @@ c     Expression for anumin includes typical interaction angle
       flssc(i,j,inu)=sscflx
       flcomp(i,j,inu)=ecflux+sscflx
       flux(i,j,inu)=flsync(i,j,inu)+flcomp(i,j,inu)
-      if(nTestOut.eq.1) write(7, 9218) i, j, inu, flux(i,j,inu)
+      if(nTestOut.eq.1) write(9, 9218) i, j, inu, flux(i,j,inu)
       if(emeold.gt.0.0.and.ecflux.gt.0.0)spxec=
      ,  alog10(emeold/ecflux)/alog10(nu(inu)/nu(inu-1))
       if(emsold.gt.0.0.and.sscflx.gt.0.0)spxssc=
@@ -1799,6 +1854,7 @@ c     End loop over downstream cells
 c      do 7999 ig=1,44
 c 7999 write(5,9993)gcnt(ig),igcnt(ig)
   299 tflold=0.0
+      if(it.eq.1)write(7,9875)
       do 500 inu=1,68
       tflux=0.0
       tsflux=0.0
@@ -1817,8 +1873,21 @@ c 7999 write(5,9993)gcnt(ig),igcnt(ig)
       tcflux=tcflux+flcomp(i,j,inu)
       tecfl=tecfl+flec(i,j,inu)
       tsscfl=tsscfl+flssc(i,j,inu)
+      if(inu.ne.9)go to 298
+c     Position of cell on sky, in milliarcseconds (for z=0.859)
+      xobs=(zcell(i,j)*slos+xcell(j)*clos)/7.7
+      yobs=ycell(j)/7.7
+      poldgg=0.0
+      pang=0.0
+      if(flsync(i,j,inu).le.1.0e-6)go to 298
+      poldg=100.0*fpol(i,j,inu)/flsync(i,j,inu)
+      pangg=0.5*atan2(pu(i,j,inu),pq(i,j,inu))*rad
+      write(7,9876)i,j,xobs,yobs,(0.001*flsync(i,j,inu)),
+     ,  (0.001*pq(i,j,inu)),(0.001*pu(i,j,inu)),poldg,pangg,
+     ,  tflux,qcum,ucum,betad(i,j),it
 c      if(inu.eq.9)write(5,9994)j,i,flux(i,j,inu),flsync(i,j,inu),
 c     ,  flcomp(i,j,inu),flec(i,j,inu),flssc(i,j,inu)
+  298 continue
   300 continue
 c      phots(inu)=tflux*amjy*
 c     ,  (4*pi*dgpc**2*(zsize*1.0e18))/
@@ -1862,6 +1931,10 @@ c     Write SED to file
       if(inu.eq.53)tfssc=tsscfl
       if(inu.eq.11)tfl11=tflux
       tflold=1000.0*tflux/nu(inu)
+      if(inu.eq.3)pdeg3=100.0*poldeg
+      if(inu.eq.3)pang3=pang
+      if(inu.eq.6)pdeg6=100.0*poldeg
+      if(inu.eq.6)pang6=pang
       if(inu.eq.8)pdeg8=100.0*poldeg
       if(inu.eq.8)pang8=pang
       if(inu.eq.12)pdeg12=100.0*poldeg
@@ -1904,10 +1977,10 @@ c     Write light curve points to file
      ,  tfl33,alph33,tfcomx,nu(53),tfl53,alph53,tfcomp,tfec,
      ,  tfssc,nu(11),tfl11,ncells
 c     Write selected polarization data to file
-      write(5,9988)it,timeo,nu(8),pdeg8,pang8,nu(12),pdeg12,pang12,
+      write(5,9988)it,timeo,nu(3),pdeg3,pang3,nu(6),pdeg6,pang6,
+     ,  nu(8),pdeg8,pang8,nu(12),pdeg12,pang12,
      ,  nu(16),pdeg16,pang16,nu(20),pdeg20,pang20,
-     ,  nu(24),pdeg24,pang24,nu(28),pdeg28,pang28,
-     ,  nu(32),pdeg32,pang32
+     ,  nu(24),pdeg24,pang24
 c     Set up next time step by shifting physical conditions 1 slice down jet
       if(it.eq.itlast)go to 9000
       do 598 j=1,jcells
@@ -1937,7 +2010,6 @@ c     Move cells in time array to make room for next time step
       absorb(inu,md)=absorb(inu,md+1)
   599 continue
       go to 9
- 7777 format(i4,1x,i4,2f12.4,2f8.2,2x,f10.4)
  6666 format('# freq(Hz)  flux density (Jy Hz) spectral index')
  6667 format('#'/'#   time(d)     freq(Hz)  F(Jy Hz)  alpha ',
      ,   '    F(mJy)   ',
@@ -1948,6 +2020,7 @@ c     Move cells in time array to make room for next time step
      ,   '  freq      p      chi     freq       p      chi  ',
      ,   '   freq      p       chi     freq       p      chi  ',
      ,   '    freq       p      chi    freq       p       chi')
+ 7777 format(i4,1x,i4,2f12.4,2f8.2,2x,f10.4)
  8888 format(i5,f9.2)
  8889 format(/)
  9111 format(a10/i3/f5.3/f5.3/f4.2/f4.2/f4.2/f3.1/e7.1/f5.3/f7.1/
@@ -1959,13 +2032,24 @@ c     Move cells in time array to make room for next time step
  9219 format('j ', i5, ' imax ', i5)
  9220 format('ncells ', i8, ' j ', i5)
  9221 format('1908 ncells ', i8, ' j ', i5, ' i ', i5)
- 9222 format('idelay out of bounds ',5i6,1p3e11.3)
+ 9222 format('idelay out of bounds ',2i12,3i6,1p7e11.3)
+ 9223 format('*idelay out of bounds ',2i12,3i6,1p7e11.3)
+ 9232 format(2i4,3i6,1p12e10.2)
+ 9299 format(i12,2i5,2i6,3i10,1p5e12.4)
+ 9333 format(4i7,1p8e10.2)
+ 9623 format('* ',3i5,13f8.4)
+ 9875 format('#    i     j    x(mas)     y(mas)   flux(Jy)     Q(Jy)',
+     ,   '       U(Jy)      P(%)    EVPA(deg)',
+     ,   '  tot flux    qcum      ucum     betad      it')
+ 9876 format(2i5,1x,1p11e11.3,i5)
+ 9891 format('Program halted: betadd > betup ',1p6e12.5)
+ 9911 format('seed:  ',2i5,1p11e10.3)
  9988 format(i5,f8.2,2x,7(1pe8.2,1x,0pf7.3,1x,f8.3,1x))
  9989 format(i6,2x,i6,2x,i6,1p16e10.2)
  9990 format(///'Time = ',f8.2,' days'/'  freq(Hz))',2x,
      , 'Ftot(Jy Hz)  sp. index    Fsynch',4x,'     F(EC)',
      , 4x,'F(SSC-MD)')
- 9991 format(i5,f8.2,2x,1p16e10.2,1x,i5)
+ 9991 format(i5,f8.2,2x,1p16e10.2,1x,i7)
  9992 format('** ',3i5,1p12e12.4)
  9993 format(e12.4,1x,i10,1x,2f8.3)
  9994 format(i5,2x,i5,1p16e12.4)
@@ -1978,7 +2062,7 @@ c     Move cells in time array to make room for next time step
 14001 format(i5,' i',i5,' j',i5,' md',i6,' inu',i5,' ',a,f10.4)
       close (4, status='keep')
       close (3, status='keep')
-      close (7, status='keep')
+      close (9, status='keep')
  9000 stop
       end
 c  Subroutine to calculate inverse Compton emission from external sources of seed photons
@@ -2146,7 +2230,7 @@ c     , rat,addit
  1600 continue
 c     End anui loop 2
  1601 continue
-      if(gran1.le.0.0.or.gran2.le.0.0)go to 2845
+      if(gran1.le.1.0e-28.or.gran2.le.1.0e-28)go to 2845
       a=1.0+alog10(gran2/gran1)/ratgl
       if(abs(a).lt.0.01.or.abs(a).gt.5.0)go to 2845
       addit=gran1*(ratg**a-1.0)*g1/a
@@ -2378,8 +2462,8 @@ C This must be larger than the smallest interval between successive data points 
       fac_norm=1./(N*t_incre1)
       fac_norm2=N**2./(2.*N*t_incre1)
 
-      ISEED1=59
-      ISEED2=256872
+      ISEED1=5391
+      ISEED2=2587
       call RNE2IN(ISEED1,ISEED2)
 
         call RNSTNR(R,N/2)
@@ -2845,7 +2929,7 @@ c     Calculate components of velocity vector parallel and perpendicular to shoc
 c     Shock jump condition, from Konigl (1980, Phys. Fluids, 23, 1083)
       vfact=1.0d0
       uprp=g*vprp
-c     uprp must exceed the proper sound speed, 1/sqrt(2)b for a shock
+c     uprp must exceed the proper sound speed, 1/sqrt(2) for a shock
 c     Otherwise, it is a sound wave and the velocity does not change significantly
       if(uprp.gt.0.7071e0)vfact=(1.0d0+1.0d0/(g2*vprp2))/(3.0d0)
       vdprpx=vprpx*vfact
@@ -2911,7 +2995,6 @@ c     ,  bpx,bpy,bpz,bdx,bdy,bdz
 c 9999 format('*',1p18e11.3)
       return
       end
-
 c
 c     bcalc computes magnetic field component parallel and perpendicular to shock
 c     front or line of sight; follows Lyutikov et al. (2003, ApJ, 597, 998)
@@ -2956,6 +3039,22 @@ c     or l.o.s.
 c      write(5,9999)sx,sy,sz,spx,spy,spz,s,spx2,spy2,spz2,
 c     ,  bparx,bpary,bparz,bprpx,bprpy,bprpz,bpar,bprp
 c 9999 format('**',1p18e12.4)
+      return
+      end
+c
+c     vecrot rotates unit vector a by an angle psi about unit vector c along
+c     a great circle to create new vector v
+c
+      subroutine vecrot(ax,ay,az,cx,cy,cz,psi,vx,vy,vz)
+      cs=cos(psi)
+      s=sin(psi)
+      cs1=1.0-cs
+      vx=ax*(1.0+cs1*(cx*cx-1.0))-ay*(cz*s-cs1*cx*cy)+
+     ,  az*(cy*s+cs1*cx*cz)
+      vy=ax*(cz*s+cs1*cx*cy)+ay*(1.0+cs1*(cy*cy-1.0))-
+     ,  az*(cx*s-cs1*cy*cz)
+      vz=ax*(-cy*s+cs1*cx*cz)+ay*(cx*s+cs1*cy*cz)+
+     ,  az*(1.0+cs1*(cz*cz-1.0))
       return
       end
       

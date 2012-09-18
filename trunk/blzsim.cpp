@@ -1,4 +1,5 @@
 
+#include <cstdlib>
 #include <cmath>
 #include <ctime>
 #include <cstdio>
@@ -47,8 +48,8 @@ void BlzSim::psdsim(const int N, const double beta1, const double beta2, const d
   fac_norm2=pow((double)N,2)/(2.*N*t_incre1);
 
   // randObj is an instance of BlzRand inside this BlzSim instance
-  ISEED1=59;
-  ISEED2=256872;
+  ISEED1=5391;
+  ISEED2=2587;
   randObj.setIX(ISEED1,ISEED2);
   BlzLog::debugScalarPair("1) ISEED1/ISEED2", ISEED1, ISEED2);
   randObj.rnstnr(R,N/2);
@@ -456,7 +457,7 @@ double BlzSim::ecdust(const double anuf)
     } // if(anumin > anumax) Loop 2
 
     addit = 0.5 * (gran1 + gran2) * (g2 -g1);
-    if((gran1>0.0) && (gran2>0.0)) {
+    if((gran1>1e-28) && (gran2>1e-28)) {
       double a = 1.0 + log10(gran2/gran1)/ratgl;
       double aa = abs(a);
       if((aa>=.01) && (aa<=5.0)) {
@@ -791,7 +792,7 @@ void BlzSim::vdcalc(const double vx, const double vy,const double vz,
   vprp=sqrt(vprp2);
   // Shock jump condition, from Konigl (1980, Phys. Fluids, 23, 1083)
   uprp=g*vprp;
-  // uprp must exceed the proper sound speed, 1/sqrt(2)b for a shock
+  // uprp must exceed the proper sound speed, 1/sqrt(2) for a shock
   // Otherwise, it is a sound wave and the velocity does not change significantly
   if(uprp > 0.7071)
     vfact=(1.0+1.0/(g2*vprp2))/(3.0);
@@ -925,9 +926,11 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   FILE* pfSpec = NULL; // 3 ctemzspec.txt
   FILE* pfLc = NULL; // 4 ctemzlc.txt
   FILE* pfPol = NULL; // 5 ctemzpol.txt
-  FILE* pfTestOut = NULL; // 6 ctestout.txt
+  FILE* pfMap = NULL; // 7 ctemzpol.txt
+  FILE* pfTestOut = NULL; // 9 ctestout.txt
   std::string specFile("ctemzspec.txt");
   std::string lcFile("ctemzlc.txt");
+  std::string mapFile("ctemzmap.txt");
   std::string polFile("ctemzpol.txt");
   std::string testOutFile("ctestout.txt");
   if(nTestOut>0) pfTestOut = fopen (testOutFile.c_str(),"w");
@@ -958,7 +961,11 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     tanpsi[D1140],tauxmd[D68],phi1[D1141],phi2[D1141],
     theta1[D1141],theta2[D1141],ididb[D1141],bfrac[D1141],
     ididbd[D1141],bfracd[D1141],phi2d[D1141],thet2d[D1141],
-    phi1d[D1141],thet1d[D1141];
+    phi1d[D1141],thet1d[D1141],angrot[D1141],cosrot[D1141],
+    bu1x[D1141],bu1y[D1141],bu1z[D1141],bu2x[D1141],bu2y[D1141],
+    bu2z[D1141],cu1x[D1141],cu1y[D1141],cu1z[D1141],angrtd[D1141],
+    cosrtd[D1141],bu1xd[D1141],bu1yd[D1141],bu1zd[D1141],bu2xd[D1141],
+    bu2yd[D1141],bu2zd[D1141],cu1xd[D1141],cu1yd[D1141],cu1zd[D1141];
   static float alfmdc[D68][D4000],syseed[D68],scseed[D68];
   int icelmx[D1141], imax[D1141], ibreak;
   double pol,pqcum,pucum,pmean,polc,ai2, pcum,tanv0,cosv0,gamup,beta,sinz,cosz,
@@ -968,9 +975,9 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     sinzps,coszps,tanzps,zetap, bd2,gm1,angm,bmparx,bmpary,bmparz,
     bmprpx,bmprpy,bmprpz,dtnth1,dtnth2,dotprd,
     betupx,betupy,betupz,betatx,betaty,betatz,thetat,
-    sintht,costht,sinpht,cospht,btprpx,btprpy,btprpz,
+    sintht,costht,phit,btprpx,btprpy,btprpz,
     btparx,btpary,btparz,sx,sy,sz,slx,sly,slz,
-    anx,any,anz;
+    anx,any,anz,bux,buy,buz;
   double n0mean,restnu;
   double ssabs, sstau, srcfn, fq1, fsyn1, absrb1;
   // I think we only need one dummy variable, but matching the Fortran for now
@@ -999,7 +1006,13 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   int ispec = 1;
   // Set up frequencies
   int inu;
-  for(inu=1; inu<=D68; inu++) {
+  nu[0] = 1e10;
+  nu[1] = 1.5e10;
+  nu[2] = 4.3e10;
+  nu[3] = 8.6e10;
+  nu[4] = 1e11; // ::pow(10.0, 10.0+0.25*(4)); // 4 = 5 - 1
+  nu[5] = 2.3e11;
+  for(inu=7; inu<=D68; inu++) {
     phots[inu-1] = 0.0;
     nu[inu-1] = ::pow(10.0, 10.0+0.25*(inu-1));
   }
@@ -1012,7 +1025,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   // 2p is the slope of the volume vs. initial gamma-max law over all cells,
   // V = V0*gamma_max**(-2p)
   double pexp = -2.0 * inp.p;
-  double amppsd = 5.0;
+  double amppsd = 20.0; // this was 5.0 MSV 8/30/2012
   // Set up compilation of distribution of initial gamma_max values
   double gmrf=gmaxmx/inp.gmaxmn;
   double gmrfl=log10(gmrf)/43.0;
@@ -1040,18 +1053,26 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   sinz = sin(zeta);
   cosz = cos(zeta);
   tanz = sinz/cosz;
-  gamup = 1.0/sqrt(1.0 - inp.betaup*inp.betaup);
+  double betaup2 = inp.betaup*inp.betaup, betat2 = inp.betat*inp.betat;
+  gamup = 1.0/sqrt(1.0 - betaup2);
 
   // Compression ratio of Mach disk. Ultra-relativistic eq. of state assumed, so compression ratio is that
   // given by Hughes, Aller, & Aller (1989, ApJ, 341, 54)
   double etac = sqrt(8.0*::pow(gamup, 4) - 17.0*gamup*gamup + 9.0)/gamup;
-  double betaup2 = inp.betaup*inp.betaup;
-  // Speed downstream of conical shock if turbulent velocity = 0;
-  // for setting cell length zsize
-  betad[0][0] = sqrt(::pow(1.0 - ::pow(inp.betaup*cosz,2), 2) + 9.0*::pow(betaup2*cosz*sinz, 2))/(3.0*inp.betaup*sinz);
-  gammad[0][0] = 1.0/sqrt(1.0-betad[0][0]*betad[0][0]);
-  common.betd = betad[0][0];
-  common.gamd = gammad[0][0];
+  // Speed downstream of conical shock if turbulent velocity is transverse to axis;
+  // for setting cell length zsize and for first estimate of time delay
+  double betup = sqrt(betaup2+betat2-::pow(inp.betaup*inp.betat,2));
+  double betadd = sqrt(::pow(1.0-::pow(betup*cosz,2),2)+9.0*::pow(betup*betup*cosz*sinz,2))/(3.0*betup*sinz);
+
+  if(betadd >= betup) { // if(betadd.lt.betup) go to 7891 
+    // write(6,9891)betup,betaup,betat,betadd,sinz,cosz;
+    printf("Program halted: betadd > betup %12.5E%12.5E%12.5E%12.5E%12.5E%12.5E\n", betup, inp.betaup, inp.betat, betadd, sinz, cosz);
+    exit(0); // go to 9000;
+  }
+
+  double gammdd = 1.0/sqrt(1.0-betadd*betadd); // 7891
+  common.betd = betadd;
+  common.gamd = gammdd;
   // Length of a cylindrical cell in pc
   double zsize = 2.0*inp.rsize/tanz;
   double volc = PI*inp.rsize*inp.rsize*zsize;
@@ -1141,16 +1162,19 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   double psdsum = 0.0;
   int ip;
   for(ip=1; ip<=BLZSIM_DIM16384; ip++) { // do 4998 ip=1,16384
-    //double spexp=1.0/(0.5*expon+1.0);
-    //spsd[ip-1] = ::pow(abs(spsd[ip-1]), spexp);
-    spsd[ip-1] = 1.0;
+    double spexp=1.0/(0.5*expon+1.0);
+    spsd[ip-1] = ::pow(abs(spsd[ip-1]), spexp);
+    //spsd[ip-1] = 1.0;
     psdsum = psdsum + (spsd[ip-1]/(double)BLZSIM_DIM16384);
   }
 
-  for(ip=1; ip<=BLZSIM_DIM16384; ip++)
+  // Normalize spsd and multiply by amplitude.
+  // **Note that mean energy density = amppsd times value set from bavg in input file
+  for(ip=1; ip<=BLZSIM_DIM16384; ip++) // do 4999 ip=1,16384
     spsd[ip-1]=amppsd*spsd[ip-1]/psdsum;
   
-  int ip0 = randObj.rand(0) * 5000;
+  //int ip0 = randObj.rand(0) * 5000;
+  int ip0 = 100;
   int it = 0;
   // Set parameters of each cell at initial time
   // There are icells rows of cells, with JCELLS cells per row
@@ -1161,6 +1185,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   int i = 1, j = 0, nrow, ncol, neven, ncell, jold;
   for(nrow=-(NEND-1); nrow<=NEND-1; nrow++) { // do 999 nrow=-(nend-1),(nend-1)
     ncol = 2*NEND-(abs(nrow)+1);
+    // neven=0 means that there are an even number of columns in the row
     neven = ncol % 2;
     ncol = ncol/2;
     for(ncell=-ncol; ncell<=ncol; ncell++) { // do 998 ncell=-ncol,ncol
@@ -1186,9 +1211,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         rcell[j-1] = BlzMath::mag(xcell[j-1], ycell[j-1]);
         double zcol = rcell[j-1]/tanz;
         imax[j-1] = BlzMath::round<double>((2.0*zcol/zsize) + 0.01);
-        double xxx = xcell[j-1]/inp.rsize;
-        double yyy = ycell[j-1]/inp.rsize;
-        double zzz = zcol/zsize;
         if(nTestOut==2) fprintf(pfTestOut, FORMAT2, j, imax[j-1]);
         if(imax[j-1] < 2)
           imax[j-1] = 2;
@@ -1208,9 +1230,10 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 
   // *** Set up Mach disk emission for earlier times ***
   // Compute time delay (no. of time steps) between when plasma passes Mach disk
-  // and when it passes reference point of conical shock at column 30, in plasma frame
+  // and when it passes reference point of conical shock, in plasma frame
   double zmd = zrf - zshock;
   double idelmd = zmd/(zsize/common.betd);
+  // Velocity parameters of plasma in Mach disk
   betadx[0][JCELLS-1] = 0.0;
   betady[0][JCELLS-1] = 0.0;
   betadz[0][JCELLS-1] = 1.0/3.0;
@@ -1226,54 +1249,62 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   double xrand, phi;
   double gminmd = 0.15*inp.gmaxmn;
 
-  // Determine B vector of MD assuming random magnetic field orientation
+  // Initialize some parameters for selecting magnetic field vector
   for(j=1; j<=JCELLS; j++) { // do 6129 j=1,jcells
     ididb[j-1] = 0;
     phi1[j-1] = 0.0;
     bfrac[j-1] = 0.0;
   } 
 
+  // Determine B vector of MD assuming random magnetic field orientation
   // Randomly select magnetic field direction for every 10th cell, then interpolate
   // inside loop to get direction for intermediate cells
   // First need to set up field direction for the more downstream cell
-  xrand = randObj.rand(0);
-  phi2[JCELLS-1] = TWOPI*xrand;
-  xrand = randObj.rand(0);
-  double costh = 2.0*(xrand-0.5);
+  phi2[JCELLS-1] = TWOPI*randObj.rand(0);
+  double costh = 2.0*(randObj.rand(0)-0.5);
   costh = adjustTrig(costh);
-  xrand = randObj.rand(0);
-  float sign = xrand-0.5;
-  sign = sign/abs(sign);
-  theta2[JCELLS-1] = sign*acos(costh);
+  theta2[JCELLS-1] = acos(costh);
 
   // Loop over mdmax cells that pass through Mach disk
   for(md=1; md<=mdmax-1; md++) { // do 130 md=1,(mdmax-1)
 
     if(ididb[JCELLS-1] != 1) { // if(ididb(JCELLS).eq.1)go to 6130
-      xrand = randObj.rand(0);
-      phi1[JCELLS-1] = TWOPI * xrand;
-      xrand = randObj.rand(0);
-      costh = 2.0*(xrand-0.5);
+      phi1[JCELLS-1] = TWOPI * randObj.rand(0);
+      costh = 2.0*(randObj.rand(0)-0.5);
       costh = adjustTrig(costh);
-      xrand = randObj.rand(0);
-      double sign = xrand - 0.5;
-      sign = sign/abs(sign);
-      theta1[JCELLS-1] = sign*acos(costh);
+      theta1[JCELLS-1] = acos(costh);
+      double sint1 = sin(theta1[JCELLS-1]);
+      double sint2 = sin(theta2[JCELLS-1]);
+      bu1x[JCELLS-1] = sint1*cos(phi1[JCELLS-1]);
+      bu1y[JCELLS-1] = sint1*sin(phi1[JCELLS-1]);
+      bu1z[JCELLS-1] = costh;
+      bu2x[JCELLS-1] = sint2*cos(phi2[JCELLS-1]);
+      bu2y[JCELLS-1] = sint2*sin(phi2[JCELLS-1]);
+      bu2z[JCELLS-1] = cos(theta2[JCELLS-1]);
+      cosrot[JCELLS-1] = bu1x[JCELLS-1]*bu2x[JCELLS-1]+bu1y[JCELLS-1]*bu2y[JCELLS-1]+bu1z[JCELLS-1]*bu2z[JCELLS-1];
+      cosrot[JCELLS-1] = adjustTrig(cosrot[JCELLS-1]);
+      angrot[JCELLS-1] = acos(cosrot[JCELLS-1]);
+      double xsign = randObj.rand(0)-0.5;
+      xsign = xsign/abs(xsign);
+      if(xsign < 0.0)
+        angrot[JCELLS-1] = angrot[JCELLS-1]-TWOPI;
+      cu1x[JCELLS-1] = bu1y[JCELLS-1]*bu2z[JCELLS-1]-bu1z[JCELLS-1]*bu2y[JCELLS-1];
+      cu1y[JCELLS-1] = -bu1x[JCELLS-1]*bu2z[JCELLS-1]+bu1z[JCELLS-1]*bu2x[JCELLS-1];
+      cu1z[JCELLS-1] = bu1x[JCELLS-1]*bu2y[JCELLS-1]-bu1y[JCELLS-1]*bu2x[JCELLS-1];
       ididb[JCELLS-1] = 1;
     }
 
-    double thetab = (theta1[JCELLS-1]*bfrac[JCELLS-1]+theta2[JCELLS-1]*(1.0-bfrac[JCELLS-1])); // 6130
-    phi = (phi1[JCELLS-1]*bfrac[JCELLS-1]+phi2[JCELLS-1]*(1.0-bfrac[JCELLS-1]));
-    double sinthb=sin(thetab);
-    double costhb=cos(thetab);
-    double sinphb=sin(phi);
-    double cosphb=cos(phi);
+    BlzMath::vecRot(bu1x[JCELLS-1],bu1y[JCELLS-1],bu1z[JCELLS-1],
+                    cu1x[JCELLS-1],cu1y[JCELLS-1],cu1z[JCELLS-1],  
+                    (bfrac[JCELLS-1]*angrot[JCELLS-1]),
+                    &bux,&buy,&buz);
+ 
     bfrac[JCELLS-1] = bfrac[JCELLS-1]+0.1;
 
     // Use .99 instead of 1 to deal with precision/error issues. Really should just
     // use an integer counter for this ("every 10th cell") but just trying to match the
     // Fortran code at this point (MSV 8/10/2012)
-    if(bfrac[JCELLS-1] >= .99) { // if(bfrac[jcells-1].lt.1.0)go to 6131
+    if(bfrac[JCELLS-1] > .99) { // if(bfrac[jcells-1].le.1.0)go to 6131
       theta2[JCELLS-1] = theta1[JCELLS-1];
       phi2[JCELLS-1] = phi1[JCELLS-1];
       bfrac[JCELLS-1] = 0.0;
@@ -1283,16 +1314,15 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     // Compute B field components downstream of Mach disk shock
     int idelay = dstart-mdmax+md-idelmd;
     //if((idelay<1) || (idelay>(BLZSIM_DIM16384-ip0)))
-    //  write(5,9222)idelay,i,j,md,ip0,zshock,zcell(i,j);
+    // ,  write(6,9299)idelay,i,jcells,md,idelmd,ip0,mdmax,dstart,
+    // ,  zshock,delobs,gamd,betd,clos
     double bavg = inp.bave*sqrt(spsd[idelay+ip0-1]);
     n0mean = n0ave*spsd[idelay+ip0-1];
-    int n0prev = n0ave*spsd[idelay+ip0-2];
     j = JCELLS;
     n0[i-1][j-1] = etac*n0mean;
-    n0prev = etac * n0prev;
-    bx[i-1][j-1] = bavg*sinthb*cosphb*etac;
-    by[i-1][j-1] = bavg*sinthb*sinphb*etac;
-    bz[i-1][j-1] = bavg*costhb;
+    bx[i-1][j-1] = bavg*bux*etac;
+    by[i-1][j-1] = bavg*buy*etac;
+    bz[i-1][j-1] = bavg*buz;
     bfield[j-1] = BlzMath::mag(bx[i-1][j-1], by[i-1][j-1], bz[i-1][j-1]);
     common.bfld = bfield[j-1];
     bmdx[md-1] = bx[i-1][j-1];
@@ -1300,11 +1330,9 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     bmdz[md-1] = bz[i-1][j-1];
     bmdtot[md-1] = common.bfld;
     // Calculate the initial maximum electron energy in the Mach disk
-    bup = bavg*BlzMath::mag(costhb, gamup*sinthb);
-    double bprp = bavg*sqrt(::pow(costhb*sinz*sinz,2)+::pow(gamup*sinthb*cosz*cosz, 2) *
-                            (::pow(cosphb*cosph[j-1]*cosph[j-1],2)+::pow(sinphb*sinph[j-1]*sinph[j-1], 2)));
-    // Next line relates this to direction of B field relative to shock
-    //  gmax0[i-1][j-1]=gmaxmn*(bprp/bup)**(2.0*pexp)
+    double bprp = BlzMath::mag(bux,buy);
+    // Next line relates this to direction of upstream B field relative to shock
+    //  gmax0[i-1][j-1]=gmaxmn*bprp**(2.0*pexp)
     // Next 3 lines assume a power-law distribution of gmax0, unrelated
     //     to direction of B field
     // See http://mathworld.wolfram.com/RandomNumber.html for choosing
@@ -1321,8 +1349,8 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     int mdi = md-1;
     if(mdi <= 0)
       mdi = 1;
-    // Value of SSC photon density for fast cooling case, from Sari and Esen (2001) multiplied by 2.0
-    double uphmd = bmdtot[mdi-1]*bmdtot[mdi-1]/(8.0*PI)*2.0*(sqrt(1.0+4.0*inp.uratio)-1.0)/2.0;
+    // Value of SSC photon density for fast cooling case, from Sari and Esen (2001)
+    double uphmd = bmdtot[mdi-1]*bmdtot[mdi-1]/(8.0*PI)*(sqrt(1.0+4.0*inp.uratio)-1.0)/2.0;
     ustob = 8.0*PI*uphmd/(bfield[j-1]*bfield[j-1]);
     tlfact = CC2*bfield[j-1]*bfield[j-1]*(1.0+ustob);
     // iend is the last slice of cells with energetic electrons
@@ -1467,7 +1495,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     //
     // Start loop over all cells in first layer to set up physical parameters
     //
-    double ssx, ssy, ssz, bux, buy, buz, bterm, bprpx, bprpy, bprpz,bprp;
+    double ssx, ssy, ssz, bterm, bprpx, bprpy, bprpz,bprp;
 
     for(j=1; j<=JCELLS; j++) { // do 80
 
@@ -1479,9 +1507,13 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 
       ididg[j-1] = 0;
       zcell[i-1][j-1] = zshock - (rcell[j-1]-inp.rsize)/tanz;
-      int idelay = dstart + it - 1 + ((zrf-zcell[i-1][j-1]) +(xrf-xcell[j-1])*slos/(betad[0][0]*clos))/zsize;
-      // if(idelay.lt.1.or.idelay.gt.(16384-ip0))
-      // ,  write(5,9222)idelay,i,j,md,ip0,zshock,zcell(i,j)
+      double betadi = betad[i-1][j-1];
+      if(betadi < 0.577)
+        betadi = betadd;
+      int idelay = dstart+it-1+((zrf-zcell[i-1][j-1])+(xrf-xcell[j-1])*slos/(betadi*clos))/zsize;
+      // if(idelay.le.0.or.idelay.gt.(16384-ip0))
+      //,  write(5,9222)idelay,dstart,j,md,ip0,zshock,zrf,zcell(i,j),
+      //,  xrf,xcell(j),betadi,zsize
       double bavg = inp.bave * sqrt(spsd[idelay+ip0-1]);
       n0mean = n0ave*spsd[idelay+ip0-1];
       phcell[j-1] = atan2(sinph[j-1],cosph[j-1]);
@@ -1490,19 +1522,14 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       double betupy = inp.betaup*sinph[j-1]*sinpsi[j-1];
       double betupz = inp.betaup*cospsi[j-1];
       // Velocity vector of the turbulent component of pre-shocked plasma
-      phi = TWOPI*randObj.rand(0);
-      double costh = 2.0*(randObj.rand(0)-0.5);
-      double sign = randObj.rand(0)-0.5;
-      sign = sign/abs(sign);
-      double betaup2 = inp.betaup*inp.betaup;
-      double thetat = sign*acos(costh);
-      double sintht = sin(thetat);
-      double costht = cos(thetat);
-      double sinpht = sin(phi);
-      double cospht = cos(phi);
-      double betatx = inp.betat*cospht*sintht;
-      double betaty = inp.betat*sinpht*sintht;
-      double betatz = inp.betat*costht;
+      phit = TWOPI*randObj.rand(0);
+      costht = 2.0*(randObj.rand(0)-0.5);
+      costht = adjustTrig(costht);
+      thetat = acos(costht);
+      sintht = sin(thetat);
+      betatx = inp.betat*cos(phit)*sintht;
+      betaty = inp.betat*sin(phit)*sintht;
+      betatz = inp.betat*costht;
       double dotprd = betupx*betatx+betupy*betaty+betupz*betatz;
       double btparx = dotprd*betupx/betaup2;
       double btpary = dotprd*betupy/betaup2;
@@ -1521,69 +1548,97 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       double sx = -sinz*cosph[j-1];
       double sy =-sinz*sinph[j-1];
       double sz = cosz;
-      // Velocity vector downstream of shock
+      // Velocity vector downstream of shock + compression ratio of shock
       vdcalc(betaux[j-1],betauy[j-1],betauz[j-1],sx,sy,sz,&(betadx[i-1][j-1]),
              &(betady[i-1][j-1]),&(betadz[i-1][j-1]),&(betad[i-1][j-1]),&(gammad[i-1][j-1]),&eta);
       // Determine B vector of cell assuming random magnetic field orientation
       // 11 continue (line from the Fortran code to help me orient myself :-)  )
       // For Mach disk, continue from previous calculation of B direction
       if((j!=JCELLS) || (ididb[j-1]!=1)) { // go to 6030
-        if(j != JCELLS) { // go to 6029
+        if(j != JCELLS) { // go to 6028
           if(ididb[j-1] != 1) { // go to 6030
             // Randomly select magnetic field direction for every 10th cell, then interpolate
             // inside loop to get direction for intermediate cells
             // First need to set up field direction for the more downstream cell
-            xrand = randObj.rand(0);
-            phi2[j-1] = TWOPI*xrand;
-            xrand = randObj.rand(0);
-            costh = 2.0*(xrand-0.5);
+            phi2[j-1] = TWOPI*randObj.rand(0);
+            costh = 2.0*(randObj.rand(0)-0.5);
             costh = adjustTrig(costh);
-            xrand = randObj.rand(0);
-            sign = xrand-0.5;
-            sign = sign/abs(sign);
-            theta2[j-1]=sign*acos(costh);
+            theta2[j-1] = acos(costh);
+            double sint1 = sin(theta1[j-1]);
+            double sint2 = sin(theta2[j-1]);
+            bu1x[j-1] = sint1*cos(phi1[j-1]);
+            bu1y[j-1] = sint1*sin(phi1[j-1]);
+            bu1z[j-1] = cos(theta1[j-1]);
+            bu2x[j-1] = sint2*cos(phi2[j-1]);
+            bu2y[j-1] = sint2*sin(phi2[j-1]);
+            bu2z[j-1] = costh;
+            cosrot[j-1] = bu1x[j-1]*bu2x[j-1]+bu1y[j-1]*bu2y[j-1]+bu1z[j-1]*bu2z[j-1];
+            cosrot[j-1] = adjustTrig(cosrot[j-1]);
+            angrot[j-1] = acos(cosrot[j-1]);
+            double xsign = randObj.rand(0)-0.5;
+            xsign = xsign/abs(xsign);
+            if(xsign < 0.0)
+              angrot[j-1] = angrot[j-1]-TWOPI;
+            cu1x[j-1] = bu1y[j-1]*bu2z[j-1]-bu1z[j-1]*bu2y[j-1];
+            cu1y[j-1] = -bu1x[j-1]*bu2z[j-1]+bu1z[j-1]*bu2x[j-1];
+            cu1z[j-1] = bu1x[j-1]*bu2y[j-1]-bu1y[j-1]*bu2x[j-1];
             ididb[j-1] = 1;
-            // Now set up field direction for cell just crossing the shock
-            xrand = randObj.rand(0);
-            phi1[j-1] = TWOPI*xrand;
-            xrand = randObj.rand(0);
-            costh = 2.0*(xrand-0.5);
-            costh = adjustTrig(costh);
-            xrand = randObj.rand(0);
-            sign = xrand-0.5;
-            sign = sign/abs(sign);
-            theta1[j-1] = sign*acos(costh);
+            if(phi1[j-1] == 0) {
+              // Now set up field direction for cell just crossing the shock
+              phi1[j-1] = TWOPI*randObj.rand(0);
+              costh = 2.0*(randObj.rand(0)-0.5);
+              costh = adjustTrig(costh);
+              theta1[j-1] = acos(costh);
+              sint1 = sin(theta1[j-1]);
+              sint2 = sin(theta2[j-1]);
+              bu1x[j-1] = sint1*cos(phi1[j-1]);
+              bu1y[j-1] = sint1*sin(phi1[j-1]);
+              bu1z[j-1] = costh;
+              bu2x[j-1] = sint2*cos(phi2[j-1]);
+              bu2y[j-1] = sint2*sin(phi2[j-1]);
+              bu2z[j-1] = cos(theta2[j-1]);
+              cosrot[j-1] = bu1x[j-1]*bu2x[j-1]+bu1y[j-1]*bu2y[j-1]+bu1z[j-1]*bu2z[j-1];
+              cosrot[j-1] = adjustTrig(cosrot[j-1]);
+              angrot[j-1] = acos(cosrot[j-1]);
+              xsign = randObj.rand(0)-0.5;
+              xsign = xsign/abs(xsign);
+              if(xsign < 0.0)
+                angrot[j-1] = angrot[j-1]-TWOPI;
+              cu1x[j-1] = bu1y[j-1]*bu2z[j-1]-bu1z[j-1]*bu2y[j-1];
+              cu1y[j-1] = -bu1x[j-1]*bu2z[j-1]+bu1z[j-1]*bu2x[j-1];
+              cu1z[j-1] = bu1x[j-1]*bu2y[j-1]-bu1y[j-1]*bu2x[j-1];
+            }
           } 
-          else {
-            // go to 6030
-          }
-        } // if(j != JCELLS) { // go to 6029
-        else {
-          if(phi1[j-1] == 0.0) { // go to 6030 // 6029 (goto 6030)
-            // Now set up field direction for cell just crossing the shock
-            xrand = randObj.rand(0);
-            phi1[j-1] = TWOPI*xrand;
-            xrand = randObj.rand(0);
-            costh = 2.0*(xrand-0.5);
-            costh = adjustTrig(costh);
-            xrand = randObj.rand(0);
-            sign = xrand-0.5;
-            sign = sign/abs(sign);
-            theta1[j-1] = sign*acos(costh);
-          }
-          else {
-            // go to 6030
-          }
-        } // if(j != JCELLS) { // go to 6029
+        }
+        else { /* j==JCELLS) */
+          // Now set up field direction for cell just crossing the shock
+          phi1[j-1] = TWOPI*randObj.rand(0);
+          costh = 2.0*(randObj.rand(0)-0.5);
+          costh = adjustTrig(costh);
+          theta1[j-1] = acos(costh);
+          double sint1 = sin(theta1[j-1]);
+          double sint2 = sin(theta2[j-1]);
+          bu1x[j-1] = sint1*cos(phi1[j-1]);
+          bu1y[j-1] = sint1*sin(phi1[j-1]);
+          bu1z[j-1] = costh;
+          bu2x[j-1] = sint2*cos(phi2[j-1]);
+          bu2y[j-1] = sint2*sin(phi2[j-1]);
+          bu2z[j-1] = cos(theta2[j-1]);
+          cosrot[j-1] = bu1x[j-1]*bu2x[j-1]+bu1y[j-1]*bu2y[j-1]+bu1z[j-1]*bu2z[j-1];
+          cosrot[j-1] = adjustTrig(cosrot[j-1]);
+          angrot[j-1] = acos(cosrot[j-1]);
+          double xsign = randObj.rand(0)-0.5;
+          xsign = xsign/abs(xsign);
+          if(xsign < 0.0)
+            angrot[j-1] = angrot[j-1]-TWOPI;
+          cu1x[j-1] = bu1y[j-1]*bu2z[j-1]-bu1z[j-1]*bu2y[j-1];
+          cu1y[j-1] = -bu1x[j-1]*bu2z[j-1]+bu1z[j-1]*bu2x[j-1];
+          cu1z[j-1] = bu1x[j-1]*bu2y[j-1]-bu1y[j-1]*bu2x[j-1];
+        }
       } //  if((j!=CELLS) || (ididb[j-1]!=1))
 
-      // This is Fortran label 6030
-      double thetab = (theta2[j-1]*bfrac[j-1]+theta1[j-1]*(1.0-bfrac[j-1]));
-      phi = (phi2[j-1]*bfrac[j-1]+phi1[j-1]*(1.0-bfrac[j-1]));
-      double sinthb = sin(thetab);
-      double costhb = cos(thetab);
-      double sinphb = sin(phi);
-      double cosphb = cos(phi);
+      // 6030
+      BlzMath::vecRot(bu1x[j-1],bu1y[j-1],bu1z[j-1],cu1x[j-1],cu1y[j-1],cu1z[j-1], (bfrac[j-1]*angrot[j-1]),&bux,&buy,&buz);
       bfrac[j-1]=bfrac[j-1]+0.1;
       // Use .99 here instead of 1.0 to account for accuracy variations
       if(bfrac[j-1] > .99) {  // go to 6031  (Fortran checks bfrac against 1.0)
@@ -1593,15 +1648,14 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         ididb[j-1] = 0;
       } // 6031 continue
 
-      bux = bavg*sinthb*cosphb;
-      buy = bavg*sinthb*sinphb;
-      buz = bavg*costhb;
-
       // Compute B field components downstream of shock in the plasma frame
       // From equation derived by transforming from the upstream plasma
       // frame, compressing the component of B
       // parallel to the shock, and transforming the result to the rest frame
       // of the downstream plama
+      bux = bavg*bux;
+      buy = bavg*buy;
+      buz = bavg*buz;
 
       // Unit vector of shock front at current position
       sx = -sinz*cosph[j-1];
@@ -1610,6 +1664,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       
       // If Mach disk, compute separately
       if(j != JCELLS) {
+        // Unit vector of shock normal at current position
         double anx = cosz*cosph[j-1];
         double any = cosz*sinph[j-1];
         double anz = sinz;
@@ -1625,37 +1680,31 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       }
       else { // if(j != JCELLS)
         // Set field of plasma in central cell, which is a Mach disk
-        n0[i-1][j-1] = etac*n0mean;
-        bx[i-1][j-1] = bavg*sinthb*cosphb*etac;
-        by[i-1][j-1] = bavg*sinthb*sinphb*etac;
-        bz[i-1][j-1] = bavg*costhb;
+        n0[i-1][j-1] = etac*n0mean; // 12
+        bx[i-1][j-1] = bux*etac;
+        by[i-1][j-1] = buy*etac;
+        bz[i-1][j-1] = buz;
         bfield[j-1] = BlzMath::mag(bx[i-1][j-1], by[i-1][j-1], bz[i-1][j-1]);
         common.bfld = bfield[j-1];
         bmdx[md-1] = bx[i-1][j-1];
         bmdy[md-1] = by[i-1][j-1];
         bmdz[md-1] = bz[i-1][j-1];
         bmdtot[md-1] = common.bfld;
-        // Unit vector of shock front at current position
-        sx = 1.0/SQRT2;
-        sy=  1.0/SQRT2;
-        sz = 0.0;
-        // Calculate upstream B field component perpendicular to the shock front bprp
-        bcalc(betaux[j-1],betauy[j-1],betauz[j-1],sx,sy,sz,bux,buy,buz,
-              &dum1,&dum2,&dum3,&dum4,&dum5,&dum6,&dum7,&bprp);
         // Calculate the initial maximum electron energy in the Mach disk
-        bup = bavg*sqrt(costhb*costhb+::pow(gamup*sinthb, 2));
+        bprp = BlzMath::magSquared(bux, buy);
+        bprp = sqrt(bprp)/sqrt(bprp+buz*buz);
         //Next line relates this to direction of B field relative to shock
         //  gmax0[i-1][j-1]=gmaxmn*(bprp/bup)**(2.0*pexp)
         // Next 3 lines assume a power-law distribution of gmax0, unrelated
         //     to direction of B field
         // See http://mathworld.wolfram.com/RandomNumber.html for choosing
         //  random numbers from a power-law distribution
-        xrand=randObj.rand(0);
+        xrand = randObj.rand(0);
         //  if(pexp.eq.0.0)gmax0[i-1][j-1]=gmaxmx
         //  if(pexp.lt.0.0)gmax0[i-1][j-1]=((gmaxmx**pexp-gmaxmn**pexp)*xrand+
         // ,  gmaxmn**pexp)**(1.0/pexp)
-        gmax0[i-1][j-1] = 0.2*inp.gmaxmn;
-        gminmd = 0.15*inp.gmin;
+        gmax0[i-1][j-1] = inp.gmaxmn;
+        gminmd = inp.gmin;
 
         // Calculate energy distribution in the Mach disk cell
         // Compute energy density of photons in Mach disk, time delayed by 1 step
@@ -1663,7 +1712,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         int mdi = md-1;
         if(mdi <= 0)
           mdi = 1;
-        double uphmd = bmdtot[mdi-1]*bmdtot[mdi-1]/(8.0*PI)*2.0*(sqrt(1.0+4.0*inp.uratio)-1.0)/2.0;
+        double uphmd = bmdtot[mdi-1]*bmdtot[mdi-1]/(8.0*PI)*(sqrt(1.0+4.0*inp.uratio)-1.0)/2.0;
         ustob = 8.0*PI*uphmd/(bfield[j-1]*bfield[j-1]);
         tlfact = CC2*bfield[j-1]*bfield[j-1]*(1.0+ustob);
         // iend is the last slice of cells with energetic electrons
@@ -1977,7 +2026,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       // Calculate energy distribution in the cell
       id = (zcell[i-1][j-1]-zshock)/zsize+NEND;
       if(id < 1) id = 1;
-      //if(id.gt.(icells+nend))write(3,9992)i,j,id,zcell[i-1][j-1],zshock,zsize
       ustob = 8.0*PI*(useed[id-1]+usdmd)/(bfield[j-1]*bfield[j-1]);
       tlfact =CC2*bfield[j-1]*bfield[j-1]*(1.0+ustob);
       tlf1[j-1] = tlfact;
@@ -2098,7 +2146,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         double poldeg = (specin+1.0)/(specin+5.0/3.0);
         if(ssabs > 1.0) {
           poldeg = 3.0/(12.0*specin+19);
-          chipol = chipol-PIOVERTWO;
         }
         fpol[i-1][j-1][inu-1] = poldeg*flsync[i-1][j-1][inu-1];
         pq[i-1][j-1][inu-1] = fpol[i-1][j-1][inu-1]*cos(2.0*chipol);
@@ -2181,7 +2228,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       // Start loop over downstream cells
       for(j=1; j<=JCELLS-1; j++) { // do 200 j=1,(JCELLS-1)
 
-        // iend is the last slice of cells with energetic electrons
+        // iend, to be computed, is the last slice of cells with energetic electrons
         iend = 1;
         ididg[j-1] =0;
         for(i=istart; i<=imax[j-1]; i++) { // do 200 i=istart,imax[j-1]
@@ -2189,31 +2236,30 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
           ncells = ncells+1;
           if(nTestOut==2) fprintf(pfTestOut, "1908 ncells %8d j %5d i %5d\n", ncells, j, i);
           if(it <= 1) { // if(it.gt.1)go to 110
+            //
+            // *** Initial set-up of downstream cells; skip after 1st time step
+            //
             zcell[i-1][j-1] = (i-1)*zsize+zshock-(rcell[j-1]-inp.rsize)/tanz;
             // Set up physical parameters of downstream cells at first time step
             idelay = dstart+it-1-((zrf-zcell[i-1][j-1])*clos+(xrf-xcell[j-1])*slos)/zsize;
             if((idelay<1) || (idelay>(BLZSIM_DIM16384-ip0))) {
-              //write(5,9222)idelay,i,j,md,ip0,zshock,zcell[i-1][j-1];
+              //,  write(5,9223)idelay,dsart,j,md,ip0,zshock,zrf,zcell(i,j),
+              //,  xrf,xcell(j),betad(i,j),zsize
             }
             double bavg = inp.bave*sqrt(spsd[idelay+ip0-1]);
             n0mean = n0ave*spsd[idelay+ip0-1];
-            phcell[j-1] = atan2(sinph[j-1],cosph[j-1]);
             // Velocity vector of laminar component of pre-shock flow
             double betupx = inp.betaup*cosph[j-1]*sinpsi[j-1];
             double betupy = inp.betaup*sinph[j-1]*sinpsi[j-1];
             double betupz = inp.betaup*cospsi[j-1];
             // Velocity vector of the turbulent component of pre-shocked plasma
-            phi = 2.0*PI*randObj.rand(0);
-            double costh = 2.0*(randObj.rand(0)-0.5);
-            double sign = randObj.rand(0)-0.5;
-            sign = sign/abs(sign);
-            double thetat = sign*acos(costh);
+            phit = 2.0*PI*randObj.rand(0);
+            double costht = 2.0*(randObj.rand(0)-0.5);
+            costht = adjustTrig(costht);
+            double thetat = acos(costht);
             double sintht = sin(thetat);
-            double costht = cos(thetat);
-            double sinpht = sin(phi);
-            double cospht = cos(phi);
-            double betatx = inp.betat*cospht*sintht;
-            double betaty = inp.betat*sinpht*sintht;
+            double betatx = inp.betat*cos(phit)*sintht;
+            double betaty = inp.betat*sin(phit)*sintht;
             double betatz = inp.betat*costht;
             double dotprd = betupx*betatx+betupy*betaty+betupz*betatz;
             double betaup2 = inp.betaup*inp.betaup;
@@ -2234,7 +2280,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
             sx = -sinz*cosph[j-1];
             sy = -sinz*sinph[j-1];
             sz = -cosz;
-            // Velocity vector downstream of shock
+            // Velocity vector downstream of shock + compression ratio of shock
             vdcalc(betaux[j-1],betauy[j-1],betauz[j-1],sx,sy,sz,
                    &(betadx[i-1][j-1]),&(betady[i-1][j-1]),&(betadz[i-1][j-1]),
                    &(betad[i-1][j-1]),&(gammad[i-1][j-1]),&eta);
@@ -2251,41 +2297,78 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
               thet2d[j-1]=theta2[j-1];
               phi1d[j-1]=phi1[j-1];
               phi2d[j-1]=phi2[j-1];
+              angrtd[j-1]=angrot[j-1];
+              cosrtd[j-1]=cos(angrtd[j-1]);
+              bu1xd[j-1]=bu1x[j-1];
+              bu1yd[j-1]=bu1y[j-1];
+              bu1zd[j-1]=bu1z[j-1];
+              bu2xd[j-1]=bu2x[j-1];
+              bu2yd[j-1]=bu2y[j-1];
+              bu2zd[j-1]=bu2z[j-1];
+              cu1xd[j-1]=cu1x[j-1];
+              cu1yd[j-1]=cu1y[j-1];
+              cu1zd[j-1]=cu1z[j-1];
             }
 
             if(ididbd[j-1] != 1) { //6229 go to 6230
-              xrand = randObj.rand(0);
-              phi2d[j-1] = TWOPI*xrand;
-              xrand = randObj.rand(0);
-              costh = 2.0*(xrand-0.5);
+              phi2d[j-1]= TWOPI*randObj.rand(0);
+              costh=2.0*(randObj.rand(0)-0.5);
               costh = adjustTrig(costh);
-              xrand = randObj.rand(0);
-              sign = xrand-0.5;
-              sign = sign/abs(sign);
-              thet2d[j-1] = sign*acos(costh);
-              ididbd[j-1] = 1;
-              if(i <= 2) { // go to 6230
-                xrand = randObj.rand(0);
-                phi1d[j-1] = TWOPI*xrand;
-                xrand = randObj.rand(0);
-                costh = 2.0*(xrand-0.5);
+              thet2d[j-1] = acos(costh);
+              if(i > 2) { // go to 6228
+                double sint1 = sin(thet1d[j-1]);
+                double sint2 = sin(thet2d[j-1]);
+                bu1xd[j-1] = sint1*cos(phi1d[j-1]);
+                bu1yd[j-1] = sint1*sin(phi1d[j-1]);
+                bu1zd[j-1] = cos(thet1d[j-1]);
+                bu2xd[j-1] = sint2*cos(phi2d[j-1]);
+                bu2yd[j-1] = sint2*sin(phi2d[j-1]);
+                bu2zd[j-1] = costh;
+                cosrtd[j-1] = bu1xd[j-1]*bu2xd[j-1]+bu1yd[j-1]*bu2yd[j-1]+bu1zd[j-1]*bu2zd[j-1];
+                cosrtd[j-1] = adjustTrig(cosrtd[j-1]);
+                angrtd[j-1] = acos(cosrtd[j-1]);
+                double xsign = randObj.rand(0)-0.5;
+                xsign = xsign/abs(xsign);
+                if(xsign < 0.0)
+                  angrtd[j-1] = angrtd[j-1]-TWOPI;
+                cu1xd[j-1] = bu1yd[j-1]*bu2zd[j-1]-bu1zd[j-1]*bu2yd[j-1];
+                cu1yd[j-1] = -bu1xd[j-1]*bu2zd[j-1]+bu1zd[j-1]*bu2xd[j-1];
+                cu1zd[j-1] = bu1xd[j-1]*bu2yd[j-1]-bu1yd[j-1]*bu2xd[j-1];
+                ididbd[j-1] = 1;
+              }
+              else {
+                phi1d[j-1] = TWOPI*randObj.rand(0);  // 6228
+                costh = 2.0*(randObj.rand(0)-0.5);
                 costh = adjustTrig(costh);
-                xrand = randObj.rand(0);
-                sign = xrand-0.5;
-                sign = sign/abs(sign);
-                thet1d[j-1] = sign*acos(costh);
+                thet1d[j-1] = acos(costh);
+                double sint1 = sin(thet1d[j-1]);
+                double sint2 = sin(thet2d[j-1]);
+                bu1xd[j-1] = sint1*cos(phi1d[j-1]);
+                bu1yd[j-1] = sint1*sin(phi1d[j-1]);
+                bu1zd[j-1] = costh;
+                bu2xd[j-1] = sint2*cos(phi2d[j-1]);
+                bu2yd[j-1] = sint2*sin(phi2d[j-1]);
+                bu2zd[j-1] = cos(thet2d[j-1]);
+                cosrtd[j-1] = bu1xd[j-1]*bu2xd[j-1]+bu1yd[j-1]*bu2yd[j-1]+bu1zd[j-1]*bu2zd[j-1];
+                cosrtd[j-1] = adjustTrig(cosrtd[j-1]);
+                angrtd[j-1] = acos(cosrtd[j-1]);
+                double xsign = randObj.rand(0)-0.5;
+                xsign = xsign/abs(xsign);
+                if(xsign < 0.0)
+                  angrtd[j-1] = angrtd[j-1]-TWOPI;
+                cu1xd[j-1] = bu1yd[j-1]*bu2zd[j-1]-bu1zd[j-1]*bu2yd[j-1];
+                cu1yd[j-1] = -bu1xd[j-1]*bu2zd[j-1]+bu1zd[j-1]*bu2xd[j-1];
+                cu1zd[j-1] = bu1xd[j-1]*bu2yd[j-1]-bu1yd[j-1]*bu2xd[j-1];
+                ididbd[j-1] = 1;
               }
             } //  if(ididbd[j-1] != 1) {  6230
 
-            double thetab = (thet2d[j-1]*bfracd[j-1]+thet1d[j-1]*(1.0-bfracd[j-1])); // 6230
-            phi = (phi2d[j-1]*bfracd[j-1]+phi1d[j-1]*(1.0-bfracd[j-1]));
-            double sinthb = sin(thetab);
-            double costhb = cos(thetab);
-            double sinphb = sin(phi);
-            double cosphb = cos(phi);
-            bfracd[j-1]=bfracd[j-1]+0.1;
+            // 6230
+            BlzMath::vecRot(bu1xd[j-1],bu1yd[j-1],bu1zd[j-1],cu1xd[j-1],cu1yd[j-1],cu1zd[j-1],(bfracd[j-1]*angrtd[j-1]),
+                            &bux,&buy,&buz);
+            bfracd[j-1] = bfracd[j-1]+0.1;
             // Use .99 here instead of 1.0 because of precision issues
-            if(bfracd[j-1] >= .99) { // go to 6231
+            if(bfracd[j-1] > .99) { // go to 6231
               thet1d[j-1] = thet2d[j-1];
               phi1d[j-1] = phi2d[j-1];
               bfracd[j-1] = 0.0;
@@ -2299,9 +2382,10 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
             // frame, compressing the component of B
             // parallel to the shock, and transforming the result to the rest frame
             // of the downstream plama
-            double bux = bavg*sinthb*cosphb;
-            double buy = bavg*sinthb*sinphb;
-            double buz = bavg*costhb;
+            bux = bavg*bux;
+            buy = bavg*buy;
+            buz = bavg*buz;
+            bup = BlzMath::mag(bux, buy, buz);
             // Unit vector of shock normal at current position
             anx = cosz*cosph[j-1];
             any = cosz*sinph[j-1];
@@ -2337,7 +2421,10 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 
           } // if(it <= 1) go to 110
 
+          //
           // Time loop resumes here
+          //
+
           // 110 continue
 
           // Calculate component of magnetic field that is perpendicular to
@@ -2495,12 +2582,13 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
           } //for(inu=2; inu<=common.nuhi; inu++) 1149 continue
 
           // 1150 continue
-          // Skip flux calculation for cell if gamma_max is too low to emit at lowest frequency
-          // Ratio of energy density of photons emitted by hot dust + Mach disk to
-          // energy density of the magnetic field
           id = (zcell[i-1][j-1]-zshock)/zsize+NEND;
           if(id < 1)
             id = 1;
+
+          // Skip flux calculation for cell if gamma_max is too low to emit at lowest frequency
+          // Ratio of energy density of photons emitted by hot dust + Mach disk to
+          // energy density of the magnetic field
           ustob = 8.0*PI*(useed[id-1]+usdmd)/(bfield[j-1]*bfield[j-1]);
           // Calculate the maximum electron energy from gmax0 and solution to equation
           // d gamma/dt = - cc2*(b**2+8*pi*useed)*gamma**2
@@ -2667,7 +2755,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
               double poldeg = (specin+1.0)/(specin+5.0/3.0);
               if(ssabs > 1.0) {
                 poldeg = 3.0/(12.0*specin+19);
-                chipol = chipol-PIOVERTWO;
               }
               fpol[i-1][j-1][inu-1]=poldeg*flsync[i-1][j-1][inu-1];
               pq[i-1][j-1][inu-1]=fpol[i-1][j-1][inu-1]*cos(2.0*chipol);
@@ -2748,6 +2835,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       pfSpec = fopen (specFile.c_str(),"w");
       pfLc = fopen (lcFile.c_str(),"w");
       pfPol = fopen (polFile.c_str(),"w");
+      pfMap = fopen (mapFile.c_str(),"w");
       bOutputFilesCreated = true;
       std::string hformat("No. of cells on each side of hexagonal grid: %3d\n#redshift: %5.3f  Distance in Gpc: %5.3f\n#spectral index: %4.2f  filling factor exponent: %4.2f\n#mean unshocked magnetic field: %4.2f  ratio of electron to mag. energy: %8.2E\n#cell radius (pc): %6.3f\n#Min. value of gamma_max: %8.1f  ratio of max. to min. values of gamma_max: %5.1f\n#gamma_min: %6.1f\n#upstream laminar velocity: %9.5fc  upstream turbulent velocity: %9.5fc\n#shock angle: %6.3f  viewing angle: %6.3f  opening angle: %6.3f\n#Dust temperature: %6.0f  dust luminosity %4.2fx10**45 erg/s\ndistance of center of dust torus from black hole: %3.1f pc\n#radius of torus: %3.1f pc   Distance of shock from central engine: %5.2f pc\n#Energy density of seed photons in plasma frame: %9.2E\n#-Slope of PSD: %5.1f     Area of Mach disk relative to other cell%9.2E\n# Area filling factor of dust emission: %9.2E\n");
       int nendInt = static_cast<int>(inp.nend);
@@ -2772,10 +2860,15 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     double timeo, tfsync, tfsyno, tfl19, tfl20, tfl21, tfl32, tfl33, tfl34, tfl52, tfl53, tfl54;
     double tfcomp, tfcomx, tfec, tfssc, tfl11, pdeg8, poldeg, pang8, pdeg12, pang12, pdeg16, pang16, pdeg20, pang20;
     double pdeg24, pang24, pdeg28,pang28, pdeg32, pang32;
+    double pdeg3, pang3, pdeg6,pang6;
     double alp20a, alp20b, alp33a, alp33b, alp53a, alp53b;
     double alph20, alph33, alph53;
 
     tflold=0.0; // labeled 299, but Fortran temz.f has no reference to 299
+    std::string mapHeader("#    i     j    x(mas)     y(mas)   flux(Jy)     Q(Jy)       U(Jy)      P(%)    EVPA(deg)  tot flux    qcum      ucum     betad      it\n");
+    if(it == 1)
+      fprintf(pfMap, mapHeader.c_str());
+
     for(inu=1; inu<=D68; inu++) { // do 500 inu=1,68
       tflux = 0.0;
       tsflux = 0.0;
@@ -2794,7 +2887,24 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
           tcflux=tcflux+flcomp[i-1][j-1][inu-1];
           tecfl=tecfl+flec[i-1][j-1][inu-1];
           tsscfl=tsscfl+flssc[i-1][j-1][inu-1];
-        }
+          if(inu == 9) {
+            // Position of cell on sky, in milliarcseconds (for z=0.859)
+            double xobs=(zcell[i-1][j-1]*slos+xcell[j-1]*clos)/7.7;
+            double yobs=ycell[j-1]/7.7;
+            double poldgg = 0.0;
+            double pang = 0.0;
+            if(flsync[i-1][j-1][inu-1] > 1.0e-6) { // go to 298
+              double poldg = 100.0*fpol[i-1][j-1][inu-1]/flsync[i-1][j-1][inu-1];
+              double pangg = 0.5*atan2(pu[i-1][j-1][inu-1],pq[i-1][j-1][inu-1])*DEG_PER_RAD;
+              std::string mapFormat1("%5d%5d %11.3E%11.3E%11.3E%11.3E%11.3E%11.3E%11.3E%11.3E%11.3E%11.3E%11.3E%5d\n");
+              fprintf(pfMap, mapFormat1.c_str(), i,j,xobs,yobs,(0.001*flsync[i-1][j-1][inu-1]),
+                      (0.001*pq[i-1][j-1][inu-1]),(0.001*pu[i-1][j-1][inu-1]),poldg,pangg,
+                      tflux,qcum,ucum,betad[i-1][j-1],it);
+            }
+          }
+          // 298 continue
+
+        } // (for i=1; i<=icelmx[j-1]; i++)
       }
 
       // 300 continue
@@ -2843,6 +2953,10 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       if(inu == 53)tfssc=tsscfl;
       if(inu == 11)tfl11=tflux;
       tflold=1000.0*tflux/nu[inu-1];
+      if(inu == 3)pdeg3=100.0*poldeg;
+      if(inu == 3)pang3=pang;
+      if(inu == 6)pdeg6=100.0*poldeg;
+      if(inu == 6)pang6=pang;
       if(inu == 8)pdeg8=100.0*poldeg;
       if(inu == 8)pang8=pang;
       if(inu == 12)pdeg12=100.0*poldeg;
@@ -2884,8 +2998,8 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     // Write selected polarization data to file
     // 9988 format(i5,f8.2,2x,7(1pe8.2,1x,0pf7.3,1x,f8.3,1x))
     fprintf(pfPol, "%5d%8.2f  %8.2E %7.3f %8.3f %8.2E %7.3f %8.3f %8.2E %7.3f %8.3f %8.2E %7.3f %8.3f %8.2E %7.3f %8.3f %8.2E %7.3f %8.3f %8.2E %7.3f %8.3f\n",
-            it,timeo,nu[8-1],pdeg8,pang8,nu[12-1],pdeg12,pang12,nu[16-1],pdeg16,pang16,nu[20-1],pdeg20,pang20,
-            nu[24-1],pdeg24,pang24,nu[28-1],pdeg28,pang28,nu[32-1],pdeg32,pang32);
+            it,timeo,nu[3-1],pdeg3,pang3,nu[6-1],pdeg6,pang6,nu[8-1],pdeg8,pang8,nu[12-1],pdeg12,pang12,
+            nu[16-1],pdeg16,pang16,nu[20-1],pdeg20,pang20,nu[24-1],pdeg24,pang24);
     
     BlzLog::warnScalar("Done with time loop ", it);
 

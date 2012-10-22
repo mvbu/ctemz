@@ -38,8 +38,10 @@ BlzSim::~BlzSim() {
 void BlzSim::psdsim(const int N, const double beta1, const double beta2, const double nu_break, const double t_incre1, double *lc_sim)
 {
   // This code is ported from Fortran routine temz.f:psdsim() by R. Chatterjee
-  double nu[BLZSIM_DIM16384],dat[BLZSIM_DIM32768],R[BLZSIM_DIM32768];
-  double dataim[BLZSIM_DIM16384],datareal[BLZSIM_DIM16384],flux_s[BLZSIM_DIM16384];
+  // The fortran code contains a bunch of stuff like dataim_s1[] and flux_s2[] that 
+  // don't get used at all, so I did not include them here
+  double nu[BLZSIM_DIM65536],dat[BLZSIM_DIM131072],R[BLZSIM_DIM131072];
+  double dataim[BLZSIM_DIM65536],datareal[BLZSIM_DIM65536],flux_s[BLZSIM_DIM65536];
   double fac_norm,fac_norm2;
   float  ann;
   int j,i,nn,ISEED1,ISEED2,isign;
@@ -48,7 +50,7 @@ void BlzSim::psdsim(const int N, const double beta1, const double beta2, const d
   fac_norm2=pow((double)N,2)/(2.*N*t_incre1);
 
   // randObj is an instance of BlzRand inside this BlzSim instance
-  ISEED1=5391;
+  ISEED1=51371;
   ISEED2=2587;
   randObj.setIX(ISEED1,ISEED2);
   BlzLog::debugScalarPair("1) ISEED1/ISEED2", ISEED1, ISEED2);
@@ -918,11 +920,12 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   const int D1141=1141;
   const int D44=44;
   const int D22=22;
-  const int D4000=4000;
+  const int D60000=60000;
+  const int D60000PADDED=65000;
   const int D110=110;
 
   bool bOutputFilesCreated = false;
-  int  nTestOut = 4;
+  int  nTestOut = 2;
   FILE* pfSpec = NULL; // 3 ctemzspec.txt
   FILE* pfLc = NULL; // 4 ctemzlc.txt
   FILE* pfPol = NULL; // 5 ctemzpol.txt
@@ -947,17 +950,17 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     betau[D1141],gammau[D1141],
     nu[D68],bx[D400][D1141],by[D400][D1141],bz[D400][D1141],
     delta[D400][D1141],enofe[D400][D1141][D44],fsync[D68],
-    ididg[D1141],spsd[BLZSIM_DIM16384],
-    gcnt[D44],igcnt[D44],fsynmd[D68][D4000],nouter[D1140],
-    fsscmd[D68][D4000],fmdall[D68],deltmd[D1140],dmd[D1140],
+    ididg[D1141],spsdx[BLZSIM_DIM65536],spsd[BLZSIM_DIM65536],
+    gcnt[D44],igcnt[D44],fsynmd[D68][D60000],nouter[D1140],
+    fsscmd[D68][D60000PADDED],fmdall[D68],deltmd[D1140],dmd[D1140],
     tlf[100],betamx[D1140],betamy[D1140],
-    betamz[D1140],betamr[D1140],gamamr[D1140],bmdx[D4000],
-    bmdy[D4000],bmdz[D4000],bmdtot[D4000],tlf1[D1140],
-    flsync[D400][D1141][D68],flcomp[D400][D1141][D68],absorb[D68][D4000],
-    fsync2[D68],cosmr[D1140],alphmd[D68][D4000],dustii[D110][D22],
-    flec[D400][D1141][D68],flssc[D400][D1141][D68],mdd[D4000],useed[D110],
+    betamz[D1140],betamr[D1140],gamamr[D1140],bmdx[D60000],
+    bmdy[D60000],bmdz[D60000],bmdtot[D60000],tlf1[D1140],
+    flsync[D400][D1141][D68],flcomp[D400][D1141][D68],absorb[D68][D60000],
+    fsync2[D68],cosmr[D1140],alphmd[D68][D60000],dustii[D110][D22],
+    flec[D400][D1141][D68],flssc[D400][D1141][D68],mdd[D60000],useed[D110],
     phots[D68],phalph[D68],seedpk[D110],
-    abexmd[D68][D4000],psi[D1140],sinpsi[D1140],cospsi[D1140],
+    abexmd[D68][D60000],psi[D1140],sinpsi[D1140],cospsi[D1140],
     tanpsi[D1140],tauxmd[D68],phi1[D1141],phi2[D1141],
     theta1[D1141],theta2[D1141],ididb[D1141],bfrac[D1141],
     ididbd[D1141],bfracd[D1141],phi2d[D1141],thet2d[D1141],
@@ -966,7 +969,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     bu2z[D1141],cu1x[D1141],cu1y[D1141],cu1z[D1141],angrtd[D1141],
     cosrtd[D1141],bu1xd[D1141],bu1yd[D1141],bu1zd[D1141],bu2xd[D1141],
     bu2yd[D1141],bu2zd[D1141],cu1xd[D1141],cu1yd[D1141],cu1zd[D1141];
-  static float alfmdc[D68][D4000],syseed[D68],scseed[D68];
+  static float alfmdc[D68][D60000],syseed[D68],scseed[D68];
   int icelmx[D1141], imax[D1141], ibreak;
   double pol,pqcum,pucum,pmean,polc,ai2, pcum,tanv0,cosv0,gamup,beta,sinz,cosz,
     thlos,opang,tanop,cosop,sinop,zeta,tanz,slos,clos, eta,tanxi,xi,betacs,
@@ -977,7 +980,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     betupx,betupy,betupz,betatx,betaty,betatz,thetat,
     sintht,costht,phit,btprpx,btprpy,btprpz,
     btparx,btpary,btparz,sx,sy,sz,slx,sly,slz,
-    anx,any,anz,bux,buy,buz;
+    anx,any,anz,bux,buy,buz,betadd;
   double n0mean,restnu;
   double ssabs, sstau, srcfn, fq1, fsyn1, absrb1;
   // I think we only need one dummy variable, but matching the Fortran for now
@@ -1000,7 +1003,8 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   const int JCELLS = 3*NEND*(NEND-1)+1; // JCELLS cells along the transverse direction (perp to axial dir)
   int  ancol = 2*NEND-1;
   double rbound = ancol*inp.rsize; // inp is the BlzSimInput object passed into this method
-  int mdmax = 4000; // I think this matches the 4000 dimension in the arrays above
+  int mdmd = 10000;
+  int mdmax = 55000; // Meant to be a bit smaller than D60000
   // An SED will be printed out every ispecs time steps
   const int ISPECS = 1;
   int ispec = 1;
@@ -1025,7 +1029,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   // 2p is the slope of the volume vs. initial gamma-max law over all cells,
   // V = V0*gamma_max**(-2p)
   double pexp = -2.0 * inp.p;
-  double amppsd = 20.0; // this was 5.0 MSV 8/30/2012
+  double amppsd = 1.0;
   // Set up compilation of distribution of initial gamma_max values
   double gmrf=gmaxmx/inp.gmaxmn;
   double gmrfl=log10(gmrf)/43.0;
@@ -1059,14 +1063,13 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   // Compression ratio of Mach disk. Ultra-relativistic eq. of state assumed, so compression ratio is that
   // given by Hughes, Aller, & Aller (1989, ApJ, 341, 54)
   double etac = sqrt(8.0*::pow(gamup, 4) - 17.0*gamup*gamup + 9.0)/gamup;
-  // Speed downstream of conical shock if turbulent velocity is transverse to axis;
+  // Speed downstream of conical shock if turbulent velocity is ignored;
   // for setting cell length zsize and for first estimate of time delay
-  double betup = sqrt(betaup2+betat2-::pow(inp.betaup*inp.betat,2));
-  double betadd = sqrt(::pow(1.0-::pow(betup*cosz,2),2)+9.0*::pow(betup*betup*cosz*sinz,2))/(3.0*betup*sinz);
-
-  if(betadd >= betup) { // if(betadd.lt.betup) go to 7891 
-    // write(6,9891)betup,betaup,betat,betadd,sinz,cosz;
-    printf("Program halted: betadd > betup %12.5E%12.5E%12.5E%12.5E%12.5E%12.5E\n", betup, inp.betaup, inp.betat, betadd, sinz, cosz);
+  const double BETADD_MIN = 0.57735;
+  betadd = sqrt(::pow(1.0-::pow(inp.betaup*cosz,2),2)+9.0*::pow(inp.betaup*inp.betaup*cosz*sinz,2))/(3.0*inp.betaup*sinz);
+  if((betadd <= BETADD_MIN) || (betadd >= inp.betaup)) { // go to 7891
+    // write(6,9891)betaup,betadd,sinz,cosz
+    printf("Program halted: betadd > sound speed %12.5E%12.5E%12.5E%12.5E\n", inp.betaup, betadd, sinz, cosz);
     exit(0); // go to 9000;
   }
 
@@ -1081,17 +1084,15 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   double volcp = volc/common.gamd;
   double svmd = sqrt(inp.vmd);
   double delobs = 1.0/(common.gamd*(1.0-common.betd*clos));
-  dstart = mdmax+ICELLS*delobs;
+  dstart = mdmd+ICELLS*delobs;
   // Time step in observer's frame in days
-  double dtfact = (1.0-common.betd*clos)/(common.betd*clos);
+  double dtfact = (1.0-common.betd*clos)/common.betd;
   double dtime = 1190.0*zsize*dtfact*common.zred1;
   int itlast = ndays/dtime; // time "index" of the last timestep (quit when it is >= itlast)
   BlzLog::warnScalar("itlast", itlast);
   int mdrang = 0.5*(1.0/dtfact+1.0);
   // Distance of shock from axis and apex of conical jet
   tanop = tan(opang);
-  cosop = cos(opang);
-  sinop = tanop * cosop;
   // Next line is specific to the selected number of cells per slice
   double rshock = (2*NEND-1)*inp.rsize;
   // Distance of Mach disk from z value where conical shock intersects jet boundary
@@ -1108,7 +1109,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   double filld = 1.05e8*inp.ldust/(5.67e-5*4.0*PI*inp.dtrad*inp.dtdist*::pow(inp.tdust,4));
 
   for(id=1; id<=ICELLS+NEND; id++) { // do 333 id=1,(icells+nend)
-    zdist = inp.zdist0+(id-NEND)*zsize+zshock;
+    zdist = inp.zdist0+(id-NEND)*inp.rsize/tanz+zshock;
     // Calculate min & max angles of dust torus in plasma frame
     double dphi1=asin(inp.dtrad/sqrt(zdist*zdist+inp.dtdist*inp.dtdist));
     double dphi2=atan(inp.dtdist/zdist);
@@ -1157,74 +1158,77 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   gmratl = log10(gmaxmx/inp.gmin)/40.0;
 
   double tinc = dtime;
-  psdsim(BLZSIM_DIM16384, -inp.psdslp, -inp.psdslp, 1.0, tinc, spsd); 
+  psdsim(BLZSIM_DIM65536, -inp.psdslp, -inp.psdslp, 1.0, tinc, spsdx); 
   
   double psdsum = 0.0;
   int ip;
-  for(ip=1; ip<=BLZSIM_DIM16384; ip++) { // do 4998 ip=1,16384
+  for(ip=1; ip<=BLZSIM_DIM65536; ip++) { // do 4998 ip=1,65536
     double spexp=1.0/(0.5*expon+1.0);
-    spsd[ip-1] = ::pow(abs(spsd[ip-1]), spexp);
-    //spsd[ip-1] = 1.0;
-    psdsum = psdsum + (spsd[ip-1]/(double)BLZSIM_DIM16384);
+    spsdx[ip-1] = ::pow(abs(spsdx[ip-1]), spexp);
+
+    // Average of 10 time steps to smooth variations so that discreteness
+    // of columns of cells does not cause artificial spikes of flux
+    const int TIMESTEPS_TO_AVERAGE = 10;
+
+    if(ip > TIMESTEPS_TO_AVERAGE-1) {
+      int i;
+      double sum=0.0;
+      for(i=0; i<TIMESTEPS_TO_AVERAGE; i++)
+        sum += spsdx[ip-1-i];
+      spsd[ip-1] = sum / (double)TIMESTEPS_TO_AVERAGE;
+    }
+    
+    psdsum = psdsum + (spsd[ip-1]/(double)BLZSIM_DIM65536);
   }
 
-  // Normalize spsd and multiply by amplitude.
+  // Normalize spsd and multiply by amplitude (usually = 1.0).
   // **Note that mean energy density = amppsd times value set from bavg in input file
-  for(ip=1; ip<=BLZSIM_DIM16384; ip++) // do 4999 ip=1,16384
+  for(ip=1; ip<=BLZSIM_DIM65536; ip++) // do 4999 ip=1,65536
     spsd[ip-1]=amppsd*spsd[ip-1]/psdsum;
   
   //int ip0 = randObj.rand(0) * 5000;
   int ip0 = 100;
   int it = 0;
   // Set parameters of each cell at initial time
-  // There are icells rows of cells, with JCELLS cells per row
+  // There are icells columns of cells, with JCELLS cells per column
   // The central cell is a Mach disk with low velocity; its observed radiation
   // is ignored, but it is an  important source of IC seed photons
   //write(4,6667)
   //write(5,6668)
-  int i = 1, j = 0, nrow, ncol, neven, ncell, jold;
-  for(nrow=-(NEND-1); nrow<=NEND-1; nrow++) { // do 999 nrow=-(nend-1),(nend-1)
-    ncol = 2*NEND-(abs(nrow)+1);
-    // neven=0 means that there are an even number of columns in the row
-    neven = ncol % 2;
-    ncol = ncol/2;
-    for(ncell=-ncol; ncell<=ncol; ncell++) { // do 998 ncell=-ncol,ncol
-      if((ncell==0) && (nrow==0)) {
-        j=JCELLS;
-        xcell[j-1]=0.0;
-        ycell[j-1]=0.0;
-        rcell[j-1]=0.0;
-        cosph[j-1]=1.0;
-        sinph[j-1]=0.0;
-        j=jold;
-      }
-      else if((neven!=0) || (ncell!=0)) {
-        j = j + 1;
-        jold = j;
-        if((neven==0) && (ncell<0))
-          xcell[j-1] = (1.0+2.0*ncell)*inp.rsize;
-        if((neven==0) && (ncell>0))
-          xcell[j-1] = (-1.0+2.0*ncell)*inp.rsize;
-        if(neven == 1)
-          xcell[j-1] = 2.0*ncell*inp.rsize;
-        ycell[j-1] = nrow*SQRT3*inp.rsize;
-        rcell[j-1] = BlzMath::mag(xcell[j-1], ycell[j-1]);
-        double zcol = rcell[j-1]/tanz;
-        imax[j-1] = BlzMath::round<double>((2.0*zcol/zsize) + 0.01);
-        if(nTestOut==2) fprintf(pfTestOut, FORMAT2, j, imax[j-1]);
-        if(imax[j-1] < 2)
-          imax[j-1] = 2;
-        // nouter[j-1] = approx. no. of cells between cell of interest and observer
-        nouter[j-1]=imax[j-1];
-        cosph[j-1]=xcell[j-1]/rcell[j-1];
-        sinph[j-1]=ycell[j-1]/rcell[j-1];
-        tanpsi[j-1]=rcell[j-1]/(zsvtex-zcol);
-        psi[j-1] = atan(tanpsi[j-1]);
-        cospsi[j-1] = cos(psi[j-1]);
-        sinpsi[j-1]=tanpsi[j-1]*cospsi[j-1];
-      }        
-    } // for(ncell=-ncol; ncell<=ncol; ncell++) 998 continue
-  } //  for(nrow=(-NEND-1); nrow<=NEND-1) 999 continue
+  int i = 1, j = 0, jzero = 1, nnn, jcnt;
+  for(nnn=1; nnn<=NEND-1; nnn++) { // do 999 nnn=1,(nend-1)
+    for(jcnt=1; jcnt<=6*nnn; jcnt++) { // do 998 jcnt=1,(6*nnn)
+      j++;
+      int annn = nnn;
+      double angc = 60.0/(DEG_PER_RAD*annn);
+      rcell[j-1] = 2.0*inp.rsize*annn;
+      xcell[j-1] = rcell[j-1]*cos(angc*(j-jzero));
+      ycell[j-1] = rcell[j-1]*sin(angc*(j-jzero));
+      cosph[j-1] = 1.0;
+      sinph[j-1] = 0.0;
+      double zcol = rcell[j-1]/tanz;
+      imax[j-1] = BlzMath::round<double>((2.0*zcol/zsize) + 0.01);
+      if(nTestOut==2) fprintf(pfTestOut, FORMAT2, j, imax[j-1]);
+      if(imax[j-1] < 2)
+        imax[j-1] = 2;
+      // nouter[j-1]  =  approx. no. of cells between cell of interest and observer
+      nouter[j-1] = imax[j-1];
+      cosph[j-1] = xcell[j-1]/rcell[j-1];
+      sinph[j-1] = ycell[j-1]/rcell[j-1];
+      tanpsi[j-1] = rcell[j-1]/(zsvtex-zcol);
+      psi[j-1] = atan(tanpsi[j-1]);
+      cospsi[j-1] = cos(psi[j-1]);
+      sinpsi[j-1] = tanpsi[j-1]*cospsi[j-1];
+    } // for(jcnt=1; jcnt<=6*nnn; jcnt++)
+
+    jzero = j + 1;
+  } // for(nnn=1; nnn<=NEND-1; nnn++) 
+
+  xcell[JCELLS-1] = 0.0;
+  ycell[JCELLS-1] = 0.0;
+  rcell[JCELLS-1] = 0.0;
+  cosph[JCELLS-1] = 1.0;
+  sinph[JCELLS-1] = 0.0;
 
   double zrf=zshock, xrf=0.0;
 
@@ -1312,8 +1316,8 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     } // 6131 continue
 
     // Compute B field components downstream of Mach disk shock
-    int idelay = dstart-mdmax+md-idelmd;
-    //if((idelay<1) || (idelay>(BLZSIM_DIM16384-ip0)))
+    int idelay = dstart-mdmd+md-idelmd;
+    //if((idelay<1) || (idelay>(BLZSIM_DIM65536-ip0)))
     // ,  write(6,9299)idelay,i,jcells,md,idelmd,ip0,mdmax,dstart,
     // ,  zshock,delobs,gamd,betd,clos
     double bavg = inp.bave*sqrt(spsd[idelay+ip0-1]);
@@ -1337,11 +1341,11 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     //     to direction of B field
     // See http://mathworld.wolfram.com/RandomNumber.html for choosing
     //  random numbers from a power-law distribution
-    //  xrand=randproto(0)
-    //  if(pexp.eq.0.0)gmax0[i-1][j-1]=gmaxmx
-    //  if(pexp.lt.0.0)gmax0[i-1][j-1]=((gmaxmx**pexp-gmaxmn**pexp)*xrand+
-    // ,  gmaxmn**pexp)**(1.0/pexp)
-    gmax0[i-1][j-1] = inp.gmaxmn;
+    xrand = randObj.rand(0);
+    if(pexp == 0.0)
+      gmax0[i-1][j-1] = gmaxmx;
+    if(pexp < 0.0)
+      gmax0[i-1][j-1] = ::pow((::pow(gmaxmx,pexp)-::pow(inp.gmaxmn,pexp))*xrand+::pow(inp.gmaxmn,pexp),1.0/pexp);
     gminmd = inp.gmin;
     // Calculate energy distribution in the Mach disk cell
     // Compute energy density of photons in Mach disk, time delayed by 1 step
@@ -1507,13 +1511,10 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 
       ididg[j-1] = 0;
       zcell[i-1][j-1] = zshock - (rcell[j-1]-inp.rsize)/tanz;
-      double betadi = betad[i-1][j-1];
-      if(betadi < 0.577)
-        betadi = betadd;
-      int idelay = dstart+it-1+((zrf-zcell[i-1][j-1])+(xrf-xcell[j-1])*slos/(betadi*clos))/zsize;
-      // if(idelay.le.0.or.idelay.gt.(16384-ip0))
+      int idelay = 0.5+dstart+it-1+((zrf-zcell[i-1][j-1])+(xrf-xcell[j-1])*betadd*slos/(1.0-betadd*clos))/zsize;
+      // if(idelay.le.0.or.idelay.gt.(65536-ip0))
       //,  write(5,9222)idelay,dstart,j,md,ip0,zshock,zrf,zcell(i,j),
-      //,  xrf,xcell(j),betadi,zsize
+      //,  xrf,xcell(j),betadd,zsize
       double bavg = inp.bave * sqrt(spsd[idelay+ip0-1]);
       n0mean = n0ave*spsd[idelay+ip0-1];
       phcell[j-1] = atan2(sinph[j-1],cosph[j-1]);
@@ -1700,10 +1701,11 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         // See http://mathworld.wolfram.com/RandomNumber.html for choosing
         //  random numbers from a power-law distribution
         xrand = randObj.rand(0);
-        //  if(pexp.eq.0.0)gmax0[i-1][j-1]=gmaxmx
-        //  if(pexp.lt.0.0)gmax0[i-1][j-1]=((gmaxmx**pexp-gmaxmn**pexp)*xrand+
-        // ,  gmaxmn**pexp)**(1.0/pexp)
-        gmax0[i-1][j-1] = inp.gmaxmn;
+        if(pexp == 0.0)
+          gmax0[i-1][j-1] = gmaxmx;
+        if(pexp < 0.0)
+          gmax0[i-1][j-1] = ::pow((::pow(gmaxmx,pexp)-::pow(inp.gmaxmn,pexp))*xrand+::pow(inp.gmaxmn,pexp), 1.0/pexp);
+        //gmax0[i-1][j-1] = inp.gmaxmn;
         gminmd = inp.gmin;
 
         // Calculate energy distribution in the Mach disk cell
@@ -1922,7 +1924,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       deltmd[j-1] = 1.0/(gamamr[j-1]*(1.0-betamr[j-1]*cosmd));
       // Determine time step of Mach disk seed photons from light-travel delay
       double delcor = deltmd[j-1]/dopref;
-      int mdmid = mdmax-(((zrf-zcl)*clos+(xrf-xcell[j-1])*slos)-dmd[j-1])/(dtfact*zsize);
+      int mdmid = mdmd-(((zrf-zcl)*clos+(xrf-xcell[j-1])*slos)+dmd[j-1])/(dtfact*zsize);
       int md1 = mdmid-mdrang;
       if(md1 < 1) md1 = 1;
       int md2 = mdmid+mdrang;
@@ -1972,7 +1974,10 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
             if((sstau>0.1) && (sstau<=5.0))
               syseed[inu-1] = srcfn*(1.0-exp(-sstau));
             syseed[inu-1] = syseed[inu-1]*volc*inp.vmd/(zsize*dmd[j-1]*dmd[j-1]);
-            double tauexp = sstau*dmd[j-1]/zsize;
+            // Now estimate exponential attenuation of MD seed photons by
+            // synchrotron self-absorption in intervening cells
+            double tauexp = 1.02e4*(sen+2.0)*akapnu(nu[inu-1]/deltmd[j-1])*bperp[j-1]
+                            /::pow(nu[inu-1]/deltmd[j-1],2)*CM_PER_PARSEC*dmd[j-1];
             tauxmd[inu-1] = tauexp;
             if(tauexp > 15.0)
               syseed[inu-1] = 0.0;
@@ -2241,11 +2246,14 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
             //
             zcell[i-1][j-1] = (i-1)*zsize+zshock-(rcell[j-1]-inp.rsize)/tanz;
             // Set up physical parameters of downstream cells at first time step
-            idelay = dstart+it-1-((zrf-zcell[i-1][j-1])*clos+(xrf-xcell[j-1])*slos)/zsize;
-            if((idelay<1) || (idelay>(BLZSIM_DIM16384-ip0))) {
-              //,  write(5,9223)idelay,dsart,j,md,ip0,zshock,zrf,zcell(i,j),
+            // Cells farther downstream contain plasma ejected earlier
+            idelay = 0.5+dstart+it-1+((zrf-zcell[i-1][j-1])+(xrf-xcell[j-1])*betadd*slos/(1.0-betadd*clos))/zsize;
+
+            if((idelay<1) || (idelay>(BLZSIM_DIM65536-ip0))) {
+              //,  write(5,9223)idelay,dstart,j,md,ip0,zshock,zrf,zcell(i,j),
               //,  xrf,xcell(j),betad(i,j),zsize
             }
+
             double bavg = inp.bave*sqrt(spsd[idelay+ip0-1]);
             n0mean = n0ave*spsd[idelay+ip0-1];
             // Velocity vector of laminar component of pre-shock flow
@@ -2399,8 +2407,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
             // Calculate upstream B field component perpendicular to the shock front bprp
             bcalc(betaux[j-1],betauy[j-1],betauz[j-1],sx,sy,sz,bux,buy,buz,
                   &dum1,&dum2,&dum3,&dum4,&dum5,&dum6,&dum7,&bprp);
-            // if(idelay.gt.(dstart+40).and.idelay.lt.(dstart+51))
-            // ,  n0mean=10.0*n0mean
             n0[i-1][j-1] = eta*n0mean;
             // Calculate the initial maximum electron energy in each cell
             // Next line relates this to direction of B field relative to shock
@@ -2478,7 +2484,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
           deltmd[j-1] = 1.0/(gamamr[j-1]*(1.0-betamr[j-1]*cosmd));
           // Determine time step of Mach disk seed photons from light-travel delay
           double delcor = deltmd[j-1]/dopref;
-          int mdmid = mdmax-(((zrf-zcl)*clos+(xrf-xcell[j-1])*slos)-dmd[j-1])/(dtfact*zsize);
+          int mdmid = mdmd-(((zrf-zcl)*clos+(xrf-xcell[j-1])*slos)+dmd[j-1])/(dtfact*zsize);
           int md1 = mdmid-mdrang;
           if(md1 < 1)
             md1 = 1;
@@ -2531,7 +2537,8 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
                 if((sstau>0.1) && (sstau<=5.0))
                   syseed[inu-1] = srcfn*(1.0-exp(-sstau));
                 syseed[inu-1] = syseed[inu-1]*volc*inp.vmd/(zsize*dmd[j-1]*dmd[j-1]);
-                double tauexp = sstau*dmd[j-1]/zsize;
+                double tauexp = 1.02e4*(sen+2.0)*akapnu(nu[inu-1]/deltmd[j-1])*bperp[j-1]
+                                /::pow(nu[inu-1]/deltmd[j-1],2)*CM_PER_PARSEC*dmd[j-1];
                 tauxmd[inu-1] = tauexp;
                 if(tauexp > 15.0)
                   syseed[inu-1] = 0.0;
@@ -2837,7 +2844,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       pfPol = fopen (polFile.c_str(),"w");
       pfMap = fopen (mapFile.c_str(),"w");
       bOutputFilesCreated = true;
-      std::string hformat("No. of cells on each side of hexagonal grid: %3d\n#redshift: %5.3f  Distance in Gpc: %5.3f\n#spectral index: %4.2f  filling factor exponent: %4.2f\n#mean unshocked magnetic field: %4.2f  ratio of electron to mag. energy: %8.2E\n#cell radius (pc): %6.3f\n#Min. value of gamma_max: %8.1f  ratio of max. to min. values of gamma_max: %5.1f\n#gamma_min: %6.1f\n#upstream laminar velocity: %9.5fc  upstream turbulent velocity: %9.5fc\n#shock angle: %6.3f  viewing angle: %6.3f  opening angle: %6.3f\n#Dust temperature: %6.0f  dust luminosity %4.2fx10**45 erg/s\ndistance of center of dust torus from black hole: %3.1f pc\n#radius of torus: %3.1f pc   Distance of shock from central engine: %5.2f pc\n#Energy density of seed photons in plasma frame: %9.2E\n#-Slope of PSD: %5.1f     Area of Mach disk relative to other cell%9.2E\n# Area filling factor of dust emission: %9.2E\n");
+      std::string hformat("#No. of cells on each side of hexagonal grid: %3d\n#redshift: %5.3f  Distance in Gpc: %5.3f\n#spectral index: %4.2f  filling factor exponent: %4.2f\n#mean unshocked magnetic field: %4.2f  ratio of electron to mag. energy: %8.2E\n#cell radius (pc): %6.3f\n#Min. value of gamma_max: %8.1f  ratio of max. to min. values of gamma_max: %5.1f\n#gamma_min: %6.1f\n#upstream laminar velocity: %9.5fc  upstream turbulent velocity: %9.5fc\n#shock angle: %6.3f  viewing angle: %6.3f  opening angle: %6.3f\n#Dust temperature: %6.0f  dust luminosity %4.2fx10**45 erg/s\ndistance of center of dust torus from black hole: %3.1f pc\n#radius of torus: %3.1f pc   Distance of shock from central engine: %5.2f pc\n#Energy density of seed photons in plasma frame: %9.2E\n#-Slope of PSD: %5.1f     Area of Mach disk relative to other cell%9.2E\n# Area filling factor of dust emission: %9.2E\n");
       int nendInt = static_cast<int>(inp.nend);
       fprintf(pfSpec, hformat.c_str(), nendInt, inp.zred, inp.dgpc, inp.alpha, inp.p, inp.bave, inp.uratio, inp.rsize, inp.gmaxmn,
              gmrat_original, inp.gmin, inp.betaup, inp.betat, (inp.zeta), (thlos*DEG_PER_RAD), (inp.opang),

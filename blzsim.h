@@ -9,6 +9,8 @@ using namespace std;
 // I'll give these better names when I know what they mean
 static const int BLZSIM_DIM16384 = 16384;
 static const int BLZSIM_DIM32768 = 32768;
+static const int BLZSIM_DIM65536 = 65536;
+static const int BLZSIM_DIM131072 = 131072;
 
 // These are variables in the TEMZ (Fortran) "common" blocks. Putting
 // them here in a structure for now, to expedite porting to C++.

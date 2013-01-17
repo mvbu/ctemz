@@ -23,7 +23,8 @@ class BlzSimCommon {
 
   double bdx, bdy, bdz, gamd, betd; // cvel
   double zred1, bfld, bperpp; // cparm
-  double dcsth1, dcsth2, dsnth1, dsnth2, dsang, tdust; // cdust
+  double csth1, csth2, dcsth1, dcsth2, dsang, tdust; // cdust
+  double cosz, sinz; // cang
   // The first two entries in the next two lines are both referred to in the Fortran as dnu, di
   double snu[CSSC_SIZE], ssseed[CSSC_SIZE]; // cssc 
   double dustnu[CSEED_SIZE],dusti[CSEED_SIZE];    // cseed
@@ -44,7 +45,7 @@ class BlzSimCommon {
 
 
 // Callback function passed to BlzMath::qg5()
-double sdgran(double sn, void *pObject);
+double sdgran(double cs, void *pObject);
 
 /**
    Top-level simulation object and supporting methods
@@ -77,6 +78,7 @@ class BlzSim {
   void psdsim(const int N, const double beta1, const double beta2, const double nu_break, 
               const double t_incre1, double *lc_sim);
 
+  double xseckn(const double q, const double x);
   double seedph(const double f);
   double ajnu(const double anu);
   double akapnu(const double anu);
@@ -88,10 +90,15 @@ class BlzSim {
               const double sx, const double sy,const double sz,
               double* vdx, double* vdy, double* vdz, double *vd, // outputs
               double* gd, double* eta);
-  void bdcalc(const double vx, const double vy, const double vz, const double sx, const double sy, const double sz,
-              const double bx, const double by, const double bz, const double eta,
-              double* bdx, double*bdy, double* bdz); // outputs
+  void bdcalc(const double vx, const double vy, const double vz, 
+              const double ax, const double ay, const double az,
+              const double bx, const double by, const double bz,
+              double* v, double* g,  // outputs
+              double* bparx, double* bpary, double* bparz,
+              double* bprpx, double* bprpy, double* bprpz,
+              double* bpar, double* bprp);
   void bcalc(const double vx, const double vy, const double vz,
+             const double v, const double g,
              const double sx, const double sy, const double sz,
              const double bx, const double by, const double bz,
              double* bparx, double* bpary, double* bparz, // outputs
@@ -101,7 +108,9 @@ class BlzSim {
  private:
   void initRandFromTime(bool bTestMode = false);
   static const double ONETHIRD = .33333333;
-  static const double S0 = 6.237;
+  static const double S0_ECDUST = 49.9;
+  static const double S0_SSC = 6.237;
+  static const double HOMC2 = 8.099e-21;
 };
     
 #endif // _INCL_BLZSIM_H_

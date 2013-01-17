@@ -68,6 +68,27 @@ void BlzMath::fourier(double data[], int nn, int isign)
   } // end while(n > mmax)
 }
 
+double BlzMath::qg10(double a, double b, QgFunctionPtr pFunction, void *pObject) 
+{
+  int j;
+  // The abscissas and weights:
+  double dx,xm,xr;
+  double w[5] = {.2955242247, .2692667193, .2190863625, .1494513491, .0666713443};
+  double x[5] = {.1488743389, .4333953941, .6794095682, .8650633666, .9739065285};
+  xm = 0.5*(b+a);
+  xr = 0.5*(b-a);
+  double ss = 0.0;
+  // Will be twice the average value of the function, since the ten
+  // weights (five numbers above each used twice) sum to 2. 
+  for(j=1; j<=5; j++) { // do 11 j=1,5
+    double dx = xr*x[j-1];
+    ss = ss+w[j-1]*((*pFunction)(xm+dx, pObject)+(*pFunction)(xm-dx, pObject));
+  } //11 continue
+
+  // Scale the answer to the range of integration.
+  ss = xr*ss;
+  return ss;
+}
 
 // Returns the integral of the function func between a and  b, by 5-point Gauss-Legendre integration:
 // the function is evaluated exactly five times at interior points in the range of integration.

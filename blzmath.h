@@ -4,6 +4,7 @@
 using namespace std;
 
 // Various constants
+static const double FOURPI =   12.56637061435916;
 static const double TWOPI =     6.28318530717959;
 static const double PI =        3.14159265358979;
 static const double PIOVERTWO = 1.57079632679490;
@@ -46,6 +47,12 @@ class BlzMath {
   // which is apparently based on routine from Numerical Recipes
   // pObject is passed to (*pFunction)(). pFunction will know what kind of object it is.
   static double qg5(double a, double b, QgFunctionPtr pFunction, void *pObject);
+
+  // Returns as ss the integral of the function func between a and  b, 
+  // by ten-point Gauss-Legendre integration: the function is evaluated exactly ten
+  // times at interior points in the range of integration.
+  // pObject is passed to (*pFunction)(). pFunction will know what kind of object it is.
+  static double qg10(double a, double b, QgFunctionPtr pFunction, void *pObject);
 
   // Magnitude from 3 components
   static double mag(double x, double y, double z);

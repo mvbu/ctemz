@@ -121,17 +121,15 @@ int main()
   BlzLog::debugScalar("expected", 2.97223149e-11);
 
   // Test seedph()
+  double freq = 159372195086431.97;
   double seedphResult;
-  double freq = 4.65842962e+11;
   pSim = new BlzSim();
+  pSim->common.gamd = 5.4293398294782591;
+  pSim->common.betd = 0.98289169615318539;
   pSim->common.tdust = 1200.;
-  pSim->common.gamd = 11.473015869669796;
-  pSim->common.betd = 0.99619423459093981;
-  pSim->common.freq = 4.65842962e+11;
-  pSim->common.dsnth1 = 0.74151808435155919;
-  pSim->common.dsnth2 = 0.99292683212516131;
+  pSim->common.csth1 = 0.87749686244748315;
+  pSim->common.csth2 = 0.63260046099041345;
   seedphResult = pSim->seedph(freq);
-
   BlzLog::debugScalar("seedphResult", seedphResult);
   BlzLog::debugScalar("expected", 9.51800444e-12);
   delete pSim;
@@ -241,6 +239,7 @@ int main()
   //
   // Test bdcalc()
   //
+  /*
   double bxbd, bybd, bzbd,bdxbd,bdybd,bdzbd;
   vx=-0.019240988424703537;
   vy=-0.031763915994522718;
@@ -259,10 +258,12 @@ int main()
   BlzLog::debugScalarPair("bdy", -7.848277665, bdybd);
   BlzLog::debugScalarPair("bdz", 0.1261698678, bdzbd);
   delete pSim;
+  */
 
   //
   // Test bcalc()
   //
+  /*
   double bparx,bpary,bparz,bprpx,bprpy,bprpz,bpar,bprp;
   vx=-0.019240988424703537;
   vy=-0.031763915994522718;
@@ -286,6 +287,7 @@ int main()
   BlzLog::debugScalarPair("bprpz", -0.0061311801, bprpz);
   BlzLog::debugScalarPair("bpar", 0.0295550991, bpar);
   BlzLog::debugScalarPair("bprp", 0.107826233, bprp);
+  */
 
   /*  
   //

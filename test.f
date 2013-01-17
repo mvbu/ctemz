@@ -12,17 +12,30 @@
       real*4 bxbd,bybd,bzbd
       real*4 bparx,bpary,bparz,bprpx,bprpy,bprpz,bpar,bprp
       integer i
+      real*8 bdx,bdy,bdz,gammad,betad
+      real*8 csth1,csth2,dcsth1,dcsth2,dsang,tdust
       common/cparm/zred1,bfield,b
       common/cdist/ggam,edist
       common/cseed/dustnu, dusti
       common/cssc/snu, ssseed, nuhi
       common/cvel/bdx,bdy,bdz,gammad,betad
-      real*8 bdx,bdy,bdz,gammad,betad
+      common/cdust/csth1,csth2,dcsth1,dcsth2,dsang,tdust
+      common/cfreq/freq
       data ggam  / 1.123009204864502, 1.6150462627410889, 2.6083743572235107, 4.2126455307006836, 6.803617000579834, 10.988156318664551, 17.746381759643555, 28.661226272583008, 46.289207458496094, 74.759208679199219, 120.73958587646484, 195.00001525878906, 196.69918823242188, 198.41317749023438, 200.14210510253906, 201.88607788085938, 203.645263671875, 205.41976928710938, 207.20974731445312, 209.01531982421875, 210.83662414550781, 212.67379760742188, 214.5269775390625, 216.39631652832031, 218.28193664550781, 220.18399047851562, 222.10261535644531, 224.03794860839844, 225.99015808105469, 227.95938110351562, 229.94575500488281, 231.94944763183594, 233.97059631347656, 236.00935363769531, 238.06587219238281, 240.14031982421875, 242.23283386230469, 244.34358215332031, 246.47273254394531, 248.62042236328125, 250.78683471679688, 252.97213745117188, 255.17646789550781, 257.39999389648438 /
       data edist / 207.588089, 100.368889, 38.4794807, 14.7522821, 5.65573835, 2.16830015, 0.831283987, 0.318698138, 0.122182652, 0.0468424521, 0.0179584846, 0.00688493345, 0.00650044205, 0.00613163831, 0.00577794248, 0.0054388023, 0.00511366921, 0.00480203005, 0.00450337958, 0.0042172363, 0.0039431327, 0.00368061941, 0.00342926243, 0.00318864221, 0.0029583571, 0.00273801689, 0.00252724718, 0.00232568663, 0.00213298434, 0.00194880483, 0.00177282514, 0.00160473085, 0.00144422159, 0.00129100704, 0.00114480685, 0.00100535038, 0.000872378412, 0.000745639321, 0.000624891079, 0.000509901613, 0.000400445395, 0.000296305661, 0.000197275149, 0.000103152641 /
 14001 format('i',i5,' j',i5,' md',i6,' inu',i5,' ',a,f10.5)
       write(*,14001) 1, 2, 3, 4, 'blahblahblah', 5.67891
       print *, 'TESTING OF FORTRAN TEMZ.F ROUTINES'
+
+      gammad = 5.4293398294782591
+      betad = 0.98289169615318539
+      tdust = 1200.
+      frq = 159372195086431.97
+      csth1 = 0.87749686244748315
+      csth2 = 0.63260046099041345
+      seedphResult = seedph(frq)
+      print *, 'seedphResult: ', seedphResult
+      
       N = 16384
       stp = 6.28318530717959d0/dble(8-1d0)
       ISEED1=58
@@ -172,6 +185,78 @@
       print *, 'bpar', 0.0295550991, bpar
       print *, 'bprp', 0.107826233, bprp
 
+      end
+
+c     Subroutine to carry out 5-point Gaussian integration
+      subroutine qg5(a,b,func,ss)
+      real*4 ss,func
+      external func
+c     Returns as ss the integral of the function func between a and 
+c     b, by 5-point Gauss-Legendre integration:
+c     the function is evaluated exactly ten
+c     times at interior points in the range of integration.
+      integer j
+c     The abscissas and weights:
+      real*8 a,b,dx,xm,xr,w(5),x(5) 
+      save w,x
+      data w/.236926885,.478628670,.568888889,.47862867,
+     ,  .236926885/
+      data x/-.906179846,-.538469310,0.0,.53846931,.906179846/
+      ss=0
+      xm=0.5*(a+b)
+      xr=0.5*(b-a)
+      do 11 j=1,5
+      ss=ss+w(j)*func(xm+x(j)*xr)
+   11 continue
+c     Scale the answer to the range of integration.
+      ss=xr*ss 
+      return
+      end
+
+c
+c     Subroutine that calculates the seed photon intensity from emission by hot dust
+      function seedph(f)
+      common/cdust/csth1,csth2,dcsth1,dcsth2,dsang,tdust
+      common/cvel/bdx,bdy,bdz,gammad,betad
+      common/cfreq/freq
+      real*8 bdx,bdy,bdz,gammad,betad,csth1,csth2,
+     , dcsth1,dcsth2,dsang,tdust,cs1,cs2,csm
+      external sdgran
+      freq=f
+      cs1=csth2
+      cs2=csth1
+      csm=0.5d0*(cs1+cs2)
+      call qg5(cs1,csm,sdgran,ans1)
+      call qg5(csm,cs2,sdgran,ans2)
+c     Multiply by 2pi, but then divide by 4pi to get mean intensity
+      seedph=ans1+ans2
+      return
+      end
+
+      function sdgran(cs)
+      common/cdust/csth1,csth2,dcsth1,dcsth2,dsang,tdust
+      common/cvel/bdx,bdy,bdz,gammad,betad
+      common/cfreq/freq
+      real*8 cs,csp,bdx,bdy,bdz,gammad,betad,csth1,csth2,
+     ,  dcsth1,dcsth2,dsang,tdust
+      hok=4.80e-11
+      sdgran=0.0
+      csp=-(cs-betad)/(1.0d0-betad*cs)
+      tdel=1.0/(gammad*(1.0d0-betad*csp))
+      f=freq/tdel
+      expon=hok*f/tdust
+c      write(6,9000)cs,tdel,freq,f,expon
+      if(expon.lt.0.01)go to 10
+      if(expon.gt.5.0)go to 20
+      val=(1.33e-26*f)*f/((9.0e20/f)*(exp(expon)-1.0))
+      go to 25
+   10 val=(2.76e-16*f)*tdust*(f/9.0e20)
+      go to 25
+   20 if(expon.gt.15.0)go to 26
+      val=(1.33e-26*f)*f/((9.0e20/f)*exp(expon))
+   25 sdgran=val*tdel*tdel
+   26 return
+c 9000 format('++ ',1p10e12.4)
       end
 
 C*******************************************
@@ -469,30 +554,52 @@ c     , anu,b,x,gam(i),edist(i),gran1,gran2,a,addit,ajnu,rfact
  1000 return
       end
 
+c  Subroutine to calculate the Klein-Nishina cross-section; from Blumenthal
+c    + Gould (1970, Rev. Mod. Phys., 42, 237, who took it from Jones, F.C.
+c      (1968, Phys. Rev., 167, 1159); assumes isotropic photon field in
+c     electron's rest frame
+      subroutine xseckn(q,x,xsec)
+      real*8 xsec
+      xsec=2.0*q*alog(q)+(1.0+2.0*q)*(1.0-q)+
+     ,  0.5*(x*q)**2*(1.0-q)/(1.0+x*q)
+      return
+      end
+
 c  Subroutine to calculate inverse Compton emission from external sources of seed photons
       function ecdust(anuf)
       common/cparm/zred1,bfield,bperp
-      common/cdust/dcsth1,dcsth2,dsnth1,dsnth2,dsang,tdust
+      common/cdust/csth1,csth2,dcsth1,dcsth2,dsang,tdust
       common/cdist/gam,edist
       common/cvel/bdx,bdy,bdz,gammad,betad
       common/cseed/dnu,di
       dimension gam(44),edist(44),dnu(22),di(22)
       real*8 gam,bdx,bdy,bdz,gammad,betad,dcsth1,dcsth2,dsnth1,
-     ,  dsnth2,val1,val2,vala,valb
+     ,  dsnth2,val1,val2,vala,valb,csth1,csth2,dsang,tdust
       ecdust=0.0
       gran=0.0
-c     Flux will be in mJy, so set x-section as (3e26/32)sigt
-      s0=6.237
+c     Flux will be in mJy, so set x-section as (3e26/4)sigt
+      s0=49.9
+      homc2=8.099e-21
+      ie1=1
+      ef=homc2*anuf
+      if(ef.le.gam(1))go to 1
+      if(ef.ge.gam(44))go to 4000
+      do 10 ie=2,44
+      if(gam(ie).gt.ef)go to 11
+   10 continue 
+   11 ie1=ie-1
+      g1=1.0001*ef
+      go to 12
 c     In this version, approximate that plasma velocity is along jet axis
 c       and that Doppler factor of dust torus is the mean over its solid angle
 c       as viewed in the plasma frame
 c      tdel=1.0/(gammad*(1.0d0-betad*dcsth1))
-      g1=gam(1)
-      vala=s0*edist(1)/(g1*g1)
-c     Loop to integration over electron Lorentz factors (gam)
-      do 3000 ie=1,43
+    1 g1=gam(1)
+   12 vala=s0*edist(ie1)/g1
+c     Loop to integrate over electron Lorentz factors (gam)
+      do 3000 ie=ie1,43
       g2=gam(ie+1)
-      valb=s0*edist(ie+1)/(g2*g2)
+      valb=s0*edist(ie+1)/g2
       val1=0.0
       val2=0.0
       gran1=0.0
@@ -501,7 +608,7 @@ c     Set up loop 1 to integrate over incident photon frequency anui
       anumax=amin1(anuf,dnu(22))
       di1=di(1)
       id=2
-      anumin=0.25*anuf/(g1*g1)
+      anumin=0.25*anuf/((g1*g1)*(1.0-ef/g1))
       if(anumin.gt.anumax)go to 601
       if(anumin.gt.dnu(1))go to 2
       anumin=dnu(1)
@@ -527,11 +634,14 @@ c     Set up loop 1 to integrate over incident photon frequency anui
     8 die=di(22)
     9 continue
       anui1=anumin
-      rat=anuf/(anui1*g1*g1)
-      ratr=0.25*rat
-   25 val1=(8.0+2.0*rat-rat*rat+4.0*rat*alog(ratr))*
-     , (1.0e20/anui1)*(anuf/anui1)*di1*vala
+      xx=1.0-ef/g1
+      rat=anuf/((4.0*anui1*g1*g1)*xx)
+      ratr=4.0*homc2*anui1*g1
+      call xseckn(rat,ratr,val1)
+      val1=val1*(1.0e20/anui1)*(anuf/anui1)*di1*vala
       if(val1.lt.1.0d-40)val1=0.0d0
+   25 continue
+c      write(6,9996)xx,rat,ratr,val1,anuf,anui1,g1,di1,vala
 c     Loop 1 to integrate over incoming photon frequency anui for lower gam value
       do 600 nu=id,ide
       anui2=dnu(nu)
@@ -539,12 +649,14 @@ c     Loop 1 to integrate over incoming photon frequency anui for lower gam valu
       if(nu.lt.ide)go to 30
       anui2=anumax
       di2=die
-   30 rat=anuf/(anui2*g1*g1)
-      ratr=0.25*rat
-  525 val2=(8.0+2.0*rat-rat*rat+4.0*rat*alog(ratr))*
-     , (1.0e20/anui2)*(anuf/anui2)*di2*vala
+      xx=1.0-ef/g1
+   30 rat=anuf/((4.0*anui2*g1*g1)*xx)
+      ratr=4.0*homc2*anui2*g1
+      call xseckn(rat,ratr,val2)
+      val2=val2*(1.0e20/anui2)*(anuf/anui2)*di2*vala
       if(val2.lt.1.0d-40)val2=0.0d0
-      if(val1.eq.0.0d0.or.val2.eq.0.0d0)go to 845
+  525 if(val1.eq.0.0d0.or.val2.eq.0.0d0)go to 845
+c      write(6,9997)xx,rat,ratr,val2,anuf,anui2,g1,di2,vala
       test=abs((anui1-anui2)/anui1)
       if(test.lt.0.001)go to 847
       ratnu=anui2/anui1
@@ -562,7 +674,7 @@ c     End anui loop 1
   601 continue
       ratg=g2/g1
       ratgl=alog10(ratg)
-      valb=s0*edist(ie+1)/(g2*g2)
+      valb=s0*edist(ie+1)/g2
       val1=0.0
       val2=0.0
       gran2=0.0
@@ -570,7 +682,7 @@ c     Set up loop 2 to integrate over incident photon frequency anui
       anumax=amin1(anuf,dnu(22))
       di1=di(1)
       id=2
-      anumin=0.25*anuf/(g1*g1)
+      anumin=0.25*anuf/((g1*g1)*(1.0-ef/g1))
       if(anumin.gt.anumax)go to 1601
       if(anumin.gt.dnu(1))go to 1002
       anumin=dnu(1)
@@ -596,12 +708,14 @@ c     Set up loop 2 to integrate over incident photon frequency anui
  1008 die=di(22)
  1009 continue
       anui1=anumin
-      rat=anuf/(anui1*g2*g2)
-      ratr=0.25*rat
- 1025 val1=(8.0+2.0*rat-rat*rat+4.0*rat*alog(ratr))*
-     , (1.0e20/anui1)*(anuf/anui1)*di1*valb
+      xx=1.0-ef/g2
+      rat=anuf/((4.0*anui1*g2*g2)*xx)
+      ratr=4.0*homc2*anui1*g2
+      call xseckn(rat,ratr,val1)
+      val1=val1*(1.0e20/anui1)*(anuf/anui1)*di1*valb
       if(val1.lt.1.0d-40)val1=0.0d0
-      gran2=0.0
+ 1025 gran2=0.0
+c      write(6,9998)xx,rat,ratr,val1,anuf,anui1,g2,di1,valb
 c     Loop 2 to integrate over incoming photon frequency anui for upper gam value
       do 1600 nu=id,ide
       anui2=dnu(nu)
@@ -609,11 +723,13 @@ c     Loop 2 to integrate over incoming photon frequency anui for upper gam valu
       if(nu.lt.ide)go to 1030
       anui2=anumax
       di2=die
- 1030 rat=anuf/(anui2*g2*g2)
-      ratr=0.25*rat
- 1525 val2=(8.0d0+2.0d0*rat-rat*rat+4.0d0*rat*alog(ratr))*
-     , (1.0e20/anui2)*(anuf/anui2)*di2*valb
+      xx=1.0-ef/g2
+ 1030 rat=anuf/((4.0*anui2*g2*g2)*xx)
+      ratr=4.0*homc2*anui2*g2
+      call xseckn(rat,ratr,val2)
+      val2=val2*(1.0e20/anui2)*(anuf/anui2)*di2*valb
       if(val2.lt.1.0d-40)val2=0.0d0
+c      write(6,9999)xx,rat,ratr,val2,anuf,anui2,g2,di2,valb
       if(val1.le.0.0d0.or.val2.le.0.0d0)go to 1845
       test=abs((anui1-anui2)/anui1)
       if(test.lt.0.001)go to 1847
@@ -634,7 +750,7 @@ c     , rat,addit
  1600 continue
 c     End anui loop 2
  1601 continue
-      if(gran1.le.0.0.or.gran2.le.0.0)go to 2845
+      if(gran1.le.1.0e-28.or.gran2.le.1.0e-28)go to 2845
       a=1.0+alog10(gran2/gran1)/ratgl
       if(abs(a).lt.0.01.or.abs(a).gt.5.0)go to 2845
       addit=gran1*(ratg**a-1.0)*g1/a
@@ -652,6 +768,10 @@ c     End gam loop
 c      if(anuf.gt.1.0e20.and.anuf.lt.2.0e20)
 c     ,write(5,9050)anuf,gran,rat,addit
 c 9050 format(i5,2x,1p15e9.2)
+ 9996 format('a ',1p12e11.3)
+ 9997 format('b ',1p12e11.3)
+ 9998 format('c ',1p12e11.3)
+ 9999 format('d ',1p12e11.3)
  4000 return
       end
 
@@ -666,22 +786,33 @@ c    of seed photons from other cells
 c      common/cvel/bdx,bdy,bdz,gammad,betad
       common/cssc/dnu,di,nuhi
       dimension gam(44),edist(44),dnu(68),di(68)
-      real*8 gam,addit,gran,ssca
+      real*8 gam,addit,gran,ssca,val1,val2
 c     Prevent underflows
       if(di(nuhi).lt.1.0e-25)nuhi=nuhi-1
       ssc=0.0
       gran=0.0
 c     Flux will be in mJy, so set x-section as (3e26/32)sigt
       s0=6.237
-      g1=gam(1)
-      vala=s0*edist(1)/(g1*g1)
+      homc2=8.099e-21
+      ie1=1
+      ef=homc2*anuf
+      if(ef.le.gam(1))go to 1
+      if(ef.ge.gam(44))go to 4000
+      do 10 ie=2,44
+      if(gam(ie).gt.ef)go to 11
+   10 continue 
+   11 ie1=ie-1
+      g1=ef
+      go to 12
+    1 g1=gam(1)
+   12 vala=s0*edist(ie1)/g1
 c     Loop to integrate over electron Lorentz factors (gam)
 c      write(5,6666)nuhi,anuf,g1,edist(1),gam(44),edist(44),
 c     ,  vala,dnu(1),di(1),dnu(nuhi),di(nuhi)
  6666 format('In ssc',i5,2x,1p10e12.3)
-      do 3000 ie=1,43
+      do 3000 ie=ie1,43
       g2=gam(ie+1)
-      valb=s0*edist(ie+1)/(g2*g2)
+      valb=s0*edist(ie+1)/g2
       val1=0.0
       val2=0.0
       gran1=0.0
@@ -690,7 +821,7 @@ c     Set up loop 1 to integrate over incident photon frequency anui
       anumax=amin1(anuf,dnu(nuhi))
       di1=di(1)
       id=2
-      anumin=0.25*anuf/(g1*g1)
+      anumin=0.25*anuf/((g1*g1)*(1.0-ef/g1))
       if(anumin.ge.anumax)go to 601
       if(anumin.gt.dnu(1))go to 2
       anumin=dnu(1)
@@ -718,28 +849,30 @@ c     Set up loop 1 to integrate over incident photon frequency anui
     8 die=di(nuhi)
     9 continue
       anui1=anumin
-      rat=anuf/(anui1*g1*g1)
-      ratr=0.25*rat
-   25 val1=(8.0+2.0*rat-rat*rat+4.0*rat*alog(ratr))*
-     , (1.0e20/anui1)*(anuf/anui1)*di1*vala
-      if(val1.lt.1.0e-28)val1=0.0
+      xx=1.0-ef/g1
+      rat=anuf/((4.0*anui1*g1*g1)*xx)
+      ratr=4.0*homc2*anui1*g1
+      call xseckn(rat,ratr,val1)
+      val1=val1*(1.0e20/anui1)*(anuf/anui1)*di1*vala
+      if(val1.lt.1.0d-40)val1=0.0d0
+   25 continue
 c     Loop 1 to integrate over incoming photon frequency anui for lower gam value
       do 600 nu=id,ide
       anui2=dnu(nu)
       di2=di(nu)
       if(nu.lt.ide)go to 30
       anui2=anumax
-      di2=die
-   30 rat=anuf/(anui2*g1*g1)
-      ratr=0.25*rat
-  525 val2=(8.0+2.0*rat-rat*rat+4.0*rat*alog(ratr))*
-     , (1.0e20/anui2)*(anuf/anui2)*di2*vala
-      if(val2.lt.1.0e-28)val2=0.0
-      if(val1.eq.0.0.or.val2.eq.0.0)go to 845
+      xx=1.0-ef/g1
+   30 rat=anuf/((4.0*anui2*g1*g1)*xx)
+      ratr=4.0*homc2*anui2*g1
+      call xseckn(rat,ratr,val2)
+      val2=val2*(1.0e20/anui2)*(anuf/anui2)*di2*vala
+      if(val2.lt.1.0d-40)val2=0.0d0
+  525 if(val1.eq.0.0d0.or.val2.eq.0.0d0)go to 845
       test=abs((anui1-anui2)/anui1)
       if(test.lt.0.001)go to 847
       ratnu=anui2/anui1
-      a=1.0+alog10(val2/val1)/alog10(ratnu)
+      a=1.0+dlog10(val2/val1)/alog10(ratnu)
       if(abs(a).lt.0.01.or.abs(a).gt.5.0)go to 845
       addit=val1*(ratnu**a-1.0)*anui1/a
       go to 846
@@ -753,7 +886,7 @@ c     End anui loop 1
   601 continue
       ratg=g2/g1
       ratgl=alog10(ratg)
-      valb=s0*edist(ie+1)/(g2*g2)
+      valb=s0*edist(ie+1)/g2
       val1=0.0
       val2=0.0
       gran2=0.0
@@ -761,7 +894,7 @@ c     Set up loop 2 to integrate over incident photon frequency anui
       anumax=amin1(anuf,dnu(nuhi))
       di1=di(1)
       id=2
-      anumin=0.25*anuf/(g1*g1)
+      anumin=0.25*anuf/((g1*g1)*(1.0-ef/g1))
 c      write(5,6668)g1,anuf,dnu(nuhi),anumin,anumax
 c 6668 format('*g1, anuf, dnu(nuhi), anumin, anumax: ',1p5e9.2)
       if(anumin.ge.anumax)go to 1601
@@ -792,12 +925,13 @@ c 6668 format('*g1, anuf, dnu(nuhi), anumin, anumax: ',1p5e9.2)
  1008 die=di(nuhi)
  1009 continue
       anui1=anumin
-      rat=anuf/(anui1*g2*g2)
-      ratr=0.25*rat
- 1025 val1=(8.0+2.0*rat-rat*rat+4.0*rat*alog(ratr))*
-     , (1.0e20/anui1)*(anuf/anui1)*di1*valb
-      if(val1.lt.1.0e-28)val1=0.0
-      gran2=0.0
+      xx=1.0-ef/g2
+      rat=anuf/((4.0*anui1*g2*g2)*xx)
+      ratr=4.0*homc2*anui1*g2
+      call xseckn(rat,ratr,val1)
+      val1=val1*(1.0e20/anui1)*(anuf/anui1)*di1*valb
+      if(val1.lt.1.0d-40)val1=0.0d0
+ 1025 gran2=0.0
 c     Loop 2 to integrate over incoming photon frequency anui for upper gam value
       do 1600 nu=id,ide
       anui2=dnu(nu)
@@ -805,16 +939,17 @@ c     Loop 2 to integrate over incoming photon frequency anui for upper gam valu
       if(nu.lt.ide)go to 1030
       anui2=anumax
       di2=die
- 1030 rat=anuf/(anui2*g2*g2)
-      ratr=0.25*rat
- 1525 val2=(8.0d0+2.0d0*rat-rat*rat+4.0d0*rat*alog(ratr))*
-     , (1.0e20/anui2)*(anuf/anui2)*di2*valb
-      if(val2.lt.1.0e-28)val2=0.0
+      xx=1.0-ef/g2
+ 1030 rat=anuf/((4.0*anui2*g2*g2)*xx)
+      ratr=4.0*homc2*anui2*g2
+      call xseckn(rat,ratr,val2)
+      val2=val2*(1.0e20/anui2)*(anuf/anui2)*di2*valb
+      if(val2.lt.1.0d-40)val2=0.0d0
       if(val1.eq.0.0.or.val2.eq.0.0)go to 1845
       test=abs((anui1-anui2)/anui1)
       if(test.lt.0.001)go to 1847
       ratnu=anui2/anui1
-      a=1.0+alog10(val2/val1)/alog10(ratnu)
+      a=1.0+dlog10(val2/val1)/alog10(ratnu)
       if(abs(a).lt.0.01.or.abs(a).gt.5.0)go to 1845
       addit=val1*(ratnu**a-1.0)*anui1/a
       go to 1846
@@ -824,7 +959,6 @@ c     Loop 2 to integrate over incoming photon frequency anui for upper gam valu
 c      if(anuf.gt.1.0e19.and.anuf.lt.2.0e19)
 c      write(5,9050)nu,id,anuf,gran2,val1,val2,vala,valb,di1,di2,
 c     , anui1,anui2,g1,g2,rat,addit
-      if(val2.lt.1.0e-28)go to 1601
       anui1=anui2
       val1=val2
       di1=di2
@@ -849,7 +983,6 @@ c     ,write(5,9050)anuf,gran,rat,addit
  9050 format('***',2i5,2x,1p15e9.2)
  4000 return
       end
-
 c
 c     polcalc computes the polarization angle chi based on relations
 c       derived by Lyutikov et al. 2005, MNRAS, 360, 869

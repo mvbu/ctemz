@@ -292,17 +292,33 @@ double BlzSim::ecdust(const double anuf)
   else if(ef >= gam[BlzSimCommon::CDIST_SIZE-1]) {
     return 0.0;
   }
+  else if(gam[BlzSimCommon::CDIST_SIZE-1]/gam[0] < 1.01) {
+    return 0.0;
+  }
   else {
     for(ie=2; ie<=BlzSimCommon::CDIST_SIZE; ie++) {
       if(gam[ie-1] > ef)
         break;
     }
+    // Fortran sets ie=CDIST_SIZE here if the above "break" is never hit, but that should be unnecessary since
+    // ie should already be CDIST_SIZE if the break is never hit. -msv Jan2013
     ie1 = ie-1;
     g1 = 1.0001*ef;
   }
 
+  do {
+    if(gam[ie1]/gam[ie1-1] > 1.0002)
+      break;
+    ie1++;
+  } while(ie1 < BlzSimCommon::CDIST_SIZE-1);
+  
+  bool bExit = (ie1 == BlzSimCommon::CDIST_SIZE-1);
+
+  if(bExit)
+    return 0.0;
+
   double S0 = S0_ECDUST;
-  double vala = S0*edist[ie1-1]/g1;
+  double vala = S0*edist[ie1-1]/g1; //13
 
   //
   // Top-level loop to integrate over electron Lorentz factors (gam)
@@ -419,7 +435,7 @@ double BlzSim::ecdust(const double anuf)
     anumax=min(anuf,dnu[BlzSimCommon::CSEED_SIZE-1]);
     di1=di[0];
     id=2;
-    anumin=0.25*anuf/((g1*g1)*(1.0-ef/g1));
+    anumin=0.25*anuf/((g2*g2)*(1.0-ef/g2));
     // skip over loop 2 entirely if this condition is not satisfied
     if(anumin <= anumax) {
       if(anumin <= dnu[0]) {
@@ -508,7 +524,7 @@ double BlzSim::ecdust(const double anuf)
     } // if(anumin > anumax) Loop 2
 
     addit = 0.5 * (gran1 + gran2) * (g2 -g1);
-    if((gran1>1e-28) && (gran2>1e-28)) {
+    if((gran1>1e-28) && (gran2>1e-28) && (ratgl>=0.0001)) {
       double a = 1.0 + log10(gran2/gran1)/ratgl;
       double aa = abs(a);
       if((aa>=.01) && (aa<=5.0)) {
@@ -557,14 +573,30 @@ double BlzSim::ssc(const double anuf)
   else if(ef >= gam[BlzSimCommon::CDIST_SIZE-1]) {
     return 0.0;
   }
+  else if(gam[BlzSimCommon::CDIST_SIZE-1]/gam[0] < 1.01) {
+    return 0.0;
+  }
   else {
     for(ie=2; ie<=BlzSimCommon::CDIST_SIZE; ie++) {
       if(gam[ie-1] > ef)
         break;
     }
+    // Fortran sets ie=CDIST_SIZE here if the above "break" is never hit, but that should be unnecessary since
+    // ie should already be CDIST_SIZE if the break is never hit. -msv Jan2013
     ie1 = ie-1;
     g1 = ef;
   }
+
+  do {
+    if(gam[ie1]/gam[ie1-1] > 1.0002)
+      break;
+    ie1++;
+  } while(ie1 < BlzSimCommon::CDIST_SIZE-1);
+  
+  bool bExit = (ie1 == BlzSimCommon::CDIST_SIZE-1);
+
+  if(bExit)
+    return 0.0;
 
   double S0 = S0_SSC;
   vala = S0*edist[ie1-1]/g1;
@@ -688,7 +720,7 @@ double BlzSim::ssc(const double anuf)
     anumax=min(anuf,dnu[common.nuhi-1]);
     di1=di[0];
     id=2;
-    anumin=0.25*anuf/((g1*g1)*(1.0-ef/g1));
+    anumin=0.25*anuf/((g2*g2)*(1.0-ef/g2));
     // skip over loop 2 entirely if this condition is not satisfied
     if(anumin <= anumax) {
       if(anumin <= dnu[0]) {
@@ -785,7 +817,7 @@ double BlzSim::ssc(const double anuf)
     } // if(anumin > anumax) Loop 2
 
     addit = 0.5 * (gran1 + gran2) * (g2 -g1);
-    if((gran1>=1.0e-28) && (gran2>=1.0e-28)) {
+    if((gran1>=1.0e-28) && (gran2>=1.0e-28) && (ratgl>=0.0001)) {
       double a = 1.0 + log10(gran2/gran1)/ratgl;
       double aa = abs(a);
       if((aa>=.01) && (aa<=5.0)) {
@@ -1011,7 +1043,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   const int D22=22;
   const int D60000=60000;
   const int D60000PADDED=65000;
-  const int D110=110;
+  const int D420=420;
 
   bool bOutputFilesCreated = false;
   int  nTestOut = 1;
@@ -1046,9 +1078,9 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     betamz[D1140],betamr[D1140],gamamr[D1140],bmdx[D60000],
     bmdy[D60000],bmdz[D60000],bmdtot[D60000],tlf1[D1140],
     flsync[D400][D1141][D68],flcomp[D400][D1141][D68],absorb[D68][D60000],
-    fsync2[D68],cosmr[D1140],alphmd[D68][D60000],dustii[D110][D22],
-    flec[D400][D1141][D68],flssc[D400][D1141][D68],mdd[D60000],useed[D110],
-    phots[D68],phalph[D68],seedpk[D110],
+   fsync2[D68],cosmr[D1140],alphmd[D68][D60000],dustii[D420][D22],dustf[D420][D22],
+    flec[D400][D1141][D68],flssc[D400][D1141][D68],mdd[D60000],useed[D420],
+    phots[D68],phalph[D68],seedpk[D420],
     abexmd[D68][D60000],psi[D1140],sinpsi[D1140],cospsi[D1140],
     tanpsi[D1140],tauxmd[D68],phi1[D1141],phi2[D1141],
     theta1[D1141],theta2[D1141],ididb[D1141],bfrac[D1141],
@@ -1223,6 +1255,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     for(inu=1; inu<=D22; inu++) { // do 3 inu=1,22
       common.dustnu[inu-1] = seedpk[id-1]*::pow(10.0,-1.4+(inu-1)*0.1);
       common.dusti[inu-1] = filld *seedph(common.dustnu[inu-1]);
+      dustf[id-1][inu-1] = common.dustnu[inu-1];
       dustii[id-1][inu-1] = common.dusti[inu-1];
     }
   } // for(id=1; id<=ICELLS+NEND; id++) 333 continue
@@ -2167,8 +2200,10 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 
       // Start loop over observed frequencies
       int ithin = 0;
-      for(inu=1; inu<=D22; inu++) // do 93 inu=1,22
+      for(inu=1; inu<=D22; inu++) { // do 93 inu=1,22
+        common.dustnu[inu-1] = dustf[id-1][inu-1];
         common.dusti[inu-1] = dustii[id-1][inu-1];
+      }
 
       double spxec, spxssc, anumin, alnumn, emeold, emsold;
       int inumin, iinu;
@@ -2721,6 +2756,8 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
             // iend is the last slice of cells with energetic electrons
             iend = i;
             // Calculate energy distribution for the cell
+            id = (zcell[i-1][j-1]-zshock)/zsize+NEND;
+            if(id < 1) id=1;
             delt = zsize*SEC_PER_YEAR*3.26/(gammad[i-1][j-1]*betad[i-1][j-1]);
             glow = gammin[i-2][j-1]/(1.0+tlfact*gammin[i-2][j-1]*delt);
             inp.gmrat = 0.99*gammax[i-2][j-1]/gammin[i-2][j-1];
@@ -2780,8 +2817,10 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
             emsold = 0.0;
             // calculate flux in mJy from cell
             int ithin = 0;
-            for(inu=1; inu<=D22; inu++) // do 193 inu=1,22
-              common.dusti[inu-1] = dustii[id-1][inu-1]; // 193
+            for(inu=1; inu<=D22; inu++) { // do 193 inu=1,22
+              common.dustnu[inu-1] = dustf[id-1][inu-1];
+              common.dusti[inu-1] = dustii[id-1][inu-1];
+            }  // 193
 
             double chipol = 0.0;
             double spxec, spxssc, anumin, alnumn, tauexp;

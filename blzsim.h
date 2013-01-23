@@ -108,8 +108,8 @@ class BlzSim {
  private:
   void initRandFromTime(bool bTestMode = false);
   static const double ONETHIRD = .33333333;
-  static const double S0_ECDUST = 49.9;
-  static const double S0_SSC = 6.237;
+  static const double S0_ECDUST = 49.9; // These two values have been different at times, so...
+  static const double S0_SSC = 49.9; // I've made them two distinct constants
   static const double HOMC2 = 8.099e-21;
 };
     

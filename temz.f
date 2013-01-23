@@ -27,7 +27,7 @@ c       and from a Mach disk
      , betamz(1140),betamr(1140),gamamr(1140),bmdx(60000),
      , bmdy(60000),bmdz(60000),bmdtot(60000),tlf1(1140),
      , flsync(400,1141,68),flcomp(400,1141,68),absorb(68,60000),
-     , fsync2(68),alphmd(68,60000),dustii(420,22),
+     , fsync2(68),alphmd(68,60000),dustii(420,22),dustf(420,22),
      , alfmdc(68,60000),syseed(68),scseed(68),snu(68),ssseed(68),
      , flec(400,1141,68),flssc(400,1141,68),mdd(60000),useed(420),
      , phots(68),phalph(68),icelmx(1141),imax(1141),seedpk(420),
@@ -253,6 +253,7 @@ c     Use this to set the frequency array of the seed photons
       do 3 inu=1,22
       dustnu(inu)=seedpk(id)*10**(-1.4+(inu-1)*0.1)
       dusti(inu)=filld*seedph(dustnu(inu))
+      dustf(id,inu)=dustnu(inu)
     3 dustii(id,inu)=dusti(inu)
   333 continue
       do 336 id=1,icells+nend
@@ -1160,6 +1161,7 @@ c     Divide by delt since integral is over time
 c     Start loop over observed frequencies
       ithin=0
       do 93 inu=1,22
+      dustnu(inu)=dustf(id,inu)
    93 dusti(inu)=dustii(id,inu)
       do 95 inu=1,68
       restnu=nu(inu)*zred1/delta(i,j)
@@ -1673,6 +1675,10 @@ c     ,  gmax0(i,j),gammax(i-1,j)
 c     iend is the last slice of cells with energetic electrons
       iend=i
 c     Calculate energy distribution for the cell
+      id=(zcell(i,j)-zshock)/zsize+nend
+      if(id.lt.1)id=1
+      if(id.gt.(icells+nend))write(6,9992)i,j,id,zcell(i,j),zshock,
+     ,  zsize
       delt=zsize*yr*3.26/(gammad(i,j)*betad(i,j))
       glow=gammin(i-1,j)/(1.0+tlfact*gammin(i-1,j)*delt)
       gmrat=0.99*gammax(i-1,j)/gammin(i-1,j)
@@ -1728,6 +1734,7 @@ c     ,  tlmin,delt,glow,gmin,gamb,gmax0(i,j),n0(i,j),test1,test2
 c     calculate flux in mJy from cell
       ithin=0
       do 193 inu=1,22
+      dustnu(inu)=dustf(id,inu)
   193 dusti(inu)=dustii(id,inu)
       do 195 inu=1,68
       specin=0.0001
@@ -2097,10 +2104,11 @@ c     Flux will be in mJy, so set x-section as (3e26/4)sigt
       ie1=1
       ef=homc2*anuf
       if(ef.le.gam(1))go to 1
-      if(ef.ge.gam(44))go to 4000
+      if(ef.ge.gam(44).or.(gam(44)/gam(1)).lt.1.01)go to 4000
       do 10 ie=2,44
       if(gam(ie).gt.ef)go to 11
    10 continue 
+      ie=44
    11 ie1=ie-1
       g1=1.0001*ef
       go to 12
@@ -2109,7 +2117,11 @@ c       and that Doppler factor of dust torus is the mean over its solid angle
 c       as viewed in the plasma frame
 c      tdel=1.0/(gammad*(1.0d0-betad*dcsth1))
     1 g1=gam(1)
-   12 vala=s0*edist(ie1)/g1
+   12 if((gam(ie1+1)/gam(ie1)).gt.1.0002)go to 13
+      ie1=ie1+1
+      if(ie1.ge.43)go to 4000
+      go to 12
+   13 vala=s0*edist(ie1)/g1
 c     Loop to integrate over electron Lorentz factors (gam)
       do 3000 ie=ie1,43
       g2=gam(ie+1)
@@ -2196,7 +2208,7 @@ c     Set up loop 2 to integrate over incident photon frequency anui
       anumax=amin1(anuf,dnu(22))
       di1=di(1)
       id=2
-      anumin=0.25*anuf/((g1*g1)*(1.0-ef/g1))
+      anumin=0.25*anuf/((g2*g2)*(1.0-ef/g2))
       if(anumin.gt.anumax)go to 1601
       if(anumin.gt.dnu(1))go to 1002
       anumin=dnu(1)
@@ -2265,6 +2277,7 @@ c     , rat,addit
 c     End anui loop 2
  1601 continue
       if(gran1.le.1.0e-28.or.gran2.le.1.0e-28)go to 2845
+      if(ratgl.lt.0.0001)go to 2845
       a=1.0+alog10(gran2/gran1)/ratgl
       if(abs(a).lt.0.01.or.abs(a).gt.5.0)go to 2845
       addit=gran1*(ratg**a-1.0)*g1/a
@@ -2693,21 +2706,26 @@ c     Prevent underflows
       if(di(nuhi).lt.1.0e-25)nuhi=nuhi-1
       ssc=0.0
       gran=0.0
-c     Flux will be in mJy, so set x-section as (3e26/32)sigt
-      s0=6.237
+c     Flux will be in mJy, so set x-section as (3e26/4)sigt
+      s0=49.9
       homc2=8.099e-21
       ie1=1
       ef=homc2*anuf
       if(ef.le.gam(1))go to 1
-      if(ef.ge.gam(44))go to 4000
+      if(ef.ge.gam(44).or.(gam(44)/gam(1)).lt.1.01)go to 4000
       do 10 ie=2,44
       if(gam(ie).gt.ef)go to 11
    10 continue 
+      ie=44
    11 ie1=ie-1
       g1=ef
       go to 12
     1 g1=gam(1)
-   12 vala=s0*edist(ie1)/g1
+   12 if((gam(ie1+1)/gam(ie1)).gt.1.0002)go to 13
+      ie1=ie1+1
+      if(ie1.ge.43)go to 4000
+      go to 12
+   13 vala=s0*edist(ie1)/g1
 c     Loop to integrate over electron Lorentz factors (gam)
 c      write(5,6666)nuhi,anuf,g1,edist(1),gam(44),edist(44),
 c     ,  vala,dnu(1),di(1),dnu(nuhi),di(nuhi)
@@ -2796,7 +2814,7 @@ c     Set up loop 2 to integrate over incident photon frequency anui
       anumax=amin1(anuf,dnu(nuhi))
       di1=di(1)
       id=2
-      anumin=0.25*anuf/((g1*g1)*(1.0-ef/g1))
+      anumin=0.25*anuf/((g2*g2)*(1.0-ef/g2))
 c      write(5,6668)g1,anuf,dnu(nuhi),anumin,anumax
 c 6668 format('*g1, anuf, dnu(nuhi), anumin, anumax: ',1p5e9.2)
       if(anumin.ge.anumax)go to 1601
@@ -2868,6 +2886,7 @@ c     , anui1,anui2,g1,g2,rat,addit
 c     End anui loop 2
  1601 continue
       if(gran1.lt.1.0e-28.or.gran2.lt.1.0e-28)go to 2845
+      if(ratgl.lt.0.0001)go to 2845
       a=1.0+alog10(gran2/gran1)/ratgl
       if(abs(a).lt.0.01.or.abs(a).gt.5.0)go to 2845
       addit=gran1*(ratg**a-1.0)*g1/a

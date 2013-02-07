@@ -18,8 +18,8 @@ c       and from a Mach disk
      , betadz(400,1141),betad(400,1141),gammad(400,1141),
      , betaux(1141),betauy(1141),betauz(1141),
      , betau(1141),gammau(1141),spsdx(65536),spsd(65536),
-     , nu(68),bx(200,1141),by(200,1141),bz(200,1141),
-     , delta(200,1141),enofe(200,1141,44),edist(44),fsync(68),
+     , nu(68),bx(400,1141),by(400,1141),bz(400,1141),
+     , delta(400,1141),enofe(400,1141,44),edist(44),fsync(68),
      , ggam(44),dustnu(22),dusti(22),ididg(1141),
      , gcnt(44),igcnt(44),fsynmd(68,60000),nouter(1140),
      , fsscmd(68,65000),fmdall(68),deltmd(1140),dmd(1140),
@@ -113,7 +113,7 @@ c       one per line
       iseed = randproto(ita)
       randstart=randproto(iseed)
 c     icells along axial direction, jcells along transverse direction
-      icells=50 !! This needs to be changed to 200 eventually
+      icells=200 !! This needs to be changed to 200 eventually
       jcells=3*nend*(nend-1)+1
       ancol=2*nend-1
       rbound=ancol*rsize
@@ -203,7 +203,7 @@ c 7891 gammdd=1.0d0/dsqrt(1.0d0-betadd**2)
  7891 betd=betadd
       gamd=gammdd
 c     Length of a cylindrical cell in pc
-      zsize=2.0*rsize/tanz ! temzd.f has 2.0 as 0.2 which takes too long to run for testing.
+      zsize=0.2*rsize/tanz ! temzd.f has 2.0 as 0.2 which takes too long to run for testing.
       volc=pi*rsize**2*zsize
 c     Length and volume of cell in plasma proper frame
       zsizep=zsize/gamd
@@ -319,6 +319,7 @@ c      ipulse=dstart+100+ip0
       spsdx(ip)=abs(spsdx(ip))**(spexp)
 cccc  Next line is only for testing purposes; if using it, comment out call psdsim()
 c      spsdx(ip)=1.0
+      spsd(ip)=spsdx(ip)
 cccc  Add pulse of high energy density to test code
 c      if(ip.ge.ipulse.and.ip.lt.(ipulse+10))spsdx(ip)=50.0*spsdx(ip)
 c      if(ip.ge.(ipulse+100).and.ip.lt.(ipulse+110))
@@ -1991,6 +1992,7 @@ c     Write selected polarization data to file
      ,  nu(8),pdeg8,pang8,nu(12),pdeg12,pang12,
      ,  nu(16),pdeg16,pang16,nu(20),pdeg20,pang20,
      ,  nu(24),pdeg24,pang24
+      print *, 'Done with time loop', it
 c     Set up next time step by shifting physical conditions 1 slice down jet
       if(it.eq.itlast)go to 9000
       do 598 j=1,jcells
@@ -2939,7 +2941,6 @@ c      term2=ey/dsqrt(term)
       chi=asin(ey)
       return
       end
-      
       ! Function to call rand() most of the time, but when fixedRandFlag is non-zero, 
       ! get the random values from a file. When all the numbers are used up, start
       ! back at the beginning of the number list
@@ -3133,7 +3134,6 @@ c
      ,  az*(1.0+cs1*(cz*cz-1.0))
       return
       end
-      
 c     Subroutine to round to nearest integer
       function round(f)
       integer low, high

@@ -35,8 +35,8 @@ scratch: $(SCRATCH_OBJFILES)
 temz: temz.f
 	$(FCOMPILER) $(FCOMPILER_OPTS) -o temz temz.f
 
-temzd: temzd.f
-	$(FCOMPILER) $(FCOMPILER_OPTS) -o temzd temzd.f
+temzd: temzd8f.f
+	$(FCOMPILER) $(FCOMPILER_OPTS) -o temzd temzd8f.f
 
 # Remove the output files (temz.f program crashes if you don't do this)
 rmo: 
@@ -52,7 +52,7 @@ randtest: randtest.f
 
 # Work in progress to Dropbox directory. Should then be synced to the remote Dropbox by Dropbox daemon.
 dropbox:
-	cp *.cpp *.f *.h Makefile ~/Dropbox/dev/jet
+	cp *.cpp *.f *.h temz*.txt ctemz*.txt Makefile ~/Dropbox/dev/jet
 
 # Copy the CVS repository to Dropbox directory. Should then be synced to the remote Dropbox by Dropbox daemon.
 cvsbackup:

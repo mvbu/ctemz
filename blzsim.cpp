@@ -1078,7 +1078,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     betamz[D1140],betamr[D1140],gamamr[D1140],bmdx[D60000],
     bmdy[D60000],bmdz[D60000],bmdtot[D60000],tlf1[D1140],
     flsync[D400][D1141][D68],flcomp[D400][D1141][D68],absorb[D68][D60000],
-   fsync2[D68],cosmr[D1140],alphmd[D68][D60000],dustii[D420][D22],dustf[D420][D22],
+    fsync2[D68],cosmr[D1140],alphmd[D68][D60000],dustii[D420][D22],dustf[D420][D22],
     flec[D400][D1141][D68],flssc[D400][D1141][D68],mdd[D60000],useed[D420],
     phots[D68],phalph[D68],seedpk[D420],
     abexmd[D68][D60000],psi[D1140],sinpsi[D1140],cospsi[D1140],
@@ -1120,7 +1120,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   // numbers from a text file instead of actually generating new random numbers
   initRandFromTime(bTestMode);
   
-  const int ICELLS = 50; // ICELLS cells along the axial direction. Needs to be increased to 200 eventually for NEND=20
+  const int ICELLS = 200; // ICELLS cells along the axial direction. Needs to be increased to 200 eventually
   const int NEND = inp.nend; // NEND cells along each side of the hexagon
   const int JCELLS = 3*NEND*(NEND-1)+1; // JCELLS cells along the transverse direction (perp to axial dir)
   int  ancol = 2*NEND-1;
@@ -1202,7 +1202,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   common.betd = betadd;  // 7891
   common.gamd = gammdd;
   // Length of a cylindrical cell in pc
-  double zsize = 2.0*inp.rsize/tanz;
+  double zsize = 0.2*inp.rsize/tanz;  // temzd.f has 2.0 as 0.2 which takes too long to run for testing.
   double volc = PI*inp.rsize*inp.rsize*zsize;
   // Length and volume of cell in plasma proper frame
   double zsizep= zsize/common.gamd;
@@ -1216,6 +1216,8 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   int itlast = ndays/dtime; // time "index" of the last timestep (quit when it is >= itlast)
   BlzLog::warnScalar("itlast", itlast);
   int mdrang = 0.5*(1.0/dtfact+1.0);
+  //int ip0 = randObj.rand(0) * 5000;
+  int ip0 = 100;
   // Distance of shock from axis and apex of conical jet
   tanop = tan(opang);
   // Next line is specific to the selected number of cells per slice
@@ -1287,6 +1289,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     spsdx[ip-1] = ::pow(abs(spsdx[ip-1]), spexp);
     // Next line is only for testing purposes; if using it, comment out call psdsim()
     // spsdx(ip)=1.0
+    spsd[ip-1] = spsdx[ip-1];
     //** Add pulse of high energy density to test code
     // if(ip.ge.ipulse.and.ip.lt.(ipulse+10))spsdx(ip)=50.0*spsdx(ip)
     // if(ip.ge.(ipulse+100).and.ip.lt.(ipulse+110))
@@ -1313,8 +1316,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   for(ip=1; ip<=BLZSIM_DIM65536; ip++) // do 4999 ip=1,65536
     spsd[ip-1]=amppsd*spsd[ip-1]/psdsum;
   
-  //int ip0 = randObj.rand(0) * 5000;
-  int ip0 = 100;
   int it = 0;
   // Set parameters of each cell at initial time
   // There are icells columns of cells, with JCELLS cells per column

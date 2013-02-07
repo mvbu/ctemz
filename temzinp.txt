@@ -1,24 +1,24 @@
-# Input Parameters no. cells on hexagaonal side (< 20), zred, dgpc, alpha, p, bavg, -PSD slope, E(e)/E(B), rsize, gmaxmn, gmrat, gmin, betaup(laminar), betaup(turb), zeta (shockangle), thlos, opang, dust temp., obs. dust luminosity in units of 1e45 erg/s, dust torus distance, torus x-section rad., zdist0, vdm (vol. of Mach disk/cell vol.)
-9
+# Input Parameters no. cells radius (<= 5), zred, dgpc, alpha, p, bavg, -PSD slope, E(e)/E(B), rsize, gmaxmn, gmrat, gmin, betaup(laminar), betaup(turb), zeta (shockangle), thlos, opang, dust temp., obs. dust luminosity in units of 1e45 erg/s, dust torus distance, torus x-section rad., zdist0, vdm (vol. of Mach disk/cell vol.)
+5
 0.069
 0.295
 0.55
-0.50
-0.050
+0.80
+0.06
 1.7
-2.0e1
+0.25e0
 0.004
-5000.0
+3000.0
 10.0
 300.0
-0.995d0
-0.01d0
+0.99d0
+0.577d0
 10.0d0
 7.7d0
 1.9d0
 1200.0
-.2
-1.0
+0.1
+1.5
 0.3
 1.0
-1.0e0
+0.4e0

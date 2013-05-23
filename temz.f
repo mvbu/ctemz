@@ -1,6 +1,5 @@
 c     Turbulent Extreme Multi-Zone (TEMZ) model for blazar multi-waveband
-c       light curves, SEDs, and (synchrotron) polarization
-c
+c       light curves, SEDs, and (synchrotron) polarization 
 c     Program that calculates the light curve and dynamic SED of a jet with turbulent
 c       plasma passing through a conical standing shock
 c     This version includes variations on times as short as the time for a cell to
@@ -17,21 +16,21 @@ c       and from a Mach disk
      , zcell(400,1141),betadx(400,1141),betady(400,1141),
      , betadz(400,1141),betad(400,1141),gammad(400,1141),
      , betaux(1141),betauy(1141),betauz(1141),
-     , betau(1141),gammau(1141),spsdx(65536),spsd(65536),
+     , betau(1141),gammau(1141),spsdx(131072),spsd(131072),
      , nu(68),bx(400,1141),by(400,1141),bz(400,1141),
      , delta(400,1141),enofe(400,1141,44),edist(44),fsync(68),
      , ggam(44),dustnu(22),dusti(22),ididg(1141),
-     , gcnt(44),igcnt(44),fsynmd(68,60000),nouter(1140),
-     , fsscmd(68,65000),fmdall(68),deltmd(1140),dmd(1140),
+     , gcnt(44),igcnt(44),fsynmd(68,130000),nouter(1140),
+     , fsscmd(68,131000),fmdall(68),deltmd(1140),dmd(1140),
      , tlf(200),betamx(1140),betamy(1140),
-     , betamz(1140),betamr(1140),gamamr(1140),bmdx(60000),
-     , bmdy(60000),bmdz(60000),bmdtot(60000),tlf1(1140),
-     , flsync(400,1141,68),flcomp(400,1141,68),absorb(68,60000),
-     , fsync2(68),alphmd(68,60000),dustii(420,22),dustf(420,22),
-     , alfmdc(68,60000),syseed(68),scseed(68),snu(68),ssseed(68),
-     , flec(400,1141,68),flssc(400,1141,68),mdd(60000),useed(420),
-     , phots(68),phalph(68),icelmx(1141),imax(1141),seedpk(420),
-     , abexmd(68,60000),psi(1140),sinpsi(1140),cospsi(1140),
+     , betamz(1140),betamr(1140),gamamr(1140),bmdx(130000),
+     , bmdy(130000),bmdz(130000),bmdtot(130000),tlf1(1140),
+     , flsync(400,1141,68),flcomp(400,1141,68),absorb(68,130000),
+     , fsync2(68),alphmd(68,130000),dustii(451,22),dustf(451,22),
+     , alfmdc(68,130000),syseed(68),scseed(68),snu(68),ssseed(68),
+     , flec(400,1141,68),flssc(400,1141,68),mdd(130000),useed(451),
+     , phots(68),phalph(68),icelmx(1141),imax(1141),seedpk(451),
+     , abexmd(68,130000),psi(1140),sinpsi(1140),cospsi(1140),
      , tanpsi(1140),tauxmd(68),phi1(1141),phi2(1141),
      , theta1(1141),theta2(1141),ididb(1141),bfrac(1141),
      , ididbd(1141),bfracd(1141),phi2d(1141),thet2d(1141),
@@ -39,8 +38,10 @@ c       and from a Mach disk
      , bu1x(1141),bu1y(1141),bu1z(1141),bu2x(1141),bu2y(1141),
      , bu2z(1141),cu1x(1141),cu1y(1141),cu1z(1141),angrtd(1141),
      , cosrtd(1141),bu1xd(1141),bu1yd(1141),bu1zd(1141),bu2xd(1141),
-     , bu2yd(1141),bu2zd(1141),cu1xd(1141),cu1yd(1141),cu1zd(1141)
+     , bu2yd(1141),bu2zd(1141),cu1xd(1141),cu1yd(1141),cu1zd(1141),
+     , tdelr(451),zsmd(130000)
       character*10 dumdum, fstat
+      character*16 filnam
       real*8 pol,pqcum,pucum,pq,pu,pmean,polc,ai2,
      ,  pcum,tanv0,cosv0,betaup,gamup,beta,sinz,cosz,phcell,
      ,  cosph,sinph,thlos,betau,gammau,opang,tanop,cosop,sinop,
@@ -63,14 +64,16 @@ c       and from a Mach disk
       real fixedRandData
       integer fixedRandFlag, fixedRandFileOpened, fixedRandCounter
       real*4 daysToSimulate
+      character*5 :: dpath='maps/'
 c      common/ci/i,j
       common/cvel/bdx,bdy,bdz,gamd,betd
       common/cparm/zred1,bfld,bperpp
       common/cdust/csth1,csth2,dcsth1,dcsth2,dsang,tdust
-      common/cssc/snu,ssseed,nuhi
+      common/cssc/snu,ssseed,nuhi,cscat
       common/cdist/ggam,edist
-      common/cseed/dustnu,dusti
+      common/cseed/dustnu,dusti,csang
       common/cang/cosz,sinz
+      common/crite/iwrite
       common/cinput/daysToSimulate
       ! Added by me (MSV, June 2012) for test mode ("generates" the same sequence of rand numbers every time)
       common/cfixedrand/fixedRandFlag, fixedRandFileOpened, fixedRandData, fixedRandCounter
@@ -98,8 +101,11 @@ c      common/ci/i,j
      , status=fstat)
       open (6,iostat=ios, err=9000, file='temzcheck.txt',
      , status=fstat)
-      open (7,iostat=ios, err=9000, file='temzmap.txt',
-     , status=fstat)
+      it=0
+      write(filnam,"(a8,i4.4,a4)") "temzmap",it,".txt"
+      open (7,iostat=ios, err=9000, file=dpath//filnam,status=fstat)
+c      open (7,iostat=ios, err=9000, file=dpath//'temzemap0.txt',
+c     , status=fstat)
       if(nTestOut.ne.0) open (9,iostat=ios, err=9000, file='testout.txt',
      , status=fstat)
 c     Input file format: 1st line characters, then values of parameters,
@@ -113,12 +119,23 @@ c       one per line
       iseed = randproto(ita)
       randstart=randproto(iseed)
 c     icells along axial direction, jcells along transverse direction
-      icells=200 !! This needs to be changed to 200 eventually
+c      icells=200
+      icells=400 ! Can lower this for testing, but Marscher currently has this at 400
       jcells=3*nend*(nend-1)+1
       ancol=2*nend-1
       rbound=ancol*rsize
-      mdmd=15000
-      mdmax=55000 ! TODO: this might need to be set to 4000 during testing
+c     zrat later defines zsize = zrat*rsize/tanz
+c       If zrat is decrease, size of dust arrays needs to be increase above 451
+      zrat=0.2
+      nzid=nend/zrat
+      amppsd=6.0
+      ndim=131072
+c      ndim=65536
+      andim=ndim
+c      mdmd=17000
+c      mdmax=55000
+      mdmd=41820
+      mdmax=120000
 c     An SED will be printed out every ispecs time steps
       ispecs=1
       ispec=1
@@ -139,7 +156,6 @@ c     gmin is the minimum value of initial gamma of electrons
 c     2p is the slope of the volume vs. initial gamma-max law over all cells,
 c          V = V0*gamma_max**(-2p)
       pexp=-2.0*p
-      amppsd=1.0
 c     Set up compilation of distribution of initial gamma_max values
       gmrf=gmaxmx/gmaxmn
       gmrfl=alog10(gmrf)/43.0
@@ -189,8 +205,6 @@ c     Speed downstream of conical shock if turbulent velocity is ignored;
 c        for setting cell length zsize and for first estimate of time delay
 c      betadd=dsqrt((1.0d0-(betaup*cosz)**2)**2+9.0d0*
 c     ,(betaup**2*cosz*sinz)**2)/(3.0*betaup*sinz)
-c      betadd=dsqrt((1.0d0-(betaup*cosz)**2)**2+9.0d0*
-c     ,(betaup**2*cosz*sinz)**2)/(3.0*betaup*sinz)
       sx=-sinz
       sy=0.0
       sz=cosz
@@ -203,7 +217,7 @@ c 7891 gammdd=1.0d0/dsqrt(1.0d0-betadd**2)
  7891 betd=betadd
       gamd=gammdd
 c     Length of a cylindrical cell in pc
-      zsize=0.2*rsize/tanz ! temzd.f has 2.0 as 0.2 which takes too long to run for testing.
+      zsize=0.2*rsize/tanz ! 0.2 can be changed to 2.0 for faster runs/testing
       volc=pi*rsize**2*zsize
 c     Length and volume of cell in plasma proper frame
       zsizep=zsize/gamd
@@ -231,8 +245,8 @@ c      write(3,8888)iseed,alpha
 c     Computation of IR seed photon density from dust torus as function of distance down jet
 c     Area filling factor of hot dust, from IR luminosity. 1.05E8 = 1E45/(parsec**2)
       filld=1.05e8*ldust/(5.67e-5*2.0*pi**2*dtrad*dtdist*tdust**4)
-      do 333 id=1,(icells+nend)
-      zdist=zdist0+(id-nend)*rsize/tanz+zshock
+      do 333 id=1,(icells+nend/zrat)
+      zdist=zdist0+(id-nend/zrat)*zsize+zshock
 c     Calculate min & max angles of dust torus in plasma frame
       dphi1=asin(dtrad/sqrt(zdist**2+dtdist**2))
       dphi2=atan(dtdist/zdist)
@@ -245,6 +259,7 @@ c     Calculate min & max angles of dust torus in plasma frame
 c     Doppler factor of dust torus emission in frame of cells, used
 c       to estimate frequency of peak intensity in plasma frame
       tdel=gammdd*(1.0d0-betadd*0.5*(csth1+csth2))
+      tdelr(id)=tdel
       dsang=dth2-dth1
 c     Calculate seed photon field from dust emission in plasma frame
 c     Peak frequency of dust thermal emission for part of torus closest to shock
@@ -253,10 +268,14 @@ c     Use this to set the frequency array of the seed photons
       do 3 inu=1,22
       dustnu(inu)=seedpk(id)*10**(-1.4+(inu-1)*0.1)
       dusti(inu)=filld*seedph(dustnu(inu))
+      if(dusti(inu).lt.1.0e-20)dusti(inu)=1.0e-20
       dustf(id,inu)=dustnu(inu)
     3 dustii(id,inu)=dusti(inu)
+c      do 3331 inu=1,22
+c 3331 write(6,9331)id,seedpk(id),dustnu(inu),dusti(inu)
+c 9331 format(i6,1p3e12.3)
   333 continue
-      do 336 id=1,icells+nend
+      do 336 id=1,icells+nzid
       dflux=0.0
       do 6 inu=2,22
       if(dustii(id,inu-1).le.0.0.or.dustii(id,inu).le.0.0)go to 4
@@ -270,6 +289,7 @@ c     Use this to set the frequency array of the seed photons
     5 continue
     6 continue
       useed(id)=4.0*pi*dflux/c
+c      write(6,9994)id,nzid,useed(id)
   336 continue
       gmratl=log10(gmaxmx/gmin)/40.0
 cccccc   TEST
@@ -311,34 +331,56 @@ cccccc  END TEST
 c     Set up variation of energy density according to PSD; see Done et al.,
 c       1992, ApJ, 400, 138, eq. B1
       tinc=dtime
-      call psdsim(65536,-psdslp,-psdslp,1.0,tinc,spsdx)
+      call psdsim(ndim,-psdslp,-psdslp,1.0,tinc,spsdx)
       psdsum=0.0
-c      ipulse=dstart+100+ip0
+      psdsig=0.0
+      ipulse=dstart+100+ip0
       spexp=1.0/(0.5*expon+1.0)
-      do 4998 ip=1,65536
-      spsdx(ip)=abs(spsdx(ip))**(spexp)
-cccc  Next line is only for testing purposes; if using it, comment out call psdsim()
+      do 4997 ip=1,ndim
+c     Normalize spsd by standard deviation
+      psdsig=psdsig+spsdx(ip)*spsdx(ip)/(andim-1.0)
+ 4997 continue
+      psdsig=sqrt(psdsig)
+      do 4998 ip=1,ndim
+cccc  Next section is only for testing purposes
+cccc   If using it, comment out call psdsim() above
 c      spsdx(ip)=1.0
-      spsd(ip)=spsdx(ip)
-cccc  Add pulse of high energy density to test code
-c      if(ip.ge.ipulse.and.ip.lt.(ipulse+10))spsdx(ip)=50.0*spsdx(ip)
-c      if(ip.ge.(ipulse+100).and.ip.lt.(ipulse+110))
-c     ,  spsdx(ip)=50.0*spsdx(ip)
+c  Add pulse of high energy density
+c      expsd=3.0-(ipulse-10-ip)/4.0
+c      if(ip.gt.(ipulse-10))expsd=3.0+(ipulse-10-ip)/4.0
+c      if(ip.ge.(ipulse-20).and.ip.le.(ipulse))spsdx(ip)=
+c     ,  exp(0.4*expsd)*spsdx(ip)
+c      expsd=3.0-(ipulse+5-ip)/1.5
+c      if(ip.gt.(ipulse+5))expsd=3.0+(ipulse+5-ip)/1.5
+c      if(ip.ge.(ipulse).and.ip.le.(ipulse+10))spsdx(ip)=
+c     ,  exp(1.5*expsd)*spsdx(ip)
+c      expsd=3.0-(ipulse+60-ip)/4.0
+c      if(ip.gt.(ipulse+60))expsd=3.0+(ipulse+60-ip)/4.0
+c      if(ip.ge.(ipulse+50).and.ip.le.(ipulse+70))spsdx(ip)=
+c     ,  exp(0.4*expsd)*spsdx(ip)
+c      expsd=3.0-(ipulse+95-ip)/4.0
+c      if(ip.gt.ipulse+95)expsd=3.0+(ipulse+95-ip)/4.0
+c      if(ip.ge.(ipulse+85).and.ip.le.(ipulse+105))spsdx(ip)=
+c     ,  exp(0.35*expsd)*spsdx(ip)
 cccc
+c     Normalize spsd by standard deviation and take exponential of result
+c       to get amplitude of flux variation
+      spsd(ip)=exp(amppsd*spsdx(ip)/psdsig)
+c     Need to scale n0 and B by a different factor to get the desired amplitude
+      spsd(ip)=spsd(ip)**(spexp)
 c     Average of 10 time steps to smooth variations so that discreteness
 c       of columns of cells does not cause artificial spikes of flux
-      if(ip.gt.9)spsd(ip)=0.1*(spsdx(ip)+spsdx(ip-1)+spsdx(ip-2)+
-     ,  spsdx(ip-3)+spsdx(ip-4)+spsdx(ip-5)+spsdx(ip-6)+
-     ,  spsdx(ip-7)+spsdx(ip-8)+spsdx(ip-9))
-      psdsum=psdsum+spsd(ip)/65536.0
+      if(ip.gt.9)spsd(ip)=0.1*(spsd(ip)+spsd(ip-1)+spsd(ip-2)+
+     ,  spsd(ip-3)+spsd(ip-4)+spsd(ip-5)+spsd(ip-6)+
+     ,  spsd(ip-7)+spsd(ip-8)+spsd(ip-9))
+      psdsum=psdsum+amppsd*spsd(ip)/andim
  4998 continue
       write(6,9992)nend,ip0,dstart,zsize,zshock,clos,slos,
-     ,   gammdd,delobs,dtfact,psdsum
-      do 4999 ip=1,65536
-c     Normalize spsd and multiply by amplitude (usually = 1.0).
-c     **Note that mean energy density = amppsd times value set from bavg in input file
-      spsd(ip)=amppsd*spsd(ip)/psdsum
- 4999 continue
+     ,   gammdd,delobs,dtfact,psdsig,psdsum
+c      do 4999 ip=1,ndim
+c      write(8,9345)ip,spsd(ip)
+c 4999 continue
+ 9345 format(i10,1pe12.3)
 c      ip0=randproto(0)*5000
       ip0=100
       it=0
@@ -460,10 +502,11 @@ c     Loop over mdmax cells that pass through Mach disk
  6131 continue
 c     Compute B field components downstream of Mach disk shock
       idelay=dstart-mdmd+md-idelmd
-      if(idelay.lt.1.or.idelay.gt.(65536-ip0))
+      if(idelay.lt.1.or.idelay.gt.(ndim-ip0))
      ,  write(6,9299)idelay,i,jcells,md,idelmd,ip0,mdmax,dstart,
      ,  zshock,delobs,gamd,betd,clos
-      bavg=bave*sqrt(spsd(idelay+ip0))
+c      bavg=bave*sqrt(spsd(idelay+ip0))
+      bavg=bave
       n0mean=n0ave*spsd(idelay+ip0)
       j=jcells
       n0(i,j)=etac*n0mean
@@ -476,26 +519,25 @@ c     Compute B field components downstream of Mach disk shock
       bmdy(md)=by(i,j)
       bmdz(md)=bz(i,j)
       bmdtot(md)=bfld
-cccccccccc
 c      write(6,9333)md,idelay,dstart,idelmd,bfld,bx(i,j),
 c     ,  by(i,j),bz(i,j),bavg,n0mean,etac
 c     Calculate the initial maximum electron energy in the Mach disk
-      bprp=sqrt(bux*bux+buy*buy)
-c      write(6,9996)thetab,phi,theta1(jcells),theta2(jcells),
-c     ,   phi1(jcells),phi2(jcells),etac,bmdx(md),
-c     ,  bmdy(md),bmdz(md),bfld,bprp
+      ball2=bux*bux+buy*buy+buz*buz
 c     Next line relates this to direction of upstream B field relative to shock
-c      gmax0(i,j)=gmaxmn*bprp**(2.0*pexp)
+c      gmax0(i,j)=gmaxmx*buz*buz/ball2
+c      if(gmax0(i,j).lt.gmaxmn)gmax0(i,j)=gmaxmn
 c     Next 3 lines assume a power-law distribution of gmax0, unrelated
 c         to direction of B field
 c     See http://mathworld.wolfram.com/RandomNumber.html for choosing
 c      random numbers from a power-law distribution
-      xrand=randproto(0)
-      if(pexp.eq.0.0)gmax0(i,j)=gmaxmx
-      if(pexp.lt.0.0)gmax0(i,j)=((gmaxmx**pexp-gmaxmn**pexp)*xrand+
-     ,  gmaxmn**pexp)**(1.0/pexp)
-c      gmax0(i,j)=gmaxmn
+c      xrand=rand(0)
+c      if(pexp.eq.0.0)gmax0(i,j)=gmaxmx
+c      if(pexp.lt.0.0)gmax0(i,j)=((gmaxmx**pexp-gmaxmn**pexp)*xrand+
+c     ,  gmaxmn**pexp)**(1.0/pexp)
+      gmax0(i,j)=gmaxmn
       gminmd=gmin
+c      gminmd=1800.0
+c      gmax0(i,j)=1.4*gminmd
 c     Calculate energy distribution in the Mach disk cell
 c     Compute energy density of photons in Mach disk, time delayed by 1 step
 c       Ignore photons from dust torus since beaming is small in Mach disk
@@ -505,51 +547,43 @@ c     Value of SSC photon density for fast cooling case, from Sari and Esen (200
       uphmd=bmdtot(mdi)**2/(8.0*pi)*(sqrt(1.0+4.0*uratio)-1.0)/2.0
       ustob=8.0*pi*uphmd/(bfield(j))**2
       tlfact=cc2*bfield(j)**2*(1.0+ustob)
-c     iend is the last slice of cells with energetic electrons
-      iend=i
-      delt=zsize*yr*3.26/(gammd*betamd)
-      gamb=gmax0(i,j)/(1.0+tlfact*gmax0(i,j)*delt)
-      if(gamb.lt.1.0)gamb=1.0
-      glow=gminmd/(1.0+tlfact*gminmd*delt)
-      if(glow.lt.1.0)glow=1.0
+c     Effective length of Mach disk zsmd = loss time of highest-E
+c       electrons (to energy glow where radiation is negligible) times flow velocity
+      glow=10.0
+      delt=(gmax0(i,j)-glow)/(tlfact*glow*gmax0(i,j))
+      zsmd(md)=delt/(yr*3.26)*gammd*betamd
 c     Use 0.99 instead of 1 to avoid singularity of N(gamma) at gmax0
       gmrat=0.99*gmax0(i,j)/gminmd
       gmratl=dlog10(gmrat)/32.0
       gmratm=dlog10(gminmd/glow)/11.0
-      ibreak=0
-      if(gamb.le.glow)ibreak=1
 c      write(6,9996)bfield(j),n0(i,j),gmax0(i,j),uphmd,ustob,
 c     ,  tlfact,bmdtot(mdi),delt,gamb,glow
       do 124 ie=1,44
-      egam(i,j,ie)=gminmd*10.0**(gmratl*(ie-12))
+      if(ie.ge.12)egam(i,j,ie)=gminmd*10.0**(gmratl*(ie-12))
       if(ie.lt.12)egam(i,j,ie)=glow*10.0**(gmratm*(ie-1))
-      if(ie.eq.1)egam(i,j,ie)=glow+0.2*(glow*10.0**(gmratm)-glow)
-      if(ibreak.eq.1.or.egam(i,j,ie).lt.gamb)go to 123
-      egam(i,j,ie)=gamb
-      ibreak=1
   123 ggam(ie)=egam(i,j,ie)
-      tloss=(gmax0(i,j)-ggam(ie))/(tlfact*ggam(ie)*gmax0(i,j))
-      t1=(gminmd-ggam(ie))/(tlfact*ggam(ie)*gminmd)
-      t2=dmin1(tloss,delt)
-      tlmin=delt-(gminmd-ggam(ie))/(tlfact*gminmd*ggam(ie))
+      t2=(gmax0(i,j)-ggam(ie))/(tlfact*ggam(ie)*gmax0(i,j))
       enofe(i,j,ie)=0.0
-      eterm1=1.0d0-ggam(ie)*t1*tlfact
+      eterm1=ggam(ie)/gminmd
       eterm2=1.0d0-ggam(ie)*t2*tlfact
-      if(eterm1.lt.0.0.or.eterm2.lt.0.0)go to 5123
-      enofe(i,j,ie)=n0(i,j)/((sen-1.0)*tlfact*ggam(ie)**(sen+1.0))*
-     ,  (1.0d0-eterm2**(sen-1.0))
+      if(eterm2.lt.0.0)go to 5123
+      if(ie.ge.12)enofe(i,j,ie)=n0(i,j)/((sen-1.0)*tlfact*
+     ,  ggam(ie)**(sen+1.0))*(1.0d0-eterm2**(sen-1.0))
       if(ie.lt.12)enofe(i,j,ie)=n0(i,j)/((sen-1.0)*tlfact*
      ,  ggam(ie)**(sen+1.0))*(eterm1**(sen-1.0)-
      ,  eterm2**(sen-1.0))
 c     Divide by delt since integral is over time
+      delt=zsize*yr*3.26/(gammad(i,j)*betad(i,j))
       enofe(i,j,ie)=enofe(i,j,ie)/delt
       if(enofe(i,j,ie).lt.0.0)enofe(i,j,ie)=0.0
  5123 edist(ie)=enofe(i,j,ie)
+c      aled=0.0
+c      if(ie.gt.1.and.edist(ie).gt.0.0)aled=
+c     ,  alog10(edist(ie)/edist(ie-1))/dlog10(ggam(ie)/ggam(ie-1))
+c      write(6,9994)md,ie,bfield(j),uphmd,ggam(ie),edist(ie),aled
   124 continue
       bperpp=bfld
       nuhi=1
-c      write(6,9911)md,j,dopref,bperpp,phi,cosphb,sinphb,
-c     ,  bmdx(md),bmdy(md),bmdz(md),gammad(i,j),ggam(43),edist(43)
       do 125 inu=1,40
       alfmdc(inu,md)=10.0
       fsscmd(inu,md)=0.0
@@ -583,17 +617,16 @@ c     Need to add a lower frequency to get spectral index of nu(1)
       if(fsynmd(inu,md).gt.0.0.and.fsyn1.gt.0.0)
      ,alphmd(inu,md)=-alog10(fsynmd(inu,md)/fsyn1)/alog10(restnu/fq1)
       if(absorb(inu,md).gt.0.0.and.absrb1.gt.0.0)
-     ,abexmd(inu,md)=-alog10(fsynmd(inu,md)/fsyn1)/alog10(restnu/fq1)
+     ,abexmd(inu,md)=-alog10(absorb(inu,md)/absrb1)/alog10(restnu/fq1)
 ccccccccc
-c      write(5,9994)md,inu,restnu,fsync(inu),(restnu/dopref),
+c      write(6,9994)md,inu,restnu,fsync(inu),(restnu/dopref),
 c     ,   fsynmd(inu,md),sstau,
 c     ,   absorb(inu,md),alphmd(inu,md),bperpp,dopref
       fq1=restnu
       fsyn1=fsynmd(inu,md)
+      absrb1=absorb(inu,md)
       ssseed(inu)=fsync(inu)
       if(nTestOut.eq.3) write(9, 9216) md, inu, fsynmd(inu,md)
-c      write(5,9911)md,j,dopref,bperpp,n0(i,j),ggam(43),edist(43),
-c     ,  restnu,ssseed(inu),fsynmd(inu,md),fsscmd(inu,md)
   125 continue
       do 128 inu=41,68
       snu(inu)=nu(inu)
@@ -615,12 +648,11 @@ c       relative Doppler factor dopref
       alfmdc(inu,md)=10.0
       if(fsscmd(inu,md).gt.0.0.and.fssc1.gt.0.0)
      ,alfmdc(inu,md)=-alog10(fsscmd(inu,md)/fssc1)/alog10(restnu/fq1)
-cccccccccc
-c      write(6,9911)md,j,dopref,bfld,bperpp,n0(i,j),ggam(43),edist(43),
-c     ,  restnu,ssseed(inu),fsynmd(inu,md),fsscmd(inu,md)
       fq1=restnu
       fssc1=fsscmd(inu,md)
       if(nTestOut.eq.3) write(9, 9215) md, inu, fsscmd(inu,md)
+c      write(6,9911)md,j,dopref,bperpp,n0(i,j),
+c     ,  restnu,ssseed(inu),fsynmd(inu,md),fsscmd(inu,md)
   129 continue
   130 continue
 c
@@ -645,14 +677,16 @@ c
       zcell(i,j)=zshock-(rcell(j)-rsize)/tanz
       idelay=0.5+dstart+it-1+((zrf-zcell(i,j))
      ,   +(xrf-xcell(j))*betadd*slos/(1.0d0-betadd*clos))/zsize
-      if(idelay.le.0.or.idelay.gt.(65536-ip0))
+      if(idelay.le.0.or.idelay.gt.(ndim-ip0))
      ,  write(5,9222)idelay,dstart,j,md,ip0,zshock,zrf,zcell(i,j),
      ,  xrf,xcell(j),betadd,zsize
 c      write(6,9333)it,i,j,idelay,zcell(i,j),zref,xcell(j),betadd,zsize
-      bavg=bave*sqrt(spsd(idelay+ip0))
+c      bavg=bave*sqrt(spsd(idelay+ip0))
+      bavg=bave
       n0mean=n0ave*spsd(idelay+ip0)
-c      if(it.gt.20)write(6,9333)it,i,j,idelay,zcell(i,j),
-c     ,  rcell(j),xcell(j),ycell(j),bavg,n0mean
+c     xxxxx
+c      write(6,9333)it,i,j,idelay,zcell(i,j),rcell(j),xcell(j),
+c     ,  ycell(j),spsd(idelay+ip0),bavg,n0mean
       phcell(j)=datan2(sinph(j),cosph(j))
 c     Velocity vector of laminar component of pre-shock flow
       betupx=betaup*cosph(j)*sinpsi(j)
@@ -685,10 +719,10 @@ c     Unit vector of shock front at current position
       sx=-sinz*cosph(j)
       sy=-sinz*sinph(j)
       sz=cosz
-cccccccccc
 c     Velocity vector downstream of shock + compression ratio of shock
       call vdcalc(betaux(j),betauy(j),betauz(j),sx,sy,sz,betadx(i,j),
      ,   betady(i,j),betadz(i,j),betad(i,j),gammad(i,j),eta)
+cccccccccc
 c      write(6,9994)i,j,betaux(j),betauy(j),betauz(j),betau(j),
 c     ,  gammau(j),betadx(i,j),betady(i,j),betadz(i,j),betad(i,j),
 c     ,  gammad(i,j),eta
@@ -801,20 +835,23 @@ c     Set field of plasma in central cell, which is a Mach disk
       bmdz(md)=bz(i,j)
       bmdtot(md)=bfld
 c     Calculate the initial maximum electron energy in the Mach disk
-      bprp=bux*bux+buy*buy
-      bprp=sqrt(bprp)/sqrt(bprp+buz*buz)
-c     Next line relates this to direction of B field relative to shock
-c      gmax0(i,j)=gmaxmn*(bprp/bup)**(2.0*pexp)
+      ball2=bux*bux+buy*buy+buz*buz
+c     Next line relates this to direction of upstream B field relative to shock
+c      gmax0(i,j)=gmaxmx*buz*buz/ball2
+c      if(gmax0(i,j).lt.gmaxmn)gmax0(i,j)=gmaxmn
+c      gmax0(i,j)=gmaxmn
 c     Next 3 lines assume a power-law distribution of gmax0, unrelated
 c         to direction of B field
 c     See http://mathworld.wolfram.com/RandomNumber.html for choosing
 c      random numbers from a power-law distribution
-      xrand=randproto(0)
-      if(pexp.eq.0.0)gmax0(i,j)=gmaxmx
-      if(pexp.lt.0.0)gmax0(i,j)=((gmaxmx**pexp-gmaxmn**pexp)*xrand+
-     ,  gmaxmn**pexp)**(1.0/pexp)
-c      gmax0(i,j)=gmaxmn
+c      xrand=rand(0)
+c      if(pexp.eq.0.0)gmax0(i,j)=gmaxmx
+c      if(pexp.lt.0.0)gmax0(i,j)=((gmaxmx**pexp-gmaxmn**pexp)*xrand+
+c     ,  gmaxmn**pexp)**(1.0/pexp)
+      gmax0(i,j)=gmaxmn
       gminmd=gmin
+c      gminmd=1800.0
+c      gmax0(i,j)=1.4*gminmd
 c     Calculate energy distribution in the Mach disk cell
 c     Compute energy density of photons in Mach disk, time delayed by 1 step
 c       Ignore photons from dust torus since beaming is small in Mach disk
@@ -823,42 +860,34 @@ c       Ignore photons from dust torus since beaming is small in Mach disk
       uphmd=bmdtot(mdi)**2/(8.0*pi)*(sqrt(1.0+4.0*uratio)-1.0)/2.0
       ustob=8.0*pi*uphmd/(bfield(j))**2
       tlfact=cc2*bfield(j)**2*(1.0+ustob)
-c     iend is the last slice of cells with energetic electrons
-      iend=i
-      delt=zsize*yr*3.26/(gammd*betamd)
-      gamb=gmax0(i,j)/(1.0+tlfact*gmax0(i,j)*delt)
-      if(gamb.lt.1.0)gamb=1.0
-      glow=gminmd/(1.0+tlfact*gminmd*delt)
-      if(glow.lt.1.0)glow=1.0
+c     Effective length of Mach disk zsmd = loss time of highest-E
+c       electrons (to energy glow where radiation is negligible) times flow velocity
+      glow=10.0
+      delt=(gmax0(i,j)-glow)/(tlfact*glow*gmax0(i,j))
+      zsmd(md)=delt/(yr*3.26)*gammd*betamd
+c      zsmd(md)=0.2*zsize
+c     Use 0.99 instead of 1 to avoid singularity of N(gamma) at gmax0
       gmrat=0.99*gmax0(i,j)/gminmd
       gmratl=dlog10(gmrat)/32.0
       gmratm=dlog10(gminmd/glow)/11.0
-      ibreak=0
-      if(gamb.le.glow)ibreak=1
-cc      write(5,9996)bfield(j),n0(i,j),gmax0(i,j),useed,usdmd,ustob,tlfact,
-cc     ,  delt,gamb,glow
+c      write(6,9996)bfield(j),n0(i,j),gmax0(i,j),uphmd,ustob,
+c     ,  tlfact,bmdtot(mdi),delt,gamb,glow
       do 1124 ie=1,44
-      egam(i,j,ie)=gminmd*10.0**(gmratl*(ie-12))
+      if(ie.ge.12)egam(i,j,ie)=gminmd*10.0**(gmratl*(ie-12))
       if(ie.lt.12)egam(i,j,ie)=glow*10.0**(gmratm*(ie-1))
-      if(ie.eq.1)egam(i,j,ie)=glow+0.2*(glow*10.0**(gmratm)-glow)
-      if(ibreak.eq.1.or.egam(i,j,ie).lt.gamb)go to 1123
-      egam(i,j,ie)=gamb
-      ibreak=1
  1123 ggam(ie)=egam(i,j,ie)
-      tloss=(gmax0(i,j)-ggam(ie))/(tlfact*ggam(ie)*gmax0(i,j))
-      t1=(gminmd-ggam(ie))/(tlfact*ggam(ie)*gminmd)
-      t2=dmin1(tloss,delt)
-      tlmin=delt-(gminmd-ggam(ie))/(tlfact*gminmd*ggam(ie))
+      t2=(gmax0(i,j)-ggam(ie))/(tlfact*ggam(ie)*gmax0(i,j))
       enofe(i,j,ie)=0.0
-      eterm1=1.0d0-ggam(ie)*t1*tlfact
+      eterm1=ggam(ie)/gminmd
       eterm2=1.0d0-ggam(ie)*t2*tlfact
-      if(eterm1.lt.0.0.or.eterm2.lt.0.0)go to 5124
-      enofe(i,j,ie)=n0(i,j)/((sen-1.0)*tlfact*ggam(ie)**(sen+1.0))*
-     ,  (1.0d0-eterm2**(sen-1.0))
+      if(eterm2.lt.0.0)go to 5124
+      if(ie.ge.12)enofe(i,j,ie)=n0(i,j)/((sen-1.0)*tlfact*
+     ,  ggam(ie)**(sen+1.0))*(1.0d0-eterm2**(sen-1.0))
       if(ie.lt.12)enofe(i,j,ie)=n0(i,j)/((sen-1.0)*tlfact*
      ,  ggam(ie)**(sen+1.0))*(eterm1**(sen-1.0)-
      ,  eterm2**(sen-1.0))
 c     Divide by delt since integral is over time
+      delt=zsize*yr*3.26/(gammad(i,j)*betad(i,j))
       enofe(i,j,ie)=enofe(i,j,ie)/delt
       if(enofe(i,j,ie).lt.0.0)enofe(i,j,ie)=0.0
  5124 edist(ie)=enofe(i,j,ie)
@@ -901,11 +930,12 @@ c     Need to add a lower frequency to get spectral index of nu(1)
       if(fsynmd(inu,md).gt.0.0.and.fsyn1.gt.0.0)
      ,alphmd(inu,md)=-alog10(fsynmd(inu,md)/fsyn1)/alog10(restnu/fq1)
       if(absorb(inu,md).gt.0.0.and.absrb1.gt.0.0)
-     ,abexmd(inu,md)=-alog10(fsynmd(inu,md)/fsyn1)/alog10(restnu/fq1)
+     ,abexmd(inu,md)=-alog10(absorb(inu,md)/absrb1)/alog10(restnu/fq1)
 c      write(5,9996)restnu,fsync(inu),fsynmd(inu,md),sstau,
 c     ,   absorb(inu,md),alphmd(inu,md),bperpp
       fq1=restnu
       fsyn1=fsynmd(inu,md)
+      absrb1=absorb(inu,md)
       ssseed(inu)=fsync(inu)
       if(nTestOut.eq.4) write(9,14001) 1125,i,j,md,inu,'fsync(inu)',fsync(inu)
       if(nTestOut.eq.4) write(9,14001) 1125,i,j,md,inu,'fsynmd(inu,md)',fsynmd(inu,md)
@@ -949,15 +979,16 @@ c     Line-of-sight unit vector
       n0(i,j)=eta*n0mean
 c     Calculate the initial maximum electron energy in each cell
 c       from the ratio of B(perp. to shock) to B_total in shock frame
-c      gmax0(i,j)=gmaxmn*(bprp/bup)**(2.0*pexp)
+      gmax0(i,j)=gmaxmx*(bprp*bprp/(bpar*bpar+bprp*bprp))
+      if(gmax0(i,j).lt.gmaxmn)gmax0(i,j)=gmaxmn
 c     Next 3 lines assume a power-law distribution of gmax0, unrelated
 c         to direction of B field
 c     See http://mathworld.wolfram.com/RandomNumber.html for choosing
 c      random numbers from a power-law distribution
-      xrand=randproto(0)
-      if(pexp.eq.0.0)gmax0(i,j)=gmaxmx
-      if(pexp.lt.0.0)gmax0(i,j)=((gmaxmx**pexp-gmaxmn**pexp)*xrand+
-     ,  gmaxmn**pexp)**(1.0/pexp)
+c      xrand=randproto(0)
+c      if(pexp.eq.0.0)gmax0(i,j)=gmaxmx
+c      if(pexp.lt.0.0)gmax0(i,j)=((gmaxmx**pexp-gmaxmn**pexp)*xrand+
+c     ,  gmaxmn**pexp)**(1.0/pexp)
       do 15 ig=1,43
    15 if(gmax0(i,j).le.gcnt(ig+1).and.gmax0(i,j).ge.gcnt(ig))
      , igcnt(ig)=igcnt(ig)+1
@@ -1000,6 +1031,9 @@ c     Determine velocity of the cell plasma relative to the MD plasma
       zcl=zcell(i,j)
       zrel=zshock-0.5*zsize-zcl
       dmd(j)=sqrt(zrel**2+rcell(j)**2)
+c     Calculate angle between MD seed photon and scattered l.o.s. photon
+      call scatcs(bdx,bdy,bdz,clos,0.0d0,slos,xcell(j),ycell(j),
+     ,   -zrel,cscat)
 c     Determine Doppler factor of the MD emission in the cell's frame
       dmdp=sqrt(rcell(j)**2+(zrel/gamamr(j))**2)
       cosmd=(betamx(j)*xcell(j)+betamy(j)*ycell(j)+
@@ -1017,8 +1051,10 @@ c     Determine time step of Mach disk seed photons from light-travel delay
       md1=mdmid-mdrang
       if(md1.lt.1)md1=1
       if(mdmid.lt.0.or.md1.gt.mdmax)write(6,9736)it,i,j,mdmid,
-     , md2,idelay,zrf,zcl,xrf,xcell(j),dmd(j),dtfact,zsize,clos,slos
+     , md1,idelay,zrf,zcl,xrf,xcell(j),dmd(j),dtfact,zsize,clos,slos
       md2=mdmid+mdrang
+c      write(7,9191)md1,md2,mdmid
+c 9191 format(3i10)
       if(md2.gt.mdmax)md2=mdmax
       if(md1.gt.md2)md1=md2
       amdrng=md2-md1+1.0
@@ -1056,43 +1092,47 @@ c
 c     Synchrotron mean intensity for inverse Compton calculation
       ssabs=absorb(inu,md)*bpcorr**(0.5*(sen+2.0))*
      ,  delcor**(abexmd(inu,md))
-      sstau=ssabs*parsec*zsize
+      path=2.0*rsize*svmd/(tanmd*cosmd)
+      if(path.gt.zsmd(md))path=zsmd(md)
       ajofnu=fsynmd(inu,md)*bpcorr**(1.0+alphmd(inu,md))*
      ,  delcor**(2.0+alphmd(inu,md))
-      ajofnu=ajofnu*zsize*(emfact*parsec)
+      ajofnu=ajofnu*zsmd(md)*(emfact*parsec)
       syseed(inu)=ajofnu
       srcfn=ajofnu/sstau
       if(sstau.gt.5.0)syseed(inu)=srcfn
       if(sstau.gt.0.1.and.sstau.le.5.0)syseed(inu)=
      ,  srcfn*(1.0-exp(-sstau))
-      syseed(inu)=syseed(inu)*volc*vmd/(zsize*dmd(j)**2)
+      syseed(inu)=syseed(inu)*pi*rsize**2*vmd/(dmd(j)**2)
 c     Now estimate exponential attenuation of MD seed photons by
 c      synchrotron self-absorption in intervening cells
-      tauexp=1.02e4*(sen+2.0)*akapnu(nu(inu)/deltmd(j))*
-     ,  bperp(j)/(nu(inu)/deltmd(j))**2*parsec*dmd(j)
+      tauexp=1.02e4*(sen+2.0)*akapnu(nu(inu))*
+     ,  bperp(j)/nu(inu)**2*parsec*dmd(j)
       tauxmd(inu)=tauexp
       if(tauexp.gt.15.0)syseed(inu)=0.0
       if(tauexp.le.15.0)syseed(inu)=syseed(inu)/exp(tauexp)
   145 scseed(inu)=0.0
-      if(inu.lt.7)fmdall(inu)=fmdall(inu)+syseed(inu)/
+      if(inu.lt.16)fmdall(inu)=fmdall(inu)+syseed(inu)/
      ,  (amdrng/dtfact)
-c      write(5,9996)snu(inu),restnu,ssabs,sstau,ajofnu,
+c      write(6,9996)snu(inu),restnu,ssabs,sstau,ajofnu,
 c     ,  fsynmd(inu,md),bpcorr,delcor,alphmd(inu,md),syseed(inu)
   146 continue
 c
 c     Calculate inverse Compton flux from Mach disk in frame of cell plasma
 c
-      do 147 inu=7,68
+      do 147 inu=16,68
 c     Inverse Compton mean intensity from Mach disk for 2nd-order
 c       inverse Compton calculation in cells
       scseed(inu)=fsscmd(inu,md)*
      ,  delcor**(2.0+alfmdc(inu,md))
-      scseed(inu)=scseed(inu)*volc*(amjy*parsec)*vmd/dmd(j)**2
+      scseed(inu)=scseed(inu)*zsmd(md)*pi*rsize**2*
+     ,  (amjy*parsec)*vmd/dmd(j)**2
       if(tauxmd(inu).gt.15.0)scseed(inu)=0.0
       if(tauxmd(inu).le.15.0)scseed(inu)=scseed(inu)/
      ,exp(tauxmd(inu))
       fmdall(inu)=fmdall(inu)+(syseed(inu)+scseed(inu))/
      ,  (amdrng/dtfact)
+c      write(6,9996)snu(inu),restnu,tauxmd(inu),syseed(inu),
+c     ,  scseed(inu)
   147 continue
  2147 continue
       nuhi=0
@@ -1113,11 +1153,30 @@ c     Only calculate up to Klein-Nishina limit of gmin
   149 continue
   150 continue
 c     Calculate energy distribution in the cell
-      id=(zcell(i,j)-zshock)/zsize+nend
+      id=(zcell(i,j)-zshock)/zsize+nzid
       if(id.lt.1)id=1
-      if(id.gt.(icells+nend))write(6,9992)i,j,id,zcell(i,j),zshock,
+      if(id.gt.(icells+nzid))write(6,9992)i,j,id,zcell(i,j),zshock,
      ,  zsize
-      ustob=8.0*pi*(useed(id)+usdmd)/(bfield(j))**2
+      zdist=zdist0+(id-nend/zrat)*zsize+zshock
+c     Calculate min & max angles of dust torus in plasma frame
+      dphi1=asin(dtrad/sqrt(zdist**2+dtdist**2))
+      dphi2=atan(dtdist/zdist)
+      dth1=dphi2-dphi1
+      dth2=dphi2+dphi1
+      csth1=dcos(dth1)
+      csth2=dcos(dth2)
+      dcsth1=-(csth1-betad(i,j))/(1.0d0-csth1*betad(i,j))
+      dcsth2=-(csth2-betad(i,j))/(1.0d0-csth2*betad(i,j))
+      csang=0.5*(dcsth1+dcsth2)
+c     Doppler factor of dust torus emission in frame of cells, used
+c       to estimate frequency of peak intensity in plasma frame
+      tdel=gammad(i,j)*(1.0d0-betad(i,j)*0.5d0*(csth1+csth2))
+c     Correct energy density of seed photons from dust for Doppler factor
+c       that include turbulent component of velocity; approximates that
+c       motion is directed parallel to jet axis; also include first-order
+c       dependence on scattering angle in Klein-Nishina cross-section
+      useedr=useed(id)*(tdel/tdelr(id))**2/(1.0d0+betad(i,j)*csang)
+      ustob=8.0*pi*(useedr+usdmd)/(bfield(j))**2
       tlfact=cc2*bfield(j)**2*(1.0+ustob)
       tlf1(j)=tlfact
       delt=zsize*yr*3.26/(gammad(i,j)*betad(i,j))
@@ -1127,8 +1186,6 @@ c     Calculate energy distribution in the cell
       gmratl=dlog10(gmrat)/32.0
       gmratm=dlog10(gmin/glow)/11.0
       ibreak=0
-cc      write(5,9996)bfield(j),n0(i,j),gmax0(i,j),useed,usdmd,ustob,tlfact,
-cc     ,  delt,gamb,glow
       do 90 ie=1,44
       egam(i,j,ie)=gmin*10.0**(gmratl*(ie-12))
       if(ie.lt.12)egam(i,j,ie)=glow*10.0**(gmratm*(ie-1))
@@ -1138,15 +1195,13 @@ cc     ,  delt,gamb,glow
       ibreak=1
    89 ggam(ie)=egam(i,j,ie)
       tloss=(gmax0(i,j)-ggam(ie))/(tlfact*ggam(ie)*gmax0(i,j))
-      t1=(gmin-ggam(ie))/(tlfact*ggam(ie)*gmin)
       t2=dmin1(tloss,delt)
-      tlmin=delt-(gmin-ggam(ie))/(tlfact*gmin*ggam(ie))
       enofe(i,j,ie)=0.0
-      eterm1=1.0d0-ggam(ie)*t1*tlfact
+      eterm1=ggam(ie)/gmin
       eterm2=1.0d0-ggam(ie)*t2*tlfact
-      if(eterm1.lt.0.0.or.eterm2.lt.0.0)go to 5089
-      enofe(i,j,ie)=n0(i,j)/((sen-1.0)*tlfact*ggam(ie)**(sen+1.0))*
-     ,  (1.0d0-eterm2**(sen-1.0))
+      if(eterm2.lt.0.0)go to 5089
+      if(ie.ge.12)enofe(i,j,ie)=n0(i,j)/((sen-1.0)*tlfact*
+     ,  ggam(ie)**(sen+1.0))*(1.0d0-eterm2**(sen-1.0))
       if(ie.lt.12)enofe(i,j,ie)=n0(i,j)/((sen-1.0)*tlfact*
      ,  ggam(ie)**(sen+1.0))*(eterm1**(sen-1.0)-
      ,  eterm2**(sen-1.0))
@@ -1163,7 +1218,17 @@ c     Start loop over observed frequencies
       ithin=0
       do 93 inu=1,22
       dustnu(inu)=dustf(id,inu)
-   93 dusti(inu)=dustii(id,inu)
+      hnukt=4.8e-11*dustnu(inu)/tdust
+      hnuktr=4.8e-11*dustnu(inu)*(tdel/tdelr(id))/tdust
+      dusti(inu)=dustii(id,inu)
+      if(hnuktr.gt.60.0)go to 5093
+c   93 write(6,9994)id,inu,dustnu(inu),dustii(id,inu),dusti(inu),
+c     ,    tdel,tdelr(id),tdust,hnukt,hnuktr
+   93 if(dusti(inu).gt.1.0e-30)dusti(inu)=dusti(inu)*
+     ,  (tdel/tdelr(id))**3*(1.0-exp(hnukt))/(1.0-exp(hnuktr))
+      go to 5094
+ 5093 dusti(inu)=0.0
+ 5094 continue
       do 95 inu=1,68
       restnu=nu(inu)*zred1/delta(i,j)
       snu(inu)=nu(inu)
@@ -1181,7 +1246,12 @@ c     Start loop over observed frequencies
       if(inu.gt.44)go to 92
       emisco=ajnu(restnu)*bperp(j)*delta(i,j)**2
       fsync2(inu)=emisco*zsize*(emfact*parsec)
-      if(ithin.eq.1)go to 91
+      fsnoab=fsync2(inu)
+      if(inu.eq.1)go to 91
+      if(emold.gt.0.0.and.fsync2(inu).gt.0.0)specin=
+     ,  alog10(emold/fsync2(inu))/alog10(nu(inu)/nu(inu-1))
+   91 continue
+      if(ithin.eq.1)go to 92
       ssabs=1.02e4*(sen+2.0)*akapnu(restnu)*bperp(j)/
      ,   nu(inu)**2/delta(i,j)
       ssabs=ssabs*parsec*zsize*delta(i,j)
@@ -1205,13 +1275,13 @@ c     Use rsize instead of zsize because of aberration
 c      if(tauexp.gt.15.0)fsync2(inu)=0.0
 c      if(tauexp.le.15.0)fsync2(inu)=fsync2(inu)/exp(tauexp)
       specin=alpha
-   91 if(inu.eq.1)go to 92
-      if(emold.gt.0.0.and.fsync2(inu).gt.0.0)specin=
-     ,  alog10(emold/fsync2(inu))/alog10(nu(inu)/nu(inu-1))
    92 continue
       flsync(i,j,inu)=fsync2(inu)*(volc/zsize)*zred1/
      ,  (1.0e18*amjy*dgpc**2)*fgeom
       flux(i,j,inu)=flsync(i,j,inu)
+c xxxxxxx
+c      if(inu.eq.20)write(6,9994)i,j,nu(inu),flsync(i,j,inu),specin,
+c     ,  bperp(j),delta(i,j),ggam(43),edist(43)
       if(nTestOut.eq.1) write(9, 9218) i, j, inu, flux(i,j,inu)
       betd=betad(i,j)
       gamd=gammad(i,j)
@@ -1237,7 +1307,7 @@ c     ,  bperp(j),delta(i,j),ggam(40),ggam(43),edist(40),edist(43)
      ,   fgeom
 c      if(inu.eq.29)write(6,9973)i,j,ecflux,delta(i,j),dusti(1),
 c     ,  dusti(22),ggam(1),edist(1),ggam(44),edist(44)
-c 9973 format('EC ',2i6,1p8e11.3)
+ 9973 format('EC ',2i6,1p8e11.3)
       sscflx=ssc(restnu)*3.086*volc*zred1*delta(i,j)**2/dgpc**2*
      ,   fgeom
       taupp=0.0
@@ -1282,7 +1352,7 @@ c     ,   phots(inumin),nu(inumin+10),phots(inumin+10)
    94 continue
 cc      if(inu.eq.53)write(5,9994)i,j,restnu,n0(i,j),gammax(i,j),
 cc     ,   gammin(i,j),ecflux,sscflx,syseed(20),scseed(35)
-      emold=fsync2(inu)
+      emold=fsnoab
       emeold=ecflux
       emsold=sscflx
 c      if(nu(inu).eq.1.0e20)
@@ -1322,13 +1392,15 @@ c     Set up physical parameters of downstream cells at first time step
 c     Cells farther downstream contain plasma ejected earlier
       idelay=0.5+dstart+it-1+((zrf-zcell(i,j))
      ,   +(xrf-xcell(j))*betadd*slos/(1.0d0-betadd*clos))/zsize
-      if(idelay.lt.1.or.idelay.gt.(65536-ip0))
+      if(idelay.lt.1.or.idelay.gt.(ndim-ip0))
      ,  write(5,9223)idelay,dstart,j,md,ip0,zshock,zrf,zcell(i,j),
      ,  xrf,xcell(j),betad(i,j),zsize
 c      write(6,9333)it,i,j,idelay,zcell(i,j),zref,xcell(j),betadd,zsize
-      bavg=bave*sqrt(spsd(idelay+ip0))
+c      bavg=bave*sqrt(spsd(idelay+ip0))
+      bavg=bave
       n0mean=n0ave*spsd(idelay+ip0)
-c      write(6,9333)it,i,j,idelay,zcell(i,j),xcell(j),bavg,n0mean
+c      write(6,9333)it,i,j,idelay,zcell(i,j),xcell(j),
+c     ,  spsd(idelay+ip0),bavg,n0mean
 c     Velocity vector of laminar component of pre-shock flow
       betupx=betaup*cosph(j)*sinpsi(j)
       betupy=betaup*sinph(j)*sinpsi(j)
@@ -1480,15 +1552,16 @@ c     ,  betauz(j),bux,bx(i,j),buy,by(i,j),buz,bz(i,j)
 c      write(6,9333)it,i,j,idelay,zcell(i,j),xcell(j),bavg,n0mean
 c     Calculate the initial maximum electron energy in each cell
 c     Next line relates this to direction of B field relative to shock
-c      gmax0(i,j)=gmaxmn*(bprp/bup)**(2.0*pexp)
+      gmax0(i,j)=gmaxmx*(bprp*bprp/(bpar*bpar+bprp*bprp))
+      if(gmax0(i,j).lt.gmaxmn)gmax0(i,j)=gmaxmn
 c     Next 3 lines assume a power-law distribution of gmax0, unrelated
 c         to direction of B field
 c     See http://mathworld.wolfram.com/RandomNumber.html for choosing
 c      random numbers from a power-law distribution
-      xrand=randproto(0)
-      if(pexp.eq.0.0)gmax0(i,j)=gmaxmx
-      if(pexp.lt.0.0)gmax0(i,j)=((gmaxmx**pexp-gmaxmn**pexp)*xrand+
-     ,  gmaxmn**pexp)**(1.0/pexp)
+c      xrand=randproto(0)
+c      if(pexp.eq.0.0)gmax0(i,j)=gmaxmx
+c      if(pexp.lt.0.0)gmax0(i,j)=((gmaxmx**pexp-gmaxmn**pexp)*xrand+
+c     ,  gmaxmn**pexp)**(1.0/pexp)
       do 105 ig=1,43
   105 if(gmax0(i,j).le.gcnt(ig+1).and.gmax0(i,j).ge.gcnt(ig))
      , igcnt(ig)=igcnt(ig)+1
@@ -1538,6 +1611,9 @@ c     Determine velocity of the cell plasma relative to the MD plasma
       zcl=zcell(i,j)
       zrel=zshock-0.5*zsize-zcl
       dmd(j)=sqrt(zrel**2+rcell(j)**2)
+c     Calculate angle between MD seed photon and scattered l.o.s. photon
+      call scatcs(bdx,bdy,bdz,clos,0.0d0,slos,xcell(j),ycell(j),
+     ,   -zrel,cscat)
 c     Determine Doppler factor of the MD emission in the cell's frame
       dmdp=sqrt(rcell(j)**2+(zrel/gamamr(j))**2)
       cosmd=(betamx(j)*xcell(j)+betamy(j)*ycell(j)+
@@ -1557,6 +1633,7 @@ c     Determine time step of Mach disk seed photons from light-travel delay
       if(mdmid.lt.0.or.md1.gt.mdmax)write(6,9736)it,i,j,mdmid,
      , md2,idelay,zrf,zcl,xrf,xcell(j),dmd(j),dtfact,zsize,clos,slos
       md2=mdmid+mdrang
+c      write(7,9191)md1,md2,mdmid
       if(md2.gt.mdmax)md2=mdmax
       if(md1.gt.md2)md1=md2
       amdrng=md2-md1+1.0
@@ -1590,37 +1667,42 @@ c
       if(fsynmd(inu,md).eq.0.0.or.alphmd(inu,md).gt.9.0)
      ,   go to 1145
 c     Synchrotron mean intensity for inverse Compton calculation
-      ssabs=1.02e4*(sen+2.0)*akapnu(restnu)*bperpp/nu(inu)**2
-      sstau=ssabs*parsec*zsize
+      ssabs=absorb(inu,md)*bpcorr**(0.5*(sen+2.0))*
+     ,  delcor**(abexmd(inu,md))
+      path=2.0*rsize*svmd/(tanmd*cosmd)
+      if(path.gt.zsmd(md))path=zsmd(md)
+      sstau=ssabs*parsec*path
       ajofnu=fsynmd(inu,md)*bpcorr**(1.0+alphmd(inu,md))*
      ,  delcor**(2.0+alphmd(inu,md))
-      ajofnu=ajofnu*zsize*(emfact*parsec)
+      ajofnu=ajofnu*zsmd(md)*(emfact*parsec)
       syseed(inu)=ajofnu
       srcfn=ajofnu/sstau
       if(sstau.gt.5.0)syseed(inu)=srcfn
       if(sstau.gt.0.1.and.sstau.le.5.0)syseed(inu)=
      ,  srcfn*(1.0-exp(-sstau))
-      syseed(inu)=syseed(inu)*volc*vmd/(zsize*dmd(j)**2)
-      tauexp=1.02e4*(sen+2.0)*akapnu(nu(inu)/deltmd(j))*
-     ,  bperp(j)/(nu(inu)/deltmd(j))**2*parsec*dmd(j)
+      syseed(inu)=syseed(inu)*pi*rsize**2*vmd/(dmd(j)**2)
+      tauexp=1.02e4*(sen+2.0)*akapnu(nu(inu))*
+     ,  bperp(j)/nu(inu)**2*parsec*dmd(j)
       tauxmd(inu)=tauexp
       if(tauexp.gt.15.0)syseed(inu)=0.0
       if(tauexp.le.15.0)syseed(inu)=syseed(inu)/exp(tauexp)
  1145 scseed(inu)=0.0
-      if(inu.lt.7)fmdall(inu)=fmdall(inu)+syseed(inu)/
+      if(inu.lt.16)fmdall(inu)=fmdall(inu)+syseed(inu)/
      ,  (amdrng/dtfact)
-c      write(5,9996)snu(inu),restnu,ssabs,sstau,ajofnu,
-c     ,  fsynmd(inu,md),bpcorr,delcor,alphmd(inu,md),syseed(inu)
+c      write(6,9996)nu(inu),ssabs,sstau,ajofnu,deltmd(j),n0(i,j),
+c     ,  bfield(j),bpcorr,delcor,abexmd(inu,md),alphmd(inu,md),
+c     ,  syseed(inu)
  1146 continue
 c
 c     Calculate inverse Compton flux from Mach disk in frame of cell plasma
 c
-      do 1147 inu=7,68
+      do 1147 inu=16,68
 c     Inverse Compton mean intensity from Mach disk for 2nd-order
 c       inverse Compton calculation in cells
       scseed(inu)=fsscmd(inu,md)*
      ,  delcor**(2.0+alfmdc(inu,md))
-      scseed(inu)=scseed(inu)*volc*(amjy*parsec)*vmd/dmd(j)**2
+      scseed(inu)=scseed(inu)*zsmd(md)*pi*rsize**2*
+     ,  (amjy*parsec)*vmd/dmd(j)**2
       if(tauxmd(inu).gt.15.0)scseed(inu)=0.0
       if(tauxmd(inu).le.15.0)scseed(inu)=scseed(inu)/
      ,exp(tauxmd(inu))
@@ -1645,14 +1727,33 @@ c     Only calculate up to Klein-Nishina limit of gmin
  1148 continue
  1149 continue
  1150 continue
-      id=(zcell(i,j)-zshock)/zsize+nend
+      id=(zcell(i,j)-zshock)/zsize+nzid
       if(id.lt.1)id=1
-      if(id.gt.(icells+nend))write(6,9992)i,j,id,zcell(i,j),zshock,
+      if(id.gt.(icells+nzid))write(6,9992)i,j,id,zcell(i,j),zshock,
      ,  zsize
 c     Skip flux calculation for cell if gamma_max is too low to emit at lowest frequency
 c     Ratio of energy density of photons emitted by hot dust + Mach disk to
 c       energy density of the magnetic field
-      ustob=8.0*pi*(useed(id)+usdmd)/(bfield(j))**2
+      zdist=zdist0+(id-nend/zrat)*zsize+zshock
+c     Calculate min & max angles of dust torus in plasma frame
+      dphi1=asin(dtrad/sqrt(zdist**2+dtdist**2))
+      dphi2=atan(dtdist/zdist)
+      dth1=dphi2-dphi1
+      dth2=dphi2+dphi1
+      csth1=dcos(dth1)
+      csth2=dcos(dth2)
+      dcsth1=-(csth1-betad(i,j))/(1.0d0-csth1*betad(i,j))
+      dcsth2=-(csth2-betad(i,j))/(1.0d0-csth2*betad(i,j))
+      csang=0.5*(dcsth1+dcsth2)
+c     Doppler factor of dust torus emission in frame of cells, used
+c       to estimate frequency of peak intensity in plasma frame
+      tdel=gammad(i,j)*(1.0d0-betad(i,j)*0.5d0*(csth1+csth2))
+c     Correct energy density of seed photons from dust for Doppler factor
+c       that include turbulent component of velocity; approximates that
+c       motion is directed parallel to jet axis; also include first-order
+c       dependence on scattering angle in Klein-Nishina cross-section
+      useedr=useed(id)*(tdel/tdelr(id))**2/(1.0d0+betad(i,j)*csang)
+      ustob=8.0*pi*(useedr+usdmd)/(bfield(j))**2
 c     Calculate the maximum electron energy from gmax0 and solution to equation
 c       d gamma/dt = - cc2*(b**2+8*pi*useed)*gamma**2
       tlfact=cc2*bfield(j)**2*(1.0+ustob)
@@ -1689,8 +1790,8 @@ c     Calculate energy distribution for the cell
       gamb=gammax(i-1,j)/(1.0+tlfact*gammax(i-1,j)*delt)
       ibreak=0
       if(gamb.le.glow.or.gamb.ge.gammax(i-1,j))ibreak=1
-cc      write(5,9996)bfield(j),n0(i,j),gmax0(i,j),useed,usdmd,ustob,tlfact,
-cc     ,  delt,gamb,glow
+c     write(5,9994)i,j,bfield(j),n0(i,j),gmax0(i,j),usdmd,
+c     ,  ustob,tlfact,delt,gamb,glow
       do 190 ie=1,44
       egam(i,j,ie)=gammin(i-1,j)*10.0**(gmratl*(ie-12))
       if(ie.lt.12)egam(i,j,ie)=glow*10.0**(gmratm*(ie-1))
@@ -1716,13 +1817,10 @@ c      test1=eterm1**(sen-1.0)
 c      test2=eterm2**(sen-1.0)
       enofe(i,j,ie)=enofe(i,j,ie)/delt
       if(enofe(i,j,ie).lt.0.0)enofe(i,j,ie)=0.0
+c      if(i.eq.2)write(8,9994)j,ie,ggam(ie),enofe(i,j,ie),tloss,
+c     ,  tlfact,t1,t2
   188 edist(ie)=enofe(i,j,ie)
-c      if(edist(ie).lt.0.0.or.edist(ie).gt.1.0e20)
-c      write(5,9994)j,i,ggam(ie),edist(ie),tlfact,t2,tloss,
-c     ,  tlmin,delt,glow,gmin,gamb,gmax0(i,j),n0(i,j)
-c      if(i.eq.10.and.j.eq.6)
-c     ,  write(5,9994)i,j,ggam(ie),edist(ie),tlfact,t2,tloss,
-c     ,  tlmin,delt,glow,gmin,gamb,gmax0(i,j),n0(i,j),test1,test2
+c     if(j.eq.10)write(5,9994)i,j,ggam(ie),edist(ie)
   190 continue
       gammax(i,j)=gammax(i-1,j)/(1.0d0+tlfact*delt*gammax(i-1,j))
       gammin(i,j)=gammin(i-1,j)/(1.0d0+tlfact*delt*gammin(i-1,j))
@@ -1736,7 +1834,15 @@ c     calculate flux in mJy from cell
       ithin=0
       do 193 inu=1,22
       dustnu(inu)=dustf(id,inu)
-  193 dusti(inu)=dustii(id,inu)
+      hnukt=4.8e-11*dustnu(inu)/tdust
+      hnuktr=4.8e-11*dustnu(inu)*(tdel/tdelr(id))/tdust
+      dusti(inu)=dustii(id,inu)
+      if(hnuktr.gt.60.0)go to 5193
+  193 if(dusti(inu).gt.1.0e-30)dusti(inu)=dusti(inu)*
+     ,  (tdel/tdelr(id))**3*(1.0-exp(hnukt))/(1.0-exp(hnuktr))
+      go to 5194
+ 5193 dusti(inu)=0.0
+ 5194 continue
       do 195 inu=1,68
       specin=0.0001
       restnu=nu(inu)*zred1/delta(i,j)
@@ -1749,7 +1855,12 @@ c     calculate flux in mJy from cell
       if(inu.gt.44)go to 192
       emisco=ajnu(restnu)*bperp(j)*delta(i,j)**2
       fsync2(inu)=emisco*zsize*(emfact*parsec)
-      if(ithin.eq.1)go to 191
+      fsnoab=fsync2(inu)
+      if(inu.eq.1)go to 191
+      if(emold.gt.0.0.and.fsync2(inu).gt.0.0)specin=
+     ,  alog10(emold/fsync2(inu))/alog10(nu(inu)/nu(inu-1))
+  191 continue
+      if(ithin.eq.1)go to 192
       ssabs=1.02e4*(sen+2.0)*akapnu(restnu)*bperp(j)/
      ,   nu(inu)**2/delta(i,j)
       ssabs=ssabs*parsec*zsize
@@ -1770,18 +1881,18 @@ c     Attenuation from downstream cells along l.o.s. IF significant
       tauexp=0.0
       tauexp=(nouter(j)-i)*ssabs
       if(rcell(j).gt.(0.98*rbound).and.xcell(j).le.0.0)
-     ,         tauexp=0.0
+     ,   tauexp=0.0
       if(thlos.eq.0.0)tauexp=(nouter(j)-1)*ssabs
       if(tauexp.gt.15.0)fsync2(inu)=0.0
       if(tauexp.le.15.0)fsync2(inu)=fsync2(inu)/exp(tauexp)
       specin=alpha
-  191 if(inu.eq.1)go to 192
-      if(emold.gt.0.0.and.fsync2(inu).gt.0.0)specin=
-     ,  alog10(emold/fsync2(inu))/alog10(nu(inu)/nu(inu-1))
   192 continue
       flsync(i,j,inu)=fsync2(inu)*(volc/zsize)*zred1/
      ,  (1.0e18*amjy*dgpc**2)*fgeom
       flux(i,j,inu)=flsync(i,j,inu)
+c xxxxxxx
+c      if(inu.eq.20)write(6,9994)i,j,nu(inu),flsync(i,j,inu),specin,
+c     ,  bperp(j),delta(i,j),ggam(43),edist(43)
       if(nTestOut.eq.1) write(9, 9218) i, j, inu, flux(i,j,inu)
       betd=betad(i,j)
       gamd=gammad(i,j)
@@ -1803,6 +1914,8 @@ c     ,    pu(i,j,inu),fpol(i,j,inu),(chipol*rad)
       gamd=gammad(1,jcells)
       ecflux=ecdust(restnu)*3.086*volc*zred1*delta(i,j)**2/dgpc**2*
      ,   fgeom
+c      iwrite=0
+c      if(inu.eq.32)iwrite=1
 c      if(inu.eq.29)write(6,9973)i,j,ecflux,delta(i,j),dusti(1),
 c     ,  dusti(22),ggam(1),edist(1),ggam(44),edist(44)
       sscflx=ssc(restnu)*3.086*volc*zred1*delta(i,j)**2/dgpc**2*
@@ -1850,7 +1963,7 @@ c     ,  dusti(8),dusti(12),dusti(16),dusti(20),dusti(22)
 ccc   TEST
 c      if(inu.eq.25)write(5,9994)j,i,flsync(i,j,inu),bperp(j),
 c     ,  n0(i,j),gammax(i,j),gammin(i,j),glow,gmin,gamb,gmax0(i,j)
-      emold=fsync2(inu)
+      emold=fsnoab
       emeold=ecflux
       emsold=sscflx
   195 continue
@@ -1864,7 +1977,6 @@ c     End loop over downstream cells
 c      do 7999 ig=1,44
 c 7999 write(5,9993)gcnt(ig),igcnt(ig)
   299 tflold=0.0
-      if(it.eq.1)write(7,9875)
       do 500 inu=1,68
       tflux=0.0
       tsflux=0.0
@@ -1874,8 +1986,36 @@ c 7999 write(5,9993)gcnt(ig),igcnt(ig)
       alph=0.0
       qcum=0.0
       ucum=0.0
+      iwp=0
+      if(it.eq.1)iwp=1
+      if(it.eq.25.or.it.eq.50)iwp=1
+      if(it.eq.75.or.it.eq.100)iwp=1
+      if(it.eq.125.or.it.eq.150)iwp=1
+      if(it.eq.175.or.it.eq.200)iwp=1
+      if(it.eq.225.or.it.eq.250)iwp=1
+      if(it.eq.275.or.it.eq.300)iwp=1
+      if(it.eq.325.or.it.eq.350)iwp=1
+      if(it.eq.375.or.it.eq.400)iwp=1
+      if(it.eq.425.or.it.eq.450)iwp=1
+      if(it.eq.475.or.it.eq.500)iwp=1
+      if(it.eq.525.or.it.eq.550)iwp=1
+      if(it.eq.575.or.it.eq.600)iwp=1
+      if(it.eq.625.or.it.eq.650)iwp=1
+      if(it.eq.675.or.it.eq.700)iwp=1
+      if(it.eq.725.or.it.eq.750)iwp=1
+      if(it.eq.775.or.it.eq.800)iwp=1
+      if(it.eq.825.or.it.eq.850)iwp=1
+      if(it.eq.875.or.it.eq.900)iwp=1
+      if(it.eq.925.or.it.eq.950)iwp=1
+      if(it.eq.975.or.it.eq.1000)iwp=1
+      if(iwp.ne.1.or.inu.ne.3)go to 7300
+      write(filnam,"(a8,i4.4,a4)") "temzemap",it,".txt"
+      open (7,iostat=ios, err=9000, file=dpath//filnam,status='new')
+      write(7,9875)
+ 7300 continue
       do 300 j=1,(jcells-1)
       do 300 i=1,icelmx(j)
+c      i=1
       qcum=qcum+pq(i,j,inu)
       ucum=ucum+pu(i,j,inu)
       tflux=tflux+flux(i,j,inu)
@@ -1883,14 +2023,14 @@ c 7999 write(5,9993)gcnt(ig),igcnt(ig)
       tcflux=tcflux+flcomp(i,j,inu)
       tecfl=tecfl+flec(i,j,inu)
       tsscfl=tsscfl+flssc(i,j,inu)
-      if(inu.ne.9)go to 298
-      if(it.ne.2.and.it.ne.80)go to 298
+      if(inu.ne.3)go to 298
 c     Position of cell on sky, in milliarcseconds (for z=0.859)
       xobs=(zcell(i,j)*slos+xcell(j)*clos)/7.7
       yobs=ycell(j)/7.7
       poldgg=0.0
       pang=0.0
       if(flsync(i,j,inu).le.1.0e-6)go to 298
+      if(iwp.ne.1)go to 298
       poldg=100.0*fpol(i,j,inu)/flsync(i,j,inu)
       pangg=0.5*atan2(pu(i,j,inu),pq(i,j,inu))*rad
       write(7,9876)i,j,xobs,yobs,(0.001*flsync(i,j,inu)),
@@ -1916,6 +2056,7 @@ c     , ((6.63e-27*nu(inu))*c*volc*jcells*zred1)
       tcflux=0.001*nu(inu)*tcflux
       tecfl=0.001*nu(inu)*tecfl
       tsscfl=0.001*nu(inu)*tsscfl
+      tsscf2=0.001*nu(inu)*tsscf2
 c     Print out SED for every ispecs-th time step
   390 continue
 c  390 if(ispec.gt.1)go to 391
@@ -1941,6 +2082,7 @@ c     Write SED to file
       if(inu.eq.53)tfec=tecfl
       if(inu.eq.53)tfssc=tsscfl
       if(inu.eq.11)tfl11=tflux
+      if(inu.eq.6)tfl6=tflux
       tflold=1000.0*tflux/nu(inu)
       if(inu.eq.3)pdeg3=100.0*poldeg
       if(inu.eq.3)pang3=pang
@@ -1961,6 +2103,7 @@ c     Write SED to file
       if(inu.eq.32)pdeg32=100.0*poldeg
       if(inu.eq.32)pang32=pang
   500 continue
+      close(7)
       alp20a=0.0
       alp20b=0.0
       alp33a=0.0
@@ -1986,7 +2129,7 @@ c     Write SED to file
 c     Write light curve points to file
       write(4,9991)it,timeo,nu(20),tfl20,alph20,tfsyno,nu(33),
      ,  tfl33,alph33,tfcomx,nu(53),tfl53,alph53,tfcomp,tfec,
-     ,  tfssc,nu(11),tfl11,ncells
+     ,  tfssc,nu(6),tfl6,ncells
 c     Write selected polarization data to file
       write(5,9988)it,timeo,nu(3),pdeg3,pang3,nu(6),pdeg6,pang6,
      ,  nu(8),pdeg8,pang8,nu(12),pdeg12,pang12,
@@ -2048,7 +2191,7 @@ c     Move cells in time array to make room for next time step
  9223 format('*idelay out of bounds ',2i12,3i6,1p7e11.3)
  9232 format(2i4,3i6,1p12e10.2)
  9299 format(i12,2i5,2i6,3i10,1p5e12.4)
- 9333 format(4i7,1p8e10.2)
+ 9333 format(4i7,1p12e10.2)
  9623 format('* ',3i5,13f8.4)
  9736 format(6i7,1p10e12.3)
  9875 format('#    i     j    x(mas)     y(mas)   flux(Jy)     Q(Jy)',
@@ -2078,231 +2221,6 @@ c     Move cells in time array to make room for next time step
       close (9, status='keep')
  9000 stop
       end
-c  Subroutine to calculate the Klein-Nishina cross-section; from Blumenthal
-c    + Gould (1970, Rev. Mod. Phys., 42, 237, who took it from Jones, F.C.
-c      (1968, Phys. Rev., 167, 1159); assumes isotropic photon field in
-c     electron's rest frame
-      subroutine xseckn(q,x,xsec)
-      real*8 xsec
-      xsec=2.0*q*alog(q)+(1.0+2.0*q)*(1.0-q)+
-     ,  0.5*(x*q)**2*(1.0-q)/(1.0+x*q)
-      return
-      end
-c  Subroutine to calculate inverse Compton emission from external sources of seed photons
-      function ecdust(anuf)
-      common/cparm/zred1,bfield,bperp
-      common/cdust/csth1,csth2,dcsth1,dcsth2,dsang,tdust
-      common/cdist/gam,edist
-      common/cvel/bdx,bdy,bdz,gammad,betad
-      common/cseed/dnu,di
-      dimension gam(44),edist(44),dnu(22),di(22)
-      real*8 gam,bdx,bdy,bdz,gammad,betad,dcsth1,dcsth2,dsnth1,
-     ,  dsnth2,val1,val2,vala,valb,csth1,csth2
-      ecdust=0.0
-      gran=0.0
-c     Flux will be in mJy, so set x-section as (3e26/4)sigt
-      s0=49.9
-      homc2=8.099e-21
-      ie1=1
-      ef=homc2*anuf
-      if(ef.le.gam(1))go to 1
-      if(ef.ge.gam(44).or.(gam(44)/gam(1)).lt.1.01)go to 4000
-      do 10 ie=2,44
-      if(gam(ie).gt.ef)go to 11
-   10 continue 
-      ie=44
-   11 ie1=ie-1
-      g1=1.0001*ef
-      go to 12
-c     In this version, approximate that plasma velocity is along jet axis
-c       and that Doppler factor of dust torus is the mean over its solid angle
-c       as viewed in the plasma frame
-c      tdel=1.0/(gammad*(1.0d0-betad*dcsth1))
-    1 g1=gam(1)
-   12 if((gam(ie1+1)/gam(ie1)).gt.1.0002)go to 13
-      ie1=ie1+1
-      if(ie1.ge.43)go to 4000
-      go to 12
-   13 vala=s0*edist(ie1)/g1
-c     Loop to integrate over electron Lorentz factors (gam)
-      do 3000 ie=ie1,43
-      g2=gam(ie+1)
-      valb=s0*edist(ie+1)/g2
-      val1=0.0
-      val2=0.0
-      gran1=0.0
-      addit=0.0
-c     Set up loop 1 to integrate over incident photon frequency anui
-      anumax=amin1(anuf,dnu(22))
-      di1=di(1)
-      id=2
-      anumin=0.25*anuf/((g1*g1)*(1.0-ef/g1))
-      if(anumin.gt.anumax)go to 601
-      if(anumin.gt.dnu(1))go to 2
-      anumin=dnu(1)
-      go to 5
-    2 continue
-      do 3 id=2,22
-      if(anumin.le.dnu(id))go to 4
-    3 continue
-      id=22
-    4 continue
-      a=alog10(di(id-1)/di(id))/alog10(dnu(id-1)/dnu(id))
-      di1=di(id-1)*(anumin/dnu(id-1))**a
-    5 ide=22
-      if(anumax.ge.dnu(22))go to 8
-      do 6 idd=id,22
-      if(anumax.le.dnu(idd))go to 7
-    6 continue
-      idd=22
-    7 a=alog10(di(idd-1)/di(idd))/alog10(dnu(idd-1)/dnu(idd))
-      die=di(idd-1)*(anumax/dnu(idd-1))**a
-      ide=idd
-      go to 9
-    8 die=di(22)
-    9 continue
-      anui1=anumin
-      xx=1.0-ef/g1
-      rat=anuf/((4.0*anui1*g1*g1)*xx)
-      ratr=4.0*homc2*anui1*g1
-      call xseckn(rat,ratr,val1)
-      val1=val1*(1.0e20/anui1)*(anuf/anui1)*di1*vala
-      if(val1.lt.1.0d-40)val1=0.0d0
-   25 continue
-c      write(6,9996)xx,rat,ratr,val1,anuf,anui1,g1,di1,vala
-c     Loop 1 to integrate over incoming photon frequency anui for lower gam value
-      do 600 nu=id,ide
-      anui2=dnu(nu)
-      di2=di(nu)
-      if(nu.lt.ide)go to 30
-      anui2=anumax
-      di2=die
-      xx=1.0-ef/g1
-   30 rat=anuf/((4.0*anui2*g1*g1)*xx)
-      ratr=4.0*homc2*anui2*g1
-      call xseckn(rat,ratr,val2)
-      val2=val2*(1.0e20/anui2)*(anuf/anui2)*di2*vala
-      if(val2.lt.1.0d-40)val2=0.0d0
-  525 if(val1.eq.0.0d0.or.val2.eq.0.0d0)go to 845
-c      write(6,9997)xx,rat,ratr,val2,anuf,anui2,g1,di2,vala
-      test=abs((anui1-anui2)/anui1)
-      if(test.lt.0.001)go to 847
-      ratnu=anui2/anui1
-      a=1.0+dlog10(val2/val1)/alog10(ratnu)
-      if(abs(a).lt.0.01.or.abs(a).gt.5.0)go to 845
-      addit=val1*(ratnu**a-1.0)*anui1/a
-      go to 846
-  845 addit=0.5*(val1+val2)*(anui2-anui1)
-  846 gran1=gran1+addit
-  847 anui1=anui2
-      val1=val2
-      di1=di2
-  600 continue
-c     End anui loop 1
-  601 continue
-      ratg=g2/g1
-      ratgl=alog10(ratg)
-      valb=s0*edist(ie+1)/g2
-      val1=0.0
-      val2=0.0
-      gran2=0.0
-c     Set up loop 2 to integrate over incident photon frequency anui
-      anumax=amin1(anuf,dnu(22))
-      di1=di(1)
-      id=2
-      anumin=0.25*anuf/((g2*g2)*(1.0-ef/g2))
-      if(anumin.gt.anumax)go to 1601
-      if(anumin.gt.dnu(1))go to 1002
-      anumin=dnu(1)
-      go to 1005
- 1002 continue
-      do 1003 id=2,22
-      if(anumin.le.dnu(id))go to 1004
- 1003 continue
-      id=22
- 1004 continue
-      a=alog10(di(id-1)/di(id))/alog10(dnu(id-1)/dnu(id))
-      di1=di(id-1)*(anumin/dnu(id-1))**a
- 1005 ide=22
-      if(anumax.ge.dnu(22))go to 1008
-      do 1006 idd=id,22
-      if(anumax.le.dnu(idd))go to 1007
- 1006 continue
-      idd=22
- 1007 a=alog10(di(idd-1)/di(idd))/alog10(dnu(idd-1)/dnu(idd))
-      die=di(idd-1)*(anumax/dnu(idd-1))**a
-      ide=idd
-      go to 1009
- 1008 die=di(22)
- 1009 continue
-      anui1=anumin
-      xx=1.0-ef/g2
-      rat=anuf/((4.0*anui1*g2*g2)*xx)
-      ratr=4.0*homc2*anui1*g2
-      call xseckn(rat,ratr,val1)
-      val1=val1*(1.0e20/anui1)*(anuf/anui1)*di1*valb
-      if(val1.lt.1.0d-40)val1=0.0d0
- 1025 gran2=0.0
-c      write(6,9998)xx,rat,ratr,val1,anuf,anui1,g2,di1,valb
-c     Loop 2 to integrate over incoming photon frequency anui for upper gam value
-      do 1600 nu=id,ide
-      anui2=dnu(nu)
-      di2=di(nu)
-      if(nu.lt.ide)go to 1030
-      anui2=anumax
-      di2=die
-      xx=1.0-ef/g2
- 1030 rat=anuf/((4.0*anui2*g2*g2)*xx)
-      ratr=4.0*homc2*anui2*g2
-      call xseckn(rat,ratr,val2)
-      val2=val2*(1.0e20/anui2)*(anuf/anui2)*di2*valb
-      if(val2.lt.1.0d-40)val2=0.0d0
-c      write(6,9999)xx,rat,ratr,val2,anuf,anui2,g2,di2,valb
-      if(val1.le.0.0d0.or.val2.le.0.0d0)go to 1845
-      test=abs((anui1-anui2)/anui1)
-      if(test.lt.0.001)go to 1847
-      ratnu=anui2/anui1
-      a=1.0+dlog10(val2/val1)/alog10(ratnu)
-      if(abs(a).lt.0.01.or.abs(a).gt.5.0)go to 1845
-      addit=val1*(ratnu**a-1.0)*anui1/a
-      go to 1846
- 1845 addit=0.5*(val1+val2)*(anui2-anui1)
- 1846 gran2=gran2+addit
- 1847 continue
-c      if(anuf.gt.1.0e15.and.anuf.lt.2.0e15)
-c     ,write(5,9050)nu,anuf,gran2,val1,val2,di1,di2,anui1,anui2,
-c     , rat,addit
-      anui1=anui2
-      val1=val2
-      di1=di2
- 1600 continue
-c     End anui loop 2
- 1601 continue
-      if(gran1.le.1.0e-28.or.gran2.le.1.0e-28)go to 2845
-      if(ratgl.lt.0.0001)go to 2845
-      a=1.0+alog10(gran2/gran1)/ratgl
-      if(abs(a).lt.0.01.or.abs(a).gt.5.0)go to 2845
-      addit=gran1*(ratg**a-1.0)*g1/a
-      go to 2846
- 2845 addit=0.5*(gran1+gran2)*(g2-g1)
- 2846 gran=gran+addit
-c      if(anuf.gt.1.0e20)
-c     , write(5,9050)gran1,val1,val2,di1,di2,anui1,anui2,anuf,
-c     , rat,addit
-      g1=g2
-      vala=valb
- 3000 continue
-c     End gam loop
-      ecdust=gran*1.0e-20
-c      if(anuf.gt.1.0e20.and.anuf.lt.2.0e20)
-c     ,write(5,9050)anuf,gran,rat,addit
-c 9050 format(i5,2x,1p15e9.2)
- 9996 format('a ',1p12e11.3)
- 9997 format('b ',1p12e11.3)
- 9998 format('c ',1p12e11.3)
- 9999 format('d ',1p12e11.3)
- 4000 return
-      end
 c
 c     Subroutine that calculates the seed photon intensity from emission by hot dust
       function seedph(f)
@@ -2310,7 +2228,7 @@ c     Subroutine that calculates the seed photon intensity from emission by hot 
       common/cvel/bdx,bdy,bdz,gammad,betad
       common/cfreq/freq
       real*8 bdx,bdy,bdz,gammad,betad,csth1,csth2,
-     , dcsth1,dcsth2,cs1,cs2,csm
+     ,  dcsth1,dcsth2,cs1,cs2,csm
       external sdgran
       freq=f
       cs1=csth2
@@ -2337,12 +2255,12 @@ c
       expon=hok*f/tdust
 c      write(6,9000)cs,tdel,freq,f,expon
       if(expon.lt.0.01)go to 10
-      if(expon.gt.5.0)go to 20
+      if(expon.gt.10.0)go to 20
       val=(1.33e-26*f)*f/((9.0e20/f)*(exp(expon)-1.0))
       go to 25
    10 val=(2.76e-16*f)*tdust*(f/9.0e20)
       go to 25
-   20 if(expon.gt.15.0)go to 26
+   20 if(expon.gt.20.0)go to 26
       val=(1.33e-26*f)*f/((9.0e20/f)*exp(expon))
    25 sdgran=val*tdel*tdel
    26 return
@@ -2510,19 +2428,19 @@ C This must be larger than the smallest interval between successive data points 
 
       implicit none
 
-      real*8 nu(65536),flux_s1(65536),dat(131072),R(131072)
-      real*8 dataim_s1(65536),datareal_s1(65536),amp(65536)
-      real*8 flux_s2(65536),dataim_s2(65536),datareal_s2(65536)
-      real*8 dataim(65536),datareal(65536),flux_s(65536)
+      real*8 nu(131072),flux_s1(131072),dat(262144),R(262144)
+      real*8 dataim_s1(131072),datareal_s1(131072),amp(131072)
+      real*8 flux_s2(131072),dataim_s2(131072),datareal_s2(131072)
+      real*8 dataim(131072),datareal(131072),flux_s(131072)
       real*8 fac_norm,fac_norm2
-      real*4 ann,beta1,beta2,nu_break,t_incre1,lc_sim(65536)
+      real*4 ann,beta1,beta2,nu_break,t_incre1,lc_sim(131072)
       integer N,j,i,ifile,ik,nn,ISEED1,ISEED2,isign
 
       fac_norm=1./(N*t_incre1)
       fac_norm2=N**2./(2.*N*t_incre1)
 
-      ISEED1=51371
-      ISEED2=2587
+      ISEED1=393521
+      ISEED2=17263
       call RNE2IN(ISEED1,ISEED2)
 
         call RNSTNR(R,N/2)
@@ -2695,217 +2613,6 @@ c  nn MUST be an integer power of 2 (this is not checked!).
       endif                             !All done.
       return
       END
-c  Subroutine to calculate synchrotron self-Compton emission
-c    of seed photons from other cells
-      function ssc(anuf)
-      common/cparm/zred1,bfield,bperp
-      common/cdist/gam,edist
-c      common/cvel/bdx,bdy,bdz,gammad,betad
-      common/cssc/dnu,di,nuhi
-      dimension gam(44),edist(44),dnu(68),di(68)
-      real*8 gam,addit,gran,ssca,val1,val2
-c     Prevent underflows
-      if(di(nuhi).lt.1.0e-25)nuhi=nuhi-1
-      ssc=0.0
-      gran=0.0
-c     Flux will be in mJy, so set x-section as (3e26/4)sigt
-      s0=49.9
-      homc2=8.099e-21
-      ie1=1
-      ef=homc2*anuf
-      if(ef.le.gam(1))go to 1
-      if(ef.ge.gam(44).or.(gam(44)/gam(1)).lt.1.01)go to 4000
-      do 10 ie=2,44
-      if(gam(ie).gt.ef)go to 11
-   10 continue 
-      ie=44
-   11 ie1=ie-1
-      g1=ef
-      go to 12
-    1 g1=gam(1)
-   12 if((gam(ie1+1)/gam(ie1)).gt.1.0002)go to 13
-      ie1=ie1+1
-      if(ie1.ge.43)go to 4000
-      go to 12
-   13 vala=s0*edist(ie1)/g1
-c     Loop to integrate over electron Lorentz factors (gam)
-c      write(5,6666)nuhi,anuf,g1,edist(1),gam(44),edist(44),
-c     ,  vala,dnu(1),di(1),dnu(nuhi),di(nuhi)
- 6666 format('In ssc',i5,2x,1p10e12.3)
-      do 3000 ie=ie1,43
-      g2=gam(ie+1)
-      valb=s0*edist(ie+1)/g2
-      val1=0.0
-      val2=0.0
-      gran1=0.0
-      addit=0.0
-c     Set up loop 1 to integrate over incident photon frequency anui
-      anumax=amin1(anuf,dnu(nuhi))
-      di1=di(1)
-      id=2
-      anumin=0.25*anuf/((g1*g1)*(1.0-ef/g1))
-      if(anumin.ge.anumax)go to 601
-      if(anumin.gt.dnu(1))go to 2
-      anumin=dnu(1)
-      go to 5
-    2 continue
-      do 3 id=2,nuhi
-      if(anumin.le.dnu(id))go to 4
-    3 continue
-      id=nuhi
-    4 continue
-      di1=0.0
-      if(di(id).lt.1.0e-25.or.di(id-1).lt.1.0e-25)go to 5
-      a=alog10(di(id)/di(id-1))/alog10(dnu(id)/dnu(id-1))
-      di1=di(id)*(anumin/dnu(id))**a
-    5 ide=nuhi
-      if(anumax.ge.dnu(nuhi))go to 8
-      do 6 idd=id,nuhi
-      if(anumax.le.dnu(idd))go to 7
-    6 continue
-      idd=nuhi
-    7 a=alog10(di(idd-1)/di(idd))/alog10(dnu(idd-1)/dnu(idd))
-      die=di(idd-1)*(anumax/dnu(idd-1))**a
-      ide=idd
-      go to 9
-    8 die=di(nuhi)
-    9 continue
-      anui1=anumin
-      xx=1.0-ef/g1
-      rat=anuf/((4.0*anui1*g1*g1)*xx)
-      ratr=4.0*homc2*anui1*g1
-      call xseckn(rat,ratr,val1)
-      val1=val1*(1.0e20/anui1)*(anuf/anui1)*di1*vala
-      if(val1.lt.1.0d-40)val1=0.0d0
-   25 continue
-c     Loop 1 to integrate over incoming photon frequency anui for lower gam value
-      do 600 nu=id,ide
-      anui2=dnu(nu)
-      di2=di(nu)
-      if(nu.lt.ide)go to 30
-      anui2=anumax
-      xx=1.0-ef/g1
-   30 rat=anuf/((4.0*anui2*g1*g1)*xx)
-      ratr=4.0*homc2*anui2*g1
-      call xseckn(rat,ratr,val2)
-      val2=val2*(1.0e20/anui2)*(anuf/anui2)*di2*vala
-      if(val2.lt.1.0d-40)val2=0.0d0
-  525 if(val1.eq.0.0d0.or.val2.eq.0.0d0)go to 845
-      test=abs((anui1-anui2)/anui1)
-      if(test.lt.0.001)go to 847
-      ratnu=anui2/anui1
-      a=1.0+dlog10(val2/val1)/alog10(ratnu)
-      if(abs(a).lt.0.01.or.abs(a).gt.5.0)go to 845
-      addit=val1*(ratnu**a-1.0)*anui1/a
-      go to 846
-  845 addit=0.5*(val1+val2)*(anui2-anui1)
-  846 gran1=gran1+addit
-  847 anui1=anui2
-      val1=val2
-      di1=di2
-  600 continue
-c     End anui loop 1
-  601 continue
-      ratg=g2/g1
-      ratgl=alog10(ratg)
-      valb=s0*edist(ie+1)/g2
-      val1=0.0
-      val2=0.0
-      gran2=0.0
-c     Set up loop 2 to integrate over incident photon frequency anui
-      anumax=amin1(anuf,dnu(nuhi))
-      di1=di(1)
-      id=2
-      anumin=0.25*anuf/((g2*g2)*(1.0-ef/g2))
-c      write(5,6668)g1,anuf,dnu(nuhi),anumin,anumax
-c 6668 format('*g1, anuf, dnu(nuhi), anumin, anumax: ',1p5e9.2)
-      if(anumin.ge.anumax)go to 1601
-      if(anumin.gt.dnu(1))go to 1002
-      anumin=dnu(1)
-      go to 1005
- 1002 continue
-      do 1003 id=2,nuhi
-      if(anumin.le.dnu(id))go to 1004
- 1003 continue
-      id=nuhi
- 1004 continue
-      di1=0.0
-      addit=0.0
-      if(di(id).lt.1.0e-25.or.di(id-1).lt.1.0e-25)go to 1005
-      a=alog10(di(id)/di(id-1))/alog10(dnu(id)/dnu(id-1))
-      di1=di(id)*(anumin/dnu(id))**a
- 1005 ide=nuhi
-      if(anumax.ge.dnu(nuhi))go to 1008
-      do 1006 idd=id,nuhi
-      if(anumax.le.dnu(idd))go to 1007
- 1006 continue
-      idd=nuhi
- 1007 a=alog10(di(idd-1)/di(idd))/alog10(dnu(idd-1)/dnu(idd))
-      die=di(idd-1)*(anumax/dnu(idd-1))**a
-      ide=idd
-      go to 1009
- 1008 die=di(nuhi)
- 1009 continue
-      anui1=anumin
-      xx=1.0-ef/g2
-      rat=anuf/((4.0*anui1*g2*g2)*xx)
-      ratr=4.0*homc2*anui1*g2
-      call xseckn(rat,ratr,val1)
-      val1=val1*(1.0e20/anui1)*(anuf/anui1)*di1*valb
-      if(val1.lt.1.0d-40)val1=0.0d0
- 1025 gran2=0.0
-c     Loop 2 to integrate over incoming photon frequency anui for upper gam value
-      do 1600 nu=id,ide
-      anui2=dnu(nu)
-      di2=di(nu)
-      if(nu.lt.ide)go to 1030
-      anui2=anumax
-      di2=die
-      xx=1.0-ef/g2
- 1030 rat=anuf/((4.0*anui2*g2*g2)*xx)
-      ratr=4.0*homc2*anui2*g2
-      call xseckn(rat,ratr,val2)
-      val2=val2*(1.0e20/anui2)*(anuf/anui2)*di2*valb
-      if(val2.lt.1.0d-40)val2=0.0d0
-      if(val1.eq.0.0.or.val2.eq.0.0)go to 1845
-      test=abs((anui1-anui2)/anui1)
-      if(test.lt.0.001)go to 1847
-      ratnu=anui2/anui1
-      a=1.0+dlog10(val2/val1)/alog10(ratnu)
-      if(abs(a).lt.0.01.or.abs(a).gt.5.0)go to 1845
-      addit=val1*(ratnu**a-1.0)*anui1/a
-      go to 1846
- 1845 addit=0.5*(val1+val2)*(anui2-anui1)
- 1846 gran2=gran2+addit
- 1847 continue
-c      if(anuf.gt.1.0e19.and.anuf.lt.2.0e19)
-c      write(5,9050)nu,id,anuf,gran2,val1,val2,vala,valb,di1,di2,
-c     , anui1,anui2,g1,g2,rat,addit
-      anui1=anui2
-      val1=val2
-      di1=di2
- 1600 continue
-c     End anui loop 2
- 1601 continue
-      if(gran1.lt.1.0e-28.or.gran2.lt.1.0e-28)go to 2845
-      if(ratgl.lt.0.0001)go to 2845
-      a=1.0+alog10(gran2/gran1)/ratgl
-      if(abs(a).lt.0.01.or.abs(a).gt.5.0)go to 2845
-      addit=gran1*(ratg**a-1.0)*g1/a
-      go to 2846
- 2845 addit=0.5*(gran1+gran2)*(g2-g1)
- 2846 gran=gran+addit
-      g1=g2
-      vala=valb
- 3000 continue
-c     End gam loop
-      ssca=gran*1.0d-20
-      if(ssca.gt.1.0d-30)ssc=ssca
-c      if(anuf.gt.1.0e20.and.anuf.lt.2.0e20)
-c     ,write(5,9050)anuf,gran,rat,addit
- 9050 format('***',2i5,2x,1p15e9.2)
- 4000 return
-      end
 c
 c     polcalc computes the polarization angle chi based on relations
 c       derived by Lyutikov et al. 2005, MNRAS, 360, 869
@@ -3134,6 +2841,517 @@ c
      ,  az*(1.0+cs1*(cz*cz-1.0))
       return
       end
+c
+      subroutine scatcs(vx,vy,vz,sx,sy,sz,x,y,z,cscat)
+      real*8 vx,vy,vz,sx,sy,sz,g,g1,g2,slx,sly,slz,
+     ,  smx,smy,smz
+c     v is velocity in units of c, s is line-of-sight unit vector
+c     (x,y,z) is position of cell relative to Mach disk, cscat is
+c     cosine of scattering angle in plasma frame
+      v2=vx*vx+vy*vy+vz*vz
+      g2=1.0/(1.0d0-v2)
+      g=dsqrt(g2)
+      g1=g-1.0d0
+c     Determine unit vector of l.o.s. in plasma frame (slx,sly,slz)
+      slx=(1.0+g1*vx*vx/v2)*sx+g1*vx*vy*sy/v2+g1*vx*vz*sz/v2
+      sly=g1*vx*vy*sx/v2+(1.0+g1*vy*vy/v2)*sy+g1*vy*vz*sz/v2
+      slz=g1*vx*vz*sx/v2+g1*vy*vz*sy/v2+(1.0+g1*vz*vz/v2)*sz
+      s=slx*slx+sly*sly+slz*slz
+      s=sqrt(s)
+      slx=slx/s
+      sly=sly/s
+      slz=slz/s
+c     Determine unit vector from Mach disk to cell in plasma frame (smx,smy,smz)
+      smx=(1.0+g1*vx*vx/v2)*x+g1*vx*vy*y/v2+g1*vx*vz*z/v2
+      smy=g1*vx*vy*x/v2+(1.0+g1*vy*vy/v2)*y+g1*vy*vz*z/v2
+      smz=g1*vx*vz*x/v2+g1*vy*vz*y/v2+(1.0+g1*vz*vz/v2)*z
+      s=smx*smx+smy*smy+smz*smz
+      s=sqrt(s)
+      smx=smx/s
+      smy=smy/s
+      smz=smz/s
+c     Calculate cosine of scattering angle in plasma frame using head-on
+c      approximation (photon is scattering in direction of electron motion)
+      cscat=slx*smx+sly*smy+slz*smz
+c      write(5,9999)sx,sy,sz,spx,spy,spz,s,spx2,spy2,spz2,
+c     ,  bparx,bpary,bparz,bprpx,bprpy,bprpz,bpar,bprp
+c 9999 format('**',1p18e12.4)
+      return
+      end
+c
+c  Subroutine to calculate the Klein-Nishina cross-section; from Dermer & Menon
+c     (2009, High Energy Radiation from Black Holes: Gamma Rays, Cosmic Rays,
+c      and Neutrinos, Princeton U. Press), eq. 6.31
+c
+      subroutine xseckn(epsi,epsf,g,y,xsec)
+      real*8 xsec
+      z=epsf/(g*epsi*y)
+      xsec=(y+1.0/y-2.0*z+z*z)/(g*epsi)
+      return
+      end
+c  Subroutine to calculate inverse Compton emission from external sources of seed photons
+      function ecdust(anuf)
+      common/cparm/zred1,bfield,bperp
+      common/cdust/csth1,csth2,dcsth1,dcsth2,dsang,tdust
+      common/cdist/gam,edist
+      common/cvel/bdx,bdy,bdz,gammad,betad
+      common/cseed/dnu,di,cscat
+      common/crite/iwrite
+      dimension gam(44),edist(44),dnu(22),di(22)
+      real*8 gam,bdx,bdy,bdz,gammad,betad,dcsth1,dcsth2,dsnth1,
+     ,  dsnth2,val1,val2,vala,valb,csth1,csth2,xsecc,xsecx
+      ecdust=0.0
+      gran=0.0
+      nhi=22
+      nuhi=22
+c     Set the highest frequency of seed photons for scattering
+      do 2011 nn=10,nhi
+      if(dnu(nn).lt.anuf.and.di(nn).gt.1.0e-30) go to 2010
+      nuhi=nn-1
+      go to 2012
+ 2010 continue
+ 2011 continue
+ 2012 continue
+c     Flux will be in mJy, so set x-section as (3e26/4)sigt
+      s0=25.0
+      homc2=8.099e-21
+      ie1=1
+      ef=homc2*anuf
+      ef1=ef+1.0
+      if(ef1.le.gam(1))go to 1
+      if(ef1.ge.gam(44).or.(gam(44)/gam(1)).lt.1.01)go to 4000
+      do 10 ie=2,44
+      if(gam(ie).gt.ef1)go to 11
+   10 continue
+      ie=44
+   11 ie1=ie-1
+      g1=ef1
+      go to 12
+c     In this version, approximate that plasma velocity is along jet axis
+c       and that Doppler factor of dust torus is the mean over its solid angle
+c       as viewed in the plasma frame
+c      tdel=1.0/(gammad*(1.0d0-betad*dcsth1))
+    1 g1=gam(1)
+   12 if((gam(ie1+1)/gam(ie1)).gt.1.0002)go to 13
+      ie1=ie1+1
+      if(ie1.ge.43)go to 4000
+      go to 12
+   13 vala=s0*edist(ie1)/g1
+c     Loop to integrate over electron Lorentz factors (gam)
+      do 3000 ie=ie1,43
+      g2=gam(ie+1)
+      valb=s0*edist(ie+1)/g2
+      val1=0.0
+      val2=0.0
+      gran1=0.0
+      addit=0.0
+c     Set up loop 1 to integrate over incident photon frequency anui
+      anumax=amin1(anuf,dnu(nuhi))
+      di1=di(1)
+      id=2
+      anumin=anuf/((2.0d0*g1)*(g1-ef)*
+     ,  (1.0d0-cscat*dsqrt(1.0d0-1.0d0/(g1*g1))))
+c      anumin=0.25*anuf/((g1*g1)*(1.0-ef/g1))
+      if(anumin.ge.anumax)go to 601
+      if(anumin.gt.dnu(1))go to 2
+      anumin=dnu(1)
+      go to 5
+    2 continue
+      do 3 id=2,nuhi
+      if(anumin.le.dnu(id))go to 4
+    3 continue
+      id=nuhi
+    4 continue
+      a=alog10(di(id-1)/di(id))/alog10(dnu(id-1)/dnu(id))
+      di1=di(id-1)*(anumin/dnu(id-1))**a
+    5 ide=nuhi
+      if(anumax.ge.dnu(nuhi))go to 8
+      do 6 idd=id,nuhi
+      if(anumax.le.dnu(idd))go to 7
+    6 continue
+      idd=nuhi
+    7 a=alog10(di(idd-1)/di(idd))/alog10(dnu(idd-1)/dnu(idd))
+      die=di(idd-1)*(anumax/dnu(idd-1))**a
+      ide=idd
+      go to 9
+    8 die=di(nuhi)
+    9 continue
+      anui1=anumin
+      xx=1.0-ef/g1
+      rat=homc2*anui1*g1*(1.0d0-cscat*dsqrt(1.0d0-1.0d0/(g1*g1)))
+      call xseckn(rat,ef,g1,xx,xsecc)
+      xsecc=xsecc*(g1*homc2*anui1)
+      val1=xsecc*(1.0e20/anui1)*(anuf/anui1)*di1*vala
+      if(val1.lt.1.0d-40)val1=0.0d0
+   25 continue
+c     Loop 1 to integrate over incoming photon frequency anui for lower gam value
+      do 600 nu=id,ide
+      anui2=dnu(nu)
+      di2=di(nu)
+      if(nu.lt.ide)go to 30
+      anui2=anumax
+   30 rat=homc2*anui2*g1*(1.0d0-cscat*dsqrt(1.0d0-1.0d0/(g1*g1)))
+      call xseckn(rat,ef,g1,xx,xsecc)
+      xsecc=xsecc*(g1*homc2*anui2)
+      val2=xsecc*(1.0e20/anui2)*(anuf/anui2)*di2*vala
+      if(val2.lt.1.0d-40)val2=0.0d0
+  525 if(val1.eq.0.0d0.or.val2.eq.0.0d0)go to 845
+      test=abs((anui1-anui2)/anui1)
+      if(test.lt.0.001)go to 847
+      ratnu=anui2/anui1
+      a=1.0+dlog10(val2/val1)/alog10(ratnu)
+      if(abs(a).lt.0.01.or.abs(a).gt.5.0)go to 845
+      addit=val1*(ratnu**a-1.0)*anui1/a
+      go to 846
+  845 addit=0.5*(val1+val2)*(anui2-anui1)
+  846 gran1=gran1+addit
+  847 anui1=anui2
+      val1=val2
+      di1=di2
+  600 continue
+c     End anui loop 1
+  601 continue
+      ratg=g2/g1
+      ratgl=alog10(ratg)
+      valb=s0*edist(ie+1)/g2
+      val1=0.0
+      val2=0.0
+      gran2=0.0
+c     Set up loop 2 to integrate over incident photon frequency anui
+      anumax=amin1(anuf,dnu(nuhi))
+      di1=di(1)
+      id=2
+      anumin=anuf/((2.0d0*g2)*(g2-ef)*
+     ,  (1.0d0-cscat*dsqrt(1.0d0-1.0d0/(g2*g2))))
+c      anumin=0.25*anuf/((g2*g2)*(1.0-ef/g2))
+c      write(5,6668)g1,anuf,dnu(nuhi),anumin,anumax
+c 6668 format('*g1, anuf, dnu(nuhi), anumin, anumax: ',1p5e9.2)
+      if(anumin.ge.anumax)go to 1601
+      if(anumin.gt.dnu(1))go to 1002
+      anumin=dnu(1)
+      go to 1005
+ 1002 continue
+      do 1003 id=2,nuhi
+      if(anumin.le.dnu(id))go to 1004
+ 1003 continue
+      id=nuhi
+ 1004 continue
+      di1=0.0
+      addit=0.0
+      if(di(id).lt.1.0e-25.or.di(id-1).lt.1.0e-25)go to 1005
+      a=alog10(di(id)/di(id-1))/alog10(dnu(id)/dnu(id-1))
+      di1=di(id)*(anumin/dnu(id))**a
+ 1005 ide=nuhi
+      if(anumax.ge.dnu(nuhi))go to 1008
+      do 1006 idd=id,nuhi
+      if(anumax.le.dnu(idd))go to 1007
+ 1006 continue
+      idd=nuhi
+ 1007 a=alog10(di(idd-1)/di(idd))/alog10(dnu(idd-1)/dnu(idd))
+      die=di(idd-1)*(anumax/dnu(idd-1))**a
+      ide=idd
+      go to 1009
+ 1008 die=di(nuhi)
+ 1009 continue
+      anui1=anumin
+      xx=1.0-ef/g2
+      rat=homc2*anui1*g2*(1.0d0-cscat*dsqrt(1.0d0-1.0d0/(g2*g2)))
+      call xseckn(rat,ef,g2,xx,xsecc)
+      xsecc=xsecc*(g2*homc2*anui1)
+      val1=xsecc*(1.0e20/anui1)*(anuf/anui1)*di1*valb
+      if(val1.lt.1.0d-40)val1=0.0d0
+ 1025 gran2=0.0
+c     Loop 2 to integrate over incoming photon frequency anui for upper gam value
+      if(id.ge.ide)go to 1601
+      do 1600 nu=id,ide
+      anui2=dnu(nu)
+      di2=di(nu)
+      if(nu.lt.ide)go to 1030
+      anui2=anumax
+      di2=die
+ 1030 rat=homc2*anui2*g2*(1.0d0-cscat*dsqrt(1.0d0-1.0d0/(g2*g2)))
+      call xseckn(rat,ef,g2,xx,xsecc)
+      xsecc=xsecc*(g2*homc2*anui2)
+      val2=xsecc*(1.0e20/anui2)*(anuf/anui2)*di2*valb
+c      if(iwrite.eq.1)write(4,6666)nuhi,cscat,anumin,
+c     ,  gam(40),edist(40),anui2,g1,rat,ef,xx,rat,xsecc,val2
+      if(val2.lt.1.0d-40)val2=0.0d0
+      if(val1.lt.1.0e-38.or.val2.lt.1.0e-38)go to 1845
+      test=abs((anui1-anui2)/anui1)
+      if(test.lt.0.001)go to 1847
+      ratnu=anui2/anui1
+      a=1.0+dlog10(val2/val1)/alog10(ratnu)
+      if(abs(a).lt.0.01.or.abs(a).gt.5.0)go to 1845
+      addit=val1*(ratnu**a-1.0)*anui1/a
+      go to 1846
+ 1845 addit=0.5*(val1+val2)*(anui2-anui1)
+ 1846 gran2=gran2+addit
+ 1847 continue
+c      if(iwrite.ne.1)go to 6599
+c      write(4,9050)nu,id,anuf,gran2,val1,val2,vala,valb,di1,di2,
+c     , anui1,anui2,g1,g2,rat,addit
+ 6599 continue
+      anui1=anui2
+      val1=val2
+      di1=di2
+ 1600 continue
+c     End anui loop 2
+ 1601 continue
+      if(gran1.le.1.0e-28.or.gran2.le.1.0e-28)go to 2845
+      if(ratgl.lt.0.0001)go to 2845
+      a=1.0+alog10(gran2/gran1)/ratgl
+      if(abs(a).lt.0.01.or.abs(a).gt.5.0)go to 2845
+      addit=gran1*(ratg**a-1.0)*g1/a
+      go to 2846
+ 2845 addit=0.5*(gran1+gran2)*(g2-g1)
+ 2846 gran=gran+addit
+c      if(iwrite.eq.1)
+c     , write(4,9051)gran1,val1,val2,di1,di2,anui1,anui2,anuf,
+c     , rat,addit
+      g1=g2
+      vala=valb
+ 3000 continue
+c     End gam loop
+      ecdust=gran*1.0e-20
+c      if(iwrite.eq.1)write(4,9051)anuf,gran,rat,addit
+c 9050 format('*',2i8,1p15e9.2)
+c 9051 format('**',1p15e9.2)
+ 6666 format('In ecdust',i5,2x,1p16e12.3)
+ 9996 format('a ',1p12e11.3)
+ 9997 format('b ',1p12e11.3)
+ 9998 format('c ',1p12e11.3)
+ 9999 format('d ',1p12e11.3)
+ 4000 return
+      end
+c
+c  Subroutine to calculate synchrotron self-Compton emission
+c    of seed photons from other cells
+      function ssc(anuf)
+      common/cparm/zred1,bfield,bperp
+      common/cdist/gam,edist
+c      common/cvel/bdx,bdy,bdz,gammad,betad
+      common/cssc/dnu,di,nuhi,cscat
+      common/crite/iwrite
+      dimension gam(44),edist(44),dnu(68),di(68)
+      real*8 gam,addit,gran,ssca,val1,val2,xsecc,xsecx
+c     Prevent underflows
+      if(di(nuhi).lt.1.0e-25)nuhi=nuhi-1
+      ssc=0.0
+      gran=0.0
+      nhi=68
+      nuhi=68
+c     Set the highest frequency of seed photons for scattering
+      do 2011 nn=20,nhi
+      if(dnu(nn).lt.anuf.and.di(nn).gt.1.0e-30) go to 2010
+      nuhi=nn-1
+      go to 2012
+ 2010 continue
+ 2011 continue
+ 2012 continue
+c     Flux will be in mJy, so set x-section as (3e26/8)sigt
+      s0=25.0
+      homc2=8.099e-21
+      ie1=1
+      ef=homc2*anuf
+      ef1=ef+1.0
+      if(ef1.le.gam(1))go to 1
+      if(ef1.ge.gam(44).or.(gam(44)/gam(1)).lt.1.01)go to 4000
+      do 10 ie=2,44
+      if(gam(ie).gt.ef1)go to 11
+   10 continue
+      ie=44
+   11 ie1=ie-1
+      g1=ef1
+      go to 12
+    1 g1=gam(1)
+   12 if((gam(ie1+1)/gam(ie1)).gt.1.0002)go to 13
+      ie1=ie1+1
+      if(ie1.ge.43)go to 4000
+      go to 12
+   13 vala=s0*edist(ie1)/g1
+c     Loop to integrate over electron Lorentz factors (gam)
+      do 3000 ie=ie1,43
+      g2=gam(ie+1)
+      valb=s0*edist(ie+1)/g2
+      val1=0.0
+      val2=0.0
+      gran1=0.0
+      addit=0.0
+c     Set up loop 1 to integrate over incident photon frequency anui
+      anumax=amin1(anuf,dnu(nuhi))
+      di1=di(1)
+      id=2
+      anumin=anuf/((2.0d0*g1)*(g1-ef)*
+     ,  (1.0d0-cscat*dsqrt(1.0d0-1.0d0/(g1*g1))))
+c      anumin=0.25*anuf/((g1*g1)*(1.0-ef/g1))
+      if(anumin.ge.anumax)go to 601
+      if(anumin.gt.dnu(1))go to 2
+      anumin=dnu(1)
+      go to 5
+    2 continue
+      do 3 id=2,nuhi
+      if(anumin.le.dnu(id))go to 4
+    3 continue
+      id=nuhi
+    4 continue
+      di1=0.0
+      if(di(id).lt.1.0e-25.or.di(id-1).lt.1.0e-25)go to 5
+      a=alog10(di(id)/di(id-1))/alog10(dnu(id)/dnu(id-1))
+      di1=di(id)*(anumin/dnu(id))**a
+    5 ide=nuhi
+      if(anumax.ge.dnu(nuhi))go to 8
+      do 6 idd=id,nuhi
+      if(anumax.le.dnu(idd))go to 7
+    6 continue
+      idd=nuhi
+    7 a=alog10(di(idd-1)/di(idd))/alog10(dnu(idd-1)/dnu(idd))
+      die=di(idd-1)*(anumax/dnu(idd-1))**a
+      ide=idd
+      go to 9
+    8 die=di(nuhi)
+    9 continue
+      anui1=anumin
+      xx=1.0-ef/g1
+      rat=homc2*anui1*g1*(1.0d0-cscat*dsqrt(1.0d0-1.0d0/(g1*g1)))
+      call xseckn(rat,ef,g1,xx,xsecc)
+      xsecc=xsecc*(g1*homc2*anui1)
+      val1=xsecc*(1.0e20/anui1)*(anuf/anui1)*di1*vala
+      if(val1.lt.1.0d-40)val1=0.0d0
+   25 continue
+c     Loop 1 to integrate over incoming photon frequency anui for lower gam value
+      do 600 nu=id,ide
+      anui2=dnu(nu)
+      di2=di(nu)
+      if(nu.lt.ide)go to 30
+      anui2=anumax
+   30 rat=homc2*anui2*g1*(1.0d0-cscat*dsqrt(1.0d0-1.0d0/(g1*g1)))
+      call xseckn(rat,ef,g1,xx,xsecc)
+      xsecc=xsecc*(g1*homc2*anui2)
+      val2=xsecc*(1.0e20/anui2)*(anuf/anui2)*di2*vala
+      if(val2.lt.1.0d-40)val2=0.0d0
+c      if(iwrite.eq.1)write(5,6666)nuhi,cscat,anuf,anumin,
+c     ,  gam(43),edist(43),anui2,g1,
+c     ,  ratt,ratr,xsecx,xx,rat,xsecc,val2
+  525 if(val1.eq.0.0d0.or.val2.eq.0.0d0)go to 845
+      test=abs((anui1-anui2)/anui1)
+      if(test.lt.0.001)go to 847
+      ratnu=anui2/anui1
+      a=1.0+dlog10(val2/val1)/alog10(ratnu)
+      if(abs(a).lt.0.01.or.abs(a).gt.5.0)go to 845
+      addit=val1*(ratnu**a-1.0)*anui1/a
+      go to 846
+  845 addit=0.5*(val1+val2)*(anui2-anui1)
+  846 gran1=gran1+addit
+  847 anui1=anui2
+      val1=val2
+      di1=di2
+  600 continue
+c     End anui loop 1
+  601 continue
+      ratg=g2/g1
+      ratgl=alog10(ratg)
+      valb=s0*edist(ie+1)/g2
+      val1=0.0
+      val2=0.0
+      gran2=0.0
+c     Set up loop 2 to integrate over incident photon frequency anui
+      anumax=amin1(anuf,dnu(nuhi))
+      di1=di(1)
+      id=2
+      anumin=anuf/((2.0d0*g2)*(g2-ef)*
+     ,  (1.0d0-cscat*dsqrt(1.0d0-1.0d0/(g2*g2))))
+c      anumin=0.25*anuf/((g2*g2)*(1.0-ef/g2))
+c      write(5,6668)g1,anuf,dnu(nuhi),anumin,anumax
+c 6668 format('*g1, anuf, dnu(nuhi), anumin, anumax: ',1p5e9.2)
+      if(anumin.ge.anumax)go to 1601
+      if(anumin.gt.dnu(1))go to 1002
+      anumin=dnu(1)
+      go to 1005
+ 1002 continue
+      do 1003 id=2,nuhi
+      if(anumin.le.dnu(id))go to 1004
+ 1003 continue
+      id=nuhi
+ 1004 continue
+      di1=0.0
+      addit=0.0
+      if(di(id).lt.1.0e-25.or.di(id-1).lt.1.0e-25)go to 1005
+      a=alog10(di(id)/di(id-1))/alog10(dnu(id)/dnu(id-1))
+      di1=di(id)*(anumin/dnu(id))**a
+ 1005 ide=nuhi
+      if(anumax.ge.dnu(nuhi))go to 1008
+      do 1006 idd=id,nuhi
+      if(anumax.le.dnu(idd))go to 1007
+ 1006 continue
+      idd=nuhi
+ 1007 a=alog10(di(idd-1)/di(idd))/alog10(dnu(idd-1)/dnu(idd))
+      die=di(idd-1)*(anumax/dnu(idd-1))**a
+      ide=idd
+      go to 1009
+ 1008 die=di(nuhi)
+ 1009 continue
+      anui1=anumin
+      xx=1.0-ef/g2
+      rat=homc2*anui1*g2*(1.0d0-cscat*dsqrt(1.0d0-1.0d0/(g2*g2)))
+      call xseckn(rat,ef,g2,xx,xsecc)
+      xsecc=xsecc*(g2*homc2*anui1)
+      val1=xsecc*(1.0e20/anui1)*(anuf/anui1)*di1*valb
+      if(val1.lt.1.0d-40)val1=0.0d0
+ 1025 gran2=0.0
+c     Loop 2 to integrate over incoming photon frequency anui for upper gam value
+      if(id.ge.ide)go to 1601
+      do 1600 nu=id,ide
+      anui2=dnu(nu)
+      di2=di(nu)
+      if(nu.lt.ide)go to 1030
+      anui2=anumax
+      di2=die
+ 1030 rat=homc2*anui2*g2*(1.0d0-cscat*dsqrt(1.0d0-1.0d0/(g2*g2)))
+      call xseckn(rat,ef,g2,xx,xsecc)
+      xsecc=xsecc*(g2*homc2*anui2)
+      val2=xsecc*(1.0e20/anui2)*(anuf/anui2)*di2*valb
+      if(val2.lt.1.0d-40)val2=0.0d0
+      if(val1.eq.0.0.or.val2.eq.0.0)go to 1845
+      test=abs((anui1-anui2)/anui1)
+      if(test.lt.0.001)go to 1847
+      ratnu=anui2/anui1
+      a=1.0+dlog10(val2/val1)/alog10(ratnu)
+      if(abs(a).lt.0.01.or.abs(a).gt.5.0)go to 1845
+      addit=val1*(ratnu**a-1.0)*anui1/a
+      go to 1846
+ 1845 addit=0.5*(val1+val2)*(anui2-anui1)
+ 1846 gran2=gran2+addit
+ 1847 continue
+c      if(anuf.gt.1.0e19.and.anuf.lt.2.0e19)
+c      write(5,9050)nu,id,anuf,gran2,val1,val2,vala,valb,di1,di2,
+c     , anui1,anui2,g1,g2,rat,addit
+      anui1=anui2
+      val1=val2
+      di1=di2
+ 1600 continue
+c     End anui loop 2
+ 1601 continue
+      if(gran1.lt.1.0e-28.or.gran2.lt.1.0e-28)go to 2845
+      if(ratgl.lt.0.0001)go to 2845
+      a=1.0+alog10(gran2/gran1)/ratgl
+      if(abs(a).lt.0.01.or.abs(a).gt.5.0)go to 2845
+      addit=gran1*(ratg**a-1.0)*g1/a
+      go to 2846
+ 2845 addit=0.5*(gran1+gran2)*(g2-g1)
+ 2846 gran=gran+addit
+      g1=g2
+      vala=valb
+ 3000 continue
+c     End gam loop
+      ssca=gran*1.0d-20
+      if(ssca.gt.1.0d-30)ssc=ssca
+c      if(anuf.gt.1.0e20.and.anuf.lt.2.0e20)
+c     ,write(5,9050)anuf,gran,rat,addit
+c 9050 format('***',2i5,2x,1p15e9.2)
+ 6666 format('In ssc',i5,2x,1p16e12.3)
+ 4000 return
+      end
+
 c     Subroutine to round to nearest integer
       function round(f)
       integer low, high

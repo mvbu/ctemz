@@ -1224,11 +1224,12 @@ c     Start loop over observed frequencies
       if(hnuktr.gt.60.0)go to 5093
 c   93 write(6,9994)id,inu,dustnu(inu),dustii(id,inu),dusti(inu),
 c     ,    tdel,tdelr(id),tdust,hnukt,hnuktr
-   93 if(dusti(inu).gt.1.0e-30)dusti(inu)=dusti(inu)*
+      if(dusti(inu).gt.1.0e-30)dusti(inu)=dusti(inu)*
      ,  (tdel/tdelr(id))**3*(1.0-exp(hnukt))/(1.0-exp(hnuktr))
       go to 5094
  5093 dusti(inu)=0.0
  5094 continue
+   93 continue
       do 95 inu=1,68
       restnu=nu(inu)*zred1/delta(i,j)
       snu(inu)=nu(inu)
@@ -1838,11 +1839,12 @@ c     calculate flux in mJy from cell
       hnuktr=4.8e-11*dustnu(inu)*(tdel/tdelr(id))/tdust
       dusti(inu)=dustii(id,inu)
       if(hnuktr.gt.60.0)go to 5193
-  193 if(dusti(inu).gt.1.0e-30)dusti(inu)=dusti(inu)*
+      if(dusti(inu).gt.1.0e-30)dusti(inu)=dusti(inu)*
      ,  (tdel/tdelr(id))**3*(1.0-exp(hnukt))/(1.0-exp(hnuktr))
       go to 5194
  5193 dusti(inu)=0.0
  5194 continue
+  193 continue
       do 195 inu=1,68
       specin=0.0001
       restnu=nu(inu)*zred1/delta(i,j)
@@ -2009,8 +2011,8 @@ c 7999 write(5,9993)gcnt(ig),igcnt(ig)
       if(it.eq.925.or.it.eq.950)iwp=1
       if(it.eq.975.or.it.eq.1000)iwp=1
       if(iwp.ne.1.or.inu.ne.3)go to 7300
-      write(filnam,"(a8,i4.4,a4)") "temzemap",it,".txt"
-      open (7,iostat=ios, err=9000, file=dpath//filnam,status='new')
+      !write(filnam,"(a8,i4.4,a4)") "temzemap",it,".txt"
+      !open (7,iostat=ios, err=9000, file=dpath//filnam,status='new')
       write(7,9875)
  7300 continue
       do 300 j=1,(jcells-1)

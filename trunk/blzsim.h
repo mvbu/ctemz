@@ -11,6 +11,7 @@ static const int BLZSIM_DIM16384 = 16384;
 static const int BLZSIM_DIM32768 = 32768;
 static const int BLZSIM_DIM65536 = 65536;
 static const int BLZSIM_DIM131072 = 131072;
+static const int BLZSIM_DIM262144 = 262144;
 
 // These are variables in the TEMZ (Fortran) "common" blocks. Putting
 // them here in a structure for now, to expedite porting to C++.
@@ -26,11 +27,13 @@ class BlzSimCommon {
   double csth1, csth2, dcsth1, dcsth2, dsang, tdust; // cdust
   double cosz, sinz; // cang
   // The first two entries in the next two lines are both referred to in the Fortran as dnu, di
-  double snu[CSSC_SIZE], ssseed[CSSC_SIZE]; // cssc 
-  double dustnu[CSEED_SIZE],dusti[CSEED_SIZE];    // cseed
+  double snu[CSSC_SIZE], ssseed[CSSC_SIZE], cscat; // cssc 
   int    nuhi; // cssc
+  double dustnu[CSEED_SIZE],dusti[CSEED_SIZE], csang;    // cseed
   double ggam[CDIST_SIZE], edist[CDIST_SIZE]; // cdist
   double freq; // cfreq
+  // this is not part of any physics, just used as flag for writing to a file. Can move somewhere else later
+  int iwrite; // crite
 
   BlzSimCommon();
   ~BlzSimCommon();
@@ -78,7 +81,11 @@ class BlzSim {
   void psdsim(const int N, const double beta1, const double beta2, const double nu_break, 
               const double t_incre1, double *lc_sim);
 
-  double xseckn(const double q, const double x);
+  double scatcs(const double vx, const double vy, const double vz,
+                const double sx, const double sy, const double sz, 
+                const double x, const double y, const double z);
+  //double xseckn(const double q, const double x);
+  double xseckn(const double epsi, const double epsf, const double g, const double y);
   double seedph(const double f);
   double ajnu(const double anu);
   double akapnu(const double anu);
@@ -108,8 +115,8 @@ class BlzSim {
  private:
   void initRandFromTime(bool bTestMode = false);
   static const double ONETHIRD = .33333333;
-  static const double S0_ECDUST = 49.9; // These two values have been different at times, so...
-  static const double S0_SSC = 49.9; // I've made them two distinct constants
+  static const double S0_ECDUST = 25.0; // These two values have been different at times, so...
+  static const double S0_SSC = 25.0; // I've made them two distinct constants
   static const double HOMC2 = 8.099e-21;
 };
     

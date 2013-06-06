@@ -2185,7 +2185,7 @@ c     Move cells in time array to make room for next time step
  9215 format('md',i6,' inu',i5, ' fsscmd(inu,md)',f10.5)
  9216 format('md',i6,' inu',i5, ' fsynmd(inu,md)',f15.2)
  9217 format('md',i6,' inu',i5, ' fsync(inu)',f15.3)
- 9218 format('i ', i5, ' j ', i5, ' inu ', i5, ' flux ', f10.3)
+ 9218 format('i ', i5, ' j ', i5, ' inu ', i5, ' flux ', f10.5)
  9219 format('j ', i5, ' imax ', i5)
  9220 format('ncells ', i8, ' j ', i5)
  9221 format('1908 ncells ', i8, ' j ', i5, ' i ', i5)

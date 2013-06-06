@@ -1,4 +1,3 @@
-
 #include <cstdlib>
 #include <cmath>
 #include <ctime>
@@ -10,7 +9,7 @@
 #include "blzsim.h"
 #include "blzsiminputreader.h"
 
-static const char FORMAT1[] = "i %5d j %5d inu %5d flux %10.3f\n";
+static const char FORMAT1[] = "i %5d j %5d inu %5d flux %10.5f\n";
 static const char FORMAT2[] = "j %5d imax %5d\n";
 static const char FORMAT3_1[] = "md%6d inu%5d fsync(inu)%15.3f\n";
 static const char FORMAT3_2[] = "md%6d inu%5d fsynmd(inu,md)%15.2f\n";
@@ -1132,7 +1131,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   const int D451=451;
 
   bool bOutputFilesCreated = false;
-  int  nTestOut = 2;
+  int  nTestOut = 1;
   FILE* pfSpec = NULL; // 3 ctemzspec.txt
   FILE* pfLc = NULL; // 4 ctemzlc.txt
   FILE* pfPol = NULL; // 5 ctemzpol.txt
@@ -1434,11 +1433,8 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     psdsum = psdsum+amppsd*spsd[ip-1]/(double)ANDIM;
   } //4998 continue
 
-  // Normalize spsd and multiply by amplitude (usually = 1.0).
-  // **Note that mean energy density = amppsd times value set from bavg in input file
-  for(ip=1; ip<=BLZSIM_DIM65536; ip++) // do 4999 ip=1,65536
-    spsd[ip-1]=amppsd*spsd[ip-1]/psdsum;
-  
+  // no 4999 here like in temz.f (it is effectively all commented out)
+
   // Set parameters of each cell at initial time
   // There are icells columns of cells, with JCELLS cells per column
   // The central cell is a Mach disk with low velocity; its observed radiation
@@ -2304,7 +2300,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       // motion is directed parallel to jet axis; also include first-order
       // dependence on scattering angle in Klein-Nishina cross-section
       double useedr = useed[id-1]*::pow(tdel/tdelr[id-1],2.0)/(1.0+betad[i-1][j-1]*common.csang);
-      ustob = 8.0*PI*(useed[id-1]+usdmd)/(bfield[j-1]*bfield[j-1]);
+      ustob = 8.0*PI*(useedr+usdmd)/(bfield[j-1]*bfield[j-1]);
       tlfact = CC2*bfield[j-1]*bfield[j-1]*(1.0+ustob);
       tlf1[j-1] = tlfact;
       delt = zsize*SEC_PER_YEAR*3.26/(gammad[i-1][j-1]*betad[i-1][j-1]);
@@ -2357,7 +2353,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         double hnukt = 4.8e-11*common.dustnu[inu-1]/common.tdust;
         double hnuktr = 4.8e-11*common.dustnu[inu-1]*(tdel/tdelr[id-1])/common.tdust;
         common.dusti[inu-1] = dustii[id-1][inu-1];
-        if(hnukt > 60.0) {
+        if(hnuktr > 60.0) {
           common.dusti[inu-1] = 0.0;
           continue;
         }
@@ -2804,7 +2800,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
             sz=zrel;
             double bmperp;
             bcalc(betamx[j-1],betamy[j-1],betamz[j-1],
-                  sx,sy,sz, bmdx[md-1],bmdy[md-1],bmdz[md-1],betamr[j],gamamr[j],
+                  sx,sy,sz, bmdx[md-1],bmdy[md-1],bmdz[md-1],betamr[j-1],gamamr[j-1],
                   &dum1,&dum2,&dum3,&dum4,&dum5,&dum6,&dum7,&bmperp);
             // Apply as a correction factor to previous estimate of B_perpendicular
             double bpcorr = bmperp/bmdtot[md-1];
@@ -2831,7 +2827,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
                   syseed[inu-1] = srcfn;
                 if((sstau>0.1) && (sstau<=5.0))
                   syseed[inu-1] = srcfn*(1.0-exp(-sstau));
-                syseed[inu-1] = syseed[inu-1]*PI*rsize2*inp.vmd/(zsize*dmd[j-1]*dmd[j-1]);
+                syseed[inu-1] = syseed[inu-1]*PI*rsize2*inp.vmd/(dmd[j-1]*dmd[j-1]);
                 double tauexp = 1.02e4*(sen+2.0)*akapnu(nu[inu-1])*bperp[j-1]/(nu[inu-1]*nu[inu-1])*CM_PER_PARSEC*dmd[j-1];
                 tauxmd[inu-1] = tauexp;
                 if(tauexp > 15.0)
@@ -2909,8 +2905,8 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
           // motion is directed parallel to jet axis; also include first-order
           // dependence on scattering angle in Klein-Nishina cross-section
           double useedr = useed[id-1]*::pow(tdel/tdelr[id-1],2.0)/(1.0+betad[i-1][j-1]*common.csang);
-          ustob = 8.0*PI*(useed[id-1]+usdmd)/(bfield[j-1]*bfield[j-1]);
-          // Calculate the maximum electron energy from gmax0 and solution to equation
+          ustob = 8.0*PI*(useedr+usdmd)/(bfield[j-1]*bfield[j-1]);
+           // Calculate the maximum electron energy from gmax0 and solution to equation
           // d gamma/dt = - cc2*(b**2+8*pi*useed)*gamma**2
           tlfact = CC2*bfield[j-1]*bfield[j-1]*(1.0+ustob);
           int cellno = i;
@@ -3016,7 +3012,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
               double hnukt = 4.8e-11*common.dustnu[inu-1]/common.tdust;
               double hnuktr = 4.8e-11*common.dustnu[inu-1]*(tdel/tdelr[id-1])/common.tdust;
               common.dusti[inu-1] = dustii[id-1][inu-1];
-              if(hnukt > 60.0) {
+              if(hnuktr > 60.0) {
                 common.dusti[inu-1] = 0.0;
                 continue;
               }

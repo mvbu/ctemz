@@ -174,6 +174,7 @@ c     Set up compilation of distribution of initial gamma_max values
       c=3.0e10
       emc2=8.186e-7
       cc2=1.29e-9
+      SMALL_FMDALL=1e-30
 c     fgeom is multiplier to take into account that grid of cells occupies less
 c       than a full cross-section of radius (2*nend-1)*rcell
       fgeom=1.33
@@ -1145,7 +1146,7 @@ c     Calculate seed photon energy density energy loss calculation
 c     Only calculate up to Klein-Nishina limit of gmin
       epslon=6.63e-27*snu(inu)/(gmin*emc2)
       if(epslon.gt.1.0)go to 150
-      if(fmdall(inu).le.0.0.or.fmdall(inu-1).le.0.0)go to 148
+      if(fmdall(inu).le.SMALL_FMDALL.or.fmdall(inu-1).le.SMALL_FMDALL)go to 148
       aaa=alog10(fmdall(inu-1)/fmdall(inu))/alog10(snu(inu)/snu(inu-1))
       usdmd=usdmd+0.5/c/(1.0-aaa)*fmdall(inu-1)*snu(inu-1)*
      ,  ((snu(inu)/snu(inu-1))**(1.0-aaa)-1.0)
@@ -1283,7 +1284,7 @@ c      if(tauexp.le.15.0)fsync2(inu)=fsync2(inu)/exp(tauexp)
 c xxxxxxx
 c      if(inu.eq.20)write(6,9994)i,j,nu(inu),flsync(i,j,inu),specin,
 c     ,  bperp(j),delta(i,j),ggam(43),edist(43)
-      if(nTestOut.eq.1) write(9, 9218) i, j, inu, flux(i,j,inu)
+      if(nTestOut.eq.1) write(9, 9218) 92, i, j, inu, flux(i,j,inu)
       betd=betad(i,j)
       gamd=gammad(i,j)
       if(inu.eq.1)call polcalc(bfield(j),bx(i,j),by(i,j),bz(i,j),
@@ -1345,7 +1346,7 @@ c     ,   phots(inumin),nu(inumin+10),phots(inumin+10)
       flssc(i,j,inu)=sscflx
       flcomp(i,j,inu)=ecflux+sscflx
       flux(i,j,inu)=flsync(i,j,inu)+flcomp(i,j,inu)
-      if(nTestOut.eq.1) write(9, 9218) i, j, inu, flux(i,j,inu)
+      if(nTestOut.eq.1) write(9, 9218) 99, i, j, inu, flux(i,j,inu)
       if(emeold.gt.0.0.and.ecflux.gt.0.0)spxec=
      ,  alog10(emeold/ecflux)/alog10(nu(inu)/nu(inu-1))
       if(emsold.gt.0.0.and.sscflx.gt.0.0)spxssc=
@@ -1721,7 +1722,7 @@ c     Calculate seed photon energy density energy loss calculation
 c     Only calculate up to Klein-Nishina limit of gmin
       epslon=6.63e-27*snu(inu)/(gmin*emc2)
       if(epslon.gt.1.0)go to 1150
-      if(fmdall(inu).le.0.0.or.fmdall(inu-1).le.0.0)go to 1148
+      if(fmdall(inu).le.SMALL_FMDALL.or.fmdall(inu-1).le.SMALL_FMDALL)go to 1148
       aaa=alog10(fmdall(inu-1)/fmdall(inu))/alog10(snu(inu)/snu(inu-1))
       usdmd=usdmd+0.5/c/(1.0-aaa)*fmdall(inu-1)*snu(inu-1)*
      ,  ((snu(inu)/snu(inu-1))**(1.0-aaa)-1.0)
@@ -1895,7 +1896,7 @@ c     Attenuation from downstream cells along l.o.s. IF significant
 c xxxxxxx
 c      if(inu.eq.20)write(6,9994)i,j,nu(inu),flsync(i,j,inu),specin,
 c     ,  bperp(j),delta(i,j),ggam(43),edist(43)
-      if(nTestOut.eq.1) write(9, 9218) i, j, inu, flux(i,j,inu)
+      if(nTestOut.eq.1) write(9, 9218) 192, i, j, inu, flux(i,j,inu)
       betd=betad(i,j)
       gamd=gammad(i,j)
       if(inu.eq.1)call polcalc(bfield(j),bx(i,j),by(i,j),bz(i,j),
@@ -1954,7 +1955,7 @@ c     Expression for anumin includes typical interaction angle
       flssc(i,j,inu)=sscflx
       flcomp(i,j,inu)=ecflux+sscflx
       flux(i,j,inu)=flsync(i,j,inu)+flcomp(i,j,inu)
-      if(nTestOut.eq.1) write(9, 9218) i, j, inu, flux(i,j,inu)
+      if(nTestOut.eq.1) write(9, 9218) 199, i, j, inu, flux(i,j,inu)
       if(emeold.gt.0.0.and.ecflux.gt.0.0)spxec=
      ,  alog10(emeold/ecflux)/alog10(nu(inu)/nu(inu-1))
       if(emsold.gt.0.0.and.sscflx.gt.0.0)spxssc=
@@ -2185,7 +2186,7 @@ c     Move cells in time array to make room for next time step
  9215 format('md',i6,' inu',i5, ' fsscmd(inu,md)',f10.5)
  9216 format('md',i6,' inu',i5, ' fsynmd(inu,md)',f15.2)
  9217 format('md',i6,' inu',i5, ' fsync(inu)',f15.3)
- 9218 format('i ', i5, ' j ', i5, ' inu ', i5, ' flux ', f10.5)
+ 9218 format(i4,' i ', i5, ' j ', i5, ' inu ', i5, ' flux ', f10.5)
  9219 format('j ', i5, ' imax ', i5)
  9220 format('ncells ', i8, ' j ', i5)
  9221 format('1908 ncells ', i8, ' j ', i5, ' i ', i5)

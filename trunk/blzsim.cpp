@@ -9,14 +9,14 @@
 #include "blzsim.h"
 #include "blzsiminputreader.h"
 
-static const char FORMAT1[] = "i %5d j %5d inu %5d flux %10.5f\n";
+static const char FORMAT1[] = "%4d i %5d j %5d inu %5d flux %10.5f\n";
 static const char FORMAT2[] = "j %5d imax %5d\n";
 static const char FORMAT3_1[] = "md%6d inu%5d fsync(inu)%15.3f\n";
 static const char FORMAT3_2[] = "md%6d inu%5d fsynmd(inu,md)%15.2f\n";
 static const char FORMAT3_3[] = "md%6d inu%5d fsscmd(inu,md)%10.5f\n";
 static const char FORMAT14001[] = "%5d i%5d j%5d md%6d inu%5d %s%10.4f\n";
 
-
+const double SMALL_FMDALL = 1e-30;
 
 BlzSimCommon::BlzSimCommon() {}
 BlzSimCommon::~BlzSimCommon() {}
@@ -1954,15 +1954,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         ustob = 8.0*PI*uphmd/(bfield[j-1]*bfield[j-1]);
         tlfact = CC2*bfield[j-1]*bfield[j-1]*(1.0+ustob);
 
-
-        // iend is the last slice of cells with energetic electrons
-        int iend = i;
-        delt = zsize*SEC_PER_YEAR*3.26/(gammd*betamd);
-        gamb = gmax0[i-1][j-1]/(1.0+tlfact*gmax0[i-1][j-1]*delt);
-        if(gamb < 1.0) gamb = 1.0;
-        glow = gminmd/(1.0+tlfact*gminmd*delt);
-        if(glow < 1.0) glow=1.0;
-
         // Effective length of Mach disk zsmd = loss time of highest-E
         // electrons (to energy glow where radiation is negligible) times flow velocity
         glow = 10.0;
@@ -2100,7 +2091,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       n0[i-1][j-1] = eta*n0mean;
       // Calculate the initial maximum electron energy in each cell
       // from the ratio of B(perp. to shock) to B_total in shock frame
-      // gmax0[i-1][j-1]=inp.gmaxmn*(bprp/bup)**(2.0*pexp)
       gmax0[i-1][j-1] = gmaxmx*(bprp*bprp/(bpar*bpar+bprp*bprp));
       if(gmax0[i-1][j-1]<inp.gmaxmn)
         gmax0[i-1][j-1] = inp.gmaxmn;
@@ -2270,7 +2260,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         double epslon = 6.63e-27*common.snu[inu-1]/(inp.gmin*EMC2);
         if(epslon>1.0)
           break; // 150 continue
-        if((fmdall[inu-1]>0.0) && (fmdall[inu-2]>0.0)) {
+        if((fmdall[inu-1]>SMALL_FMDALL) && (fmdall[inu-2]>SMALL_FMDALL)) { // go to 148
           aaa = log10(fmdall[inu-2]/fmdall[inu-1])/log10(common.snu[inu-1]/common.snu[inu-2]);
           usdmd = usdmd+0.5/C_CM_PER_SEC/(1.0-aaa)*fmdall[inu-2]*common.snu[inu-2]*(::pow(common.snu[inu-1]/common.snu[inu-2],1.0-aaa)-1.0);
         }
@@ -2424,7 +2414,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 
         flsync[i-1][j-1][inu-1] = fsync2[inu-1]*(volc/zsize)*common.zred1/(1.0e18*AMJY*inp.dgpc*inp.dgpc)*FGEOM;
         flux[i-1][j-1][inu-1] = flsync[i-1][j-1][inu-1];
-        if(nTestOut==1) fprintf(pfTestOut, FORMAT1, i, j, inu, flux[i-1][j-1][inu-1]);
+        if(nTestOut==1) fprintf(pfTestOut, FORMAT1, 92, i, j, inu, flux[i-1][j-1][inu-1]);
         common.betd = betad[i-1][j-1];
         common.gamd = gammad[i-1][j-1];
         if(inu == 1) // looks like Fortran calculates polarization angle once - for the first frequency
@@ -2486,7 +2476,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
           flssc[i-1][j-1][inu-1] = sscflx;
           flcomp[i-1][j-1][inu-1] = ecflux+sscflx;
           flux[i-1][j-1][inu-1] = flsync[i-1][j-1][inu-1]+flcomp[i-1][j-1][inu-1];
-          if(nTestOut==1) fprintf(pfTestOut, FORMAT1, i, j, inu, flux[i-1][j-1][inu-1]);
+          if(nTestOut==1) fprintf(pfTestOut, FORMAT1, 99, i, j, inu, flux[i-1][j-1][inu-1]);
           if((emeold>0.0) && (ecflux>0.0))
             spxec = log10(emeold/ecflux)/log10(nu[inu-1]/nu[inu-2]);
           if((emsold>0.0) && (sscflx>0.0))
@@ -2872,7 +2862,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
             double epslon = 6.63e-27*common.snu[inu-1]/(inp.gmin*EMC2);
             if(epslon > 1.0)
               break; // go to 1150
-            if((fmdall[inu-1]>0.0) && (fmdall[inu-2]>0.0)) { // go to 1148
+            if((fmdall[inu-1]>SMALL_FMDALL) && (fmdall[inu-2]>SMALL_FMDALL)) { // go to 1148
               aaa = log10(fmdall[inu-2]/fmdall[inu-1])/log10(common.snu[inu-1]/common.snu[inu-2]);
               usdmd = usdmd+0.5/C_CM_PER_SEC/(1.0-aaa)*fmdall[inu-2]*common.snu[inu-2]*(::pow(common.snu[inu-1]/common.snu[inu-2], 1.0-aaa)-1.0);
             }  // 1148 continue
@@ -3083,7 +3073,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
               // 192 continue
               flsync[i-1][j-1][inu-1] = fsync2[inu-1]*(volc/zsize)*common.zred1/(1.0e18*AMJY*inp.dgpc*inp.dgpc)*FGEOM;
               flux[i-1][j-1][inu-1] = flsync[i-1][j-1][inu-1];
-              if(nTestOut==1) fprintf(pfTestOut, FORMAT1, i, j, inu, flux[i-1][j-1][inu-1]);
+              if(nTestOut==1) fprintf(pfTestOut, FORMAT1, 192, i, j, inu, flux[i-1][j-1][inu-1]);
               common.betd = betad[i-1][j-1];
               common.gamd = gammad[i-1][j-1];
               if(inu == 1)
@@ -3146,7 +3136,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
                 flssc[i-1][j-1][inu-1] = sscflx;
                 flcomp[i-1][j-1][inu-1] = ecflux+sscflx;
                 flux[i-1][j-1][inu-1] = flsync[i-1][j-1][inu-1]+flcomp[i-1][j-1][inu-1];
-                if(nTestOut==1) fprintf(pfTestOut, FORMAT1, i, j, inu, flux[i-1][j-1][inu-1]);
+                if(nTestOut==1) fprintf(pfTestOut, FORMAT1, 199, i, j, inu, flux[i-1][j-1][inu-1]);
                 if((emeold>0.0) && (ecflux>0.0))
                   spxec = log10(emeold/ecflux)/log10(nu[inu-1]/nu[inu-2]);
                 if((emsold>0.0) && (sscflx>0.0))

@@ -15,6 +15,7 @@ static const char FORMAT3_1[] = "md%6d inu%5d fsync(inu)%15.3f\n";
 static const char FORMAT3_2[] = "md%6d inu%5d fsynmd(inu,md)%15.2f\n";
 static const char FORMAT3_3[] = "md%6d inu%5d fsscmd(inu,md)%10.5f\n";
 static const char FORMAT14001[] = "%5d i%5d j%5d md%6d inu%5d %s%10.4f\n";
+static const char FORMAT14005[] = "%5d i%5d j%5d md%6d inu%5d %s%10.4f %s%10.4f\n";
 
 const double SMALL_FMDALL = 1e-30;
 
@@ -360,12 +361,9 @@ double BlzSim::ecdust(const double anuf)
     if(gam[ie1]/gam[ie1-1] > 1.0002)
       break;
     ie1++;
+    if(ie1 >= BlzSimCommon::CDIST_SIZE-1)
+      return 0.0;
   } while(ie1 < BlzSimCommon::CDIST_SIZE-1);
-  
-  bool bExit = (ie1 == BlzSimCommon::CDIST_SIZE-1);
-
-  if(bExit)
-    return 0.0;
 
   double S0 = S0_ECDUST;
   double vala = S0*edist[ie1-1]/g1; //13
@@ -666,13 +664,10 @@ double BlzSim::ssc(const double anuf)
     if(gam[ie1]/gam[ie1-1] > 1.0002)
       break;
     ie1++;
+    if(ie1 >= BlzSimCommon::CDIST_SIZE-1)
+      return 0.0;
   } while(ie1 < BlzSimCommon::CDIST_SIZE-1);
   
-  bool bExit = (ie1 == BlzSimCommon::CDIST_SIZE-1);
-
-  if(bExit)
-    return 0.0;
-
   double S0 = S0_SSC;
   vala = S0*edist[ie1-1]/g1;
 
@@ -1131,7 +1126,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   const int D451=451;
 
   bool bOutputFilesCreated = false;
-  int  nTestOut = 1;
+  int  nTestOut = 5;
   FILE* pfSpec = NULL; // 3 ctemzspec.txt
   FILE* pfLc = NULL; // 4 ctemzlc.txt
   FILE* pfPol = NULL; // 5 ctemzpol.txt
@@ -1209,7 +1204,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   // numbers from a text file instead of actually generating new random numbers
   initRandFromTime(bTestMode);
   
-  const int ICELLS = 400; // ICELLS cells along the axial direction. Needs to be increased to 200 eventually
+  const int ICELLS = 400; //  Can lower this for testing, but Marscher currently has this at 400. #cells along the axial direction. Needs to be increased to 200 eventually
   const int NEND = inp.nend; // NEND cells along each side of the hexagon
   const int JCELLS = 3*NEND*(NEND-1)+1; // JCELLS cells along the transverse direction (perp to axial dir)
   int  ancol = 2*NEND-1;
@@ -2441,7 +2436,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
             // Expression for anumin includes typical interaction angle
             anumin = (1.24e20/(nu[inu-1]*common.zred1))*1.24e20*::pow(2.0*gammad[i-1][j-1], 2);
             alnumn = log10(anumin);
-            inumin = ::pow(alnumn-10.0,4)+1;
+            inumin = (alnumn-10.0)*4+1;
             if(inumin <= 40) {  // go to 99
               if(anumin > nu[inumin-1])
                 anumin = nu[inumin-1];
@@ -3100,7 +3095,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
                   // Expression for anumin includes typical interaction angle
                   anumin = (1.24e20/(nu[inu-1]*common.zred1))*1.24e20*::pow(2.0*gammad[i-1][j-1], 2);
                   alnumn = log10(anumin);
-                  inumin = ::pow(alnumn-10.0,4)+1;
+                  inumin = (alnumn-10.0)*4+1;
                   if(inumin <= 40) {  // go to 199
                     if(anumin > nu[inumin-1])
                       anumin = nu[inumin-1];
@@ -3209,12 +3204,13 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       ucum = 0.0;
       iwp = 0;
 
-      for(j=1; j<(JCELLS-1); j++) { //  do 300 j=1,(JCELLS-1)
+      for(j=1; j<=(JCELLS-1); j++) { //  do 300 j=1,(JCELLS-1)
         for(i=1; i<=icelmx[j-1]; i++) { // do 300 i=1,icelmx(j)
           qcum=qcum+pq[i-1][j-1][inu-1];
           ucum=ucum+pu[i-1][j-1][inu-1];
           tflux=tflux+flux[i-1][j-1][inu-1];
           tsflux=tsflux+flsync[i-1][j-1][inu-1];
+          if(nTestOut==5) fprintf(pfTestOut, FORMAT14005, it, i, j, 0, inu, "flsync", flsync[i-1][j-1][inu-1],"tsflux", tsflux);
           tcflux=tcflux+flcomp[i-1][j-1][inu-1];
           tecfl=tecfl+flec[i-1][j-1][inu-1];
           tsscfl=tsscfl+flssc[i-1][j-1][inu-1];

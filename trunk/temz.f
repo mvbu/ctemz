@@ -77,7 +77,7 @@ c      common/ci/i,j
       common/cinput/daysToSimulate
       ! Added by me (MSV, June 2012) for test mode ("generates" the same sequence of rand numbers every time)
       common/cfixedrand/fixedRandFlag, fixedRandFileOpened, fixedRandData, fixedRandCounter
-      nTestOut = 1
+      nTestOut = 5
       ! Parse the command line options and their arguments
       daysToSimulate = 0.4 ! Default value
       fixedRandFlag = 0
@@ -2023,6 +2023,7 @@ c      i=1
       ucum=ucum+pu(i,j,inu)
       tflux=tflux+flux(i,j,inu)
       tsflux=tsflux+flsync(i,j,inu)
+      if(nTestOut.eq.5) write(9,14005) it,i,j,0,inu,'flsync',flsync(i,j,inu),'tsflux',tsflux
       tcflux=tcflux+flcomp(i,j,inu)
       tecfl=tecfl+flec(i,j,inu)
       tsscfl=tsscfl+flssc(i,j,inu)
@@ -2219,6 +2220,7 @@ c     Move cells in time array to make room for next time step
      , '# mean, std. dev. pol., layers 1-7',2f12.5)
  9999 format(10f10.3)
 14001 format(i5,' i',i5,' j',i5,' md',i6,' inu',i5,' ',a,f10.4)
+14005 format(i5,' i',i5,' j',i5,' md',i6,' inu',i5,' ',a,f10.4,' ',a,f10.4)
       close (4, status='keep')
       close (3, status='keep')
       close (9, status='keep')

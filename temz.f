@@ -77,7 +77,7 @@ c      common/ci/i,j
       common/cinput/daysToSimulate
       ! Added by me (MSV, June 2012) for test mode ("generates" the same sequence of rand numbers every time)
       common/cfixedrand/fixedRandFlag, fixedRandFileOpened, fixedRandData, fixedRandCounter
-      nTestOut = 5
+      nTestOut = 1
       ! Parse the command line options and their arguments
       daysToSimulate = 0.4 ! Default value
       fixedRandFlag = 0
@@ -1284,7 +1284,7 @@ c      if(tauexp.le.15.0)fsync2(inu)=fsync2(inu)/exp(tauexp)
 c xxxxxxx
 c      if(inu.eq.20)write(6,9994)i,j,nu(inu),flsync(i,j,inu),specin,
 c     ,  bperp(j),delta(i,j),ggam(43),edist(43)
-      if(nTestOut.eq.1) write(9, 9218) 92, i, j, inu, flux(i,j,inu)
+      if(nTestOut.eq.1) write(9, 9218) 92, i, j, inu, flux(i,j,inu), 0.0
       betd=betad(i,j)
       gamd=gammad(i,j)
       if(inu.eq.1)call polcalc(bfield(j),bx(i,j),by(i,j),bz(i,j),
@@ -1346,7 +1346,7 @@ c     ,   phots(inumin),nu(inumin+10),phots(inumin+10)
       flssc(i,j,inu)=sscflx
       flcomp(i,j,inu)=ecflux+sscflx
       flux(i,j,inu)=flsync(i,j,inu)+flcomp(i,j,inu)
-      if(nTestOut.eq.1) write(9, 9218) 99, i, j, inu, flux(i,j,inu)
+      if(nTestOut.eq.1) write(9, 9218) 99, i, j, inu, flux(i,j,inu), flec(i,j,inu)
       if(emeold.gt.0.0.and.ecflux.gt.0.0)spxec=
      ,  alog10(emeold/ecflux)/alog10(nu(inu)/nu(inu-1))
       if(emsold.gt.0.0.and.sscflx.gt.0.0)spxssc=
@@ -1896,7 +1896,7 @@ c     Attenuation from downstream cells along l.o.s. IF significant
 c xxxxxxx
 c      if(inu.eq.20)write(6,9994)i,j,nu(inu),flsync(i,j,inu),specin,
 c     ,  bperp(j),delta(i,j),ggam(43),edist(43)
-      if(nTestOut.eq.1) write(9, 9218) 192, i, j, inu, flux(i,j,inu)
+      if(nTestOut.eq.1) write(9, 9218) 192, i, j, inu, flux(i,j,inu), 0.0
       betd=betad(i,j)
       gamd=gammad(i,j)
       if(inu.eq.1)call polcalc(bfield(j),bx(i,j),by(i,j),bz(i,j),
@@ -1955,7 +1955,7 @@ c     Expression for anumin includes typical interaction angle
       flssc(i,j,inu)=sscflx
       flcomp(i,j,inu)=ecflux+sscflx
       flux(i,j,inu)=flsync(i,j,inu)+flcomp(i,j,inu)
-      if(nTestOut.eq.1) write(9, 9218) 199, i, j, inu, flux(i,j,inu)
+      if(nTestOut.eq.1) write(9, 9218) 199, i, j, inu, flux(i,j,inu), flec(i,j,inu)
       if(emeold.gt.0.0.and.ecflux.gt.0.0)spxec=
      ,  alog10(emeold/ecflux)/alog10(nu(inu)/nu(inu-1))
       if(emsold.gt.0.0.and.sscflx.gt.0.0)spxssc=
@@ -2187,7 +2187,7 @@ c     Move cells in time array to make room for next time step
  9215 format('md',i6,' inu',i5, ' fsscmd(inu,md)',f10.5)
  9216 format('md',i6,' inu',i5, ' fsynmd(inu,md)',f15.2)
  9217 format('md',i6,' inu',i5, ' fsync(inu)',f15.3)
- 9218 format(i4,' i ', i5, ' j ', i5, ' inu ', i5, ' flux ', f10.5)
+ 9218 format(i4,' i ', i5, ' j ', i5, ' inu ', i5, ' flux ', f10.2, ' flec ', 1p12e12.4)
  9219 format('j ', i5, ' imax ', i5)
  9220 format('ncells ', i8, ' j ', i5)
  9221 format('1908 ncells ', i8, ' j ', i5, ' i ', i5)

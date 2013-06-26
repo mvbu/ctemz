@@ -504,7 +504,7 @@ double BlzSim::ecdust(const double anuf)
         di1 = 0.0;
         addit = 0.0;
         if((di[id-1]>=1.0e-25) && (di[id-2]>=1.0e-25)) { // go to 1005
-          double a = log10(di[id-1]/di[id-1])/log10(dnu[id-1]/dnu[id-2]);
+          double a = log10(di[id-1]/di[id-2])/log10(dnu[id-1]/dnu[id-2]);
           di1 = di[id-1]*::pow(anumin/dnu[id-1], a);
         }
         

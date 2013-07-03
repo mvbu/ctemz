@@ -41,7 +41,7 @@ c       and from a Mach disk
      , bu2yd(1141),bu2zd(1141),cu1xd(1141),cu1yd(1141),cu1zd(1141),
      , tdelr(451),zsmd(130000)
       character*10 dumdum, fstat
-      character*16 filnam
+      character*15 filnam
       real*8 pol,pqcum,pucum,pq,pu,pmean,polc,ai2,
      ,  pcum,tanv0,cosv0,betaup,gamup,beta,sinz,cosz,phcell,
      ,  cosph,sinph,thlos,betau,gammau,opang,tanop,cosop,sinop,
@@ -102,10 +102,6 @@ c      common/ci/i,j
       open (6,iostat=ios, err=9000, file='temzcheck.txt',
      , status=fstat)
       it=0
-      write(filnam,"(a8,i4.4,a4)") "temzmap",it,".txt"
-      open (7,iostat=ios, err=9000, file=dpath//filnam,status=fstat)
-c      open (7,iostat=ios, err=9000, file=dpath//'temzemap0.txt',
-c     , status=fstat)
       if(nTestOut.ne.0) open (9,iostat=ios, err=9000, file='testout.txt',
      , status=fstat)
 c     Input file format: 1st line characters, then values of parameters,
@@ -2012,8 +2008,8 @@ c 7999 write(5,9993)gcnt(ig),igcnt(ig)
       if(it.eq.925.or.it.eq.950)iwp=1
       if(it.eq.975.or.it.eq.1000)iwp=1
       if(iwp.ne.1.or.inu.ne.3)go to 7300
-      !write(filnam,"(a8,i4.4,a4)") "temzemap",it,".txt"
-      !open (7,iostat=ios, err=9000, file=dpath//filnam,status='new')
+      write(filnam,"(a7,i4.4,a4)") "temzmap",it,".txt"
+      open (7,iostat=ios, err=9000, file=dpath//filnam,status=fstat)
       write(7,9875)
  7300 continue
       do 300 j=1,(jcells-1)

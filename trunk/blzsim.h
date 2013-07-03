@@ -84,7 +84,6 @@ class BlzSim {
   double scatcs(const double vx, const double vy, const double vz,
                 const double sx, const double sy, const double sz, 
                 const double x, const double y, const double z);
-  //double xseckn(const double q, const double x);
   double xseckn(const double epsi, const double epsf, const double g, const double y);
   double seedph(const double f);
   double ajnu(const double anu);
@@ -114,6 +113,7 @@ class BlzSim {
 
  private:
   void initRandFromTime(bool bTestMode = false);
+  int getIwp(int it);
   static const double ONETHIRD = .33333333;
   static const double S0_ECDUST = 25.0; // These two values have been different at times, so...
   static const double S0_SSC = 25.0; // I've made them two distinct constants

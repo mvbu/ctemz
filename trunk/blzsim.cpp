@@ -9,7 +9,7 @@
 #include "blzsim.h"
 #include "blzsiminputreader.h"
 
-static const char FORMAT1[] = "%4d i %5d j %5d inu %5d flux %10.2f flec %12.4e\n";
+static const char FORMAT1[] = "%4d i %5d j %5d inu %5d flux %10.2f flec %12.4E\n";
 static const char FORMAT2[] = "j %5d imax %5d\n";
 static const char FORMAT3_1[] = "md%6d inu%5d fsync(inu)%15.3f\n";
 static const char FORMAT3_2[] = "md%6d inu%5d fsynmd(inu,md)%15.2f\n";
@@ -1108,6 +1108,34 @@ double adjustTrig(double in)
   if(in >= 1.0) retVal=0.999999;
   else if(in <= -1.0) retVal=-0.999999;
   return retVal;
+}
+
+int BlzSim::getIwp(int it)
+{
+  int iwp = 0;
+  if(it==1) iwp = 1;
+  if(it==25 || it==50) iwp = 1;
+  if(it==75 || it==100) iwp = 1;
+  if(it==125 || it==150) iwp = 1;
+  if(it==175 || it==200) iwp = 1;
+  if(it==225 || it==250) iwp = 1;
+  if(it==275 || it==300) iwp = 1;
+  if(it==325 || it==350) iwp = 1;
+  if(it==375 || it==400) iwp = 1;
+  if(it==425 || it==450) iwp = 1;
+  if(it==475 || it==500) iwp = 1;
+  if(it==525 || it==550) iwp = 1;
+  if(it==575 || it==600) iwp = 1;
+  if(it==625 || it==650) iwp = 1;
+  if(it==675 || it==700) iwp = 1;
+  if(it==725 || it==750) iwp = 1;
+  if(it==775 || it==800) iwp = 1;
+  if(it==825 || it==850) iwp = 1;
+  if(it==875 || it==900) iwp = 1;
+  if(it==925 || it==950) iwp = 1;
+  if(it==975 || it==1000) iwp = 1;
+
+  return iwp;
 }
 
 void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
@@ -3158,7 +3186,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       pfSpec = fopen (specFile.c_str(),"w");
       pfLc = fopen (lcFile.c_str(),"w");
       pfPol = fopen (polFile.c_str(),"w");
-      pfMap = fopen (mapFile.c_str(),"w");
       bOutputFilesCreated = true;
       std::string hformat("#No. of cells on each side of hexagonal grid: %3d\n#redshift: %5.3f  Distance in Gpc: %5.3f\n#spectral index: %4.2f  filling factor exponent: %4.2f\n#mean unshocked magnetic field: %5.3f  ratio of electron to mag. energy: %8.2E\n#cell radius (pc): %6.3f\n#Min. value of gamma_max: %8.1f  ratio of max. to min. values of gamma_max: %5.1f\n#gamma_min: %6.1f\n#upstream laminar velocity: %9.5fc  upstream turbulent velocity: %9.5fc\n#shock angle: %6.3f  viewing angle: %6.3f  opening angle: %6.3f\n#Dust temperature: %6.0f  dust luminosity %5.2fx10**45 erg/s\ndistance of center of dust torus from black hole: %3.1f pc\n#radius of torus: %3.1f pc   Distance of shock from central engine: %5.2f pc\n#Energy density of seed photons in plasma frame: %9.2E\n#-Slope of PSD: %5.1f     Area of Mach disk relative to other cell%9.2E\n# Area filling factor of dust emission: %9.2E\n"); // 6665
       int nendInt = static_cast<int>(inp.nend);
@@ -3190,8 +3217,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 
     tflold=0.0; // labeled 299, but Fortran temz.f has no reference to 299
     std::string mapHeader("#    i     j    x(mas)     y(mas)   flux(Jy)     Q(Jy)       U(Jy)      P(%)    EVPA(deg)  tot flux    qcum      ucum     betad      it\n");
-    if(it == 1)
-      fprintf(pfMap, mapHeader.c_str());
 
     for(inu=1; inu<=D68; inu++) { // do 500 inu=1,68
       tflux = 0.0;
@@ -3202,8 +3227,16 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       alph = 0.0;
       qcum = 0.0;
       ucum = 0.0;
-      iwp = 0;
-
+      iwp = getIwp(it);
+      if((iwp==1) && (inu==3)) {
+        char filnam[16];
+        sprintf(filnam, "%8s%4.4d%4s", "ctemzmap", it, ".txt");
+        mapFile.assign("maps/");
+        mapFile.append(filnam);
+        pfMap = fopen(mapFile.c_str(), "w");
+        fprintf(pfMap, mapHeader.c_str());
+      }
+      
       for(j=1; j<=(JCELLS-1); j++) { //  do 300 j=1,(JCELLS-1)
         for(i=1; i<=icelmx[j-1]; i++) { // do 300 i=1,icelmx(j)
           qcum=qcum+pq[i-1][j-1][inu-1];
@@ -3304,8 +3337,12 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       if(inu == 32)pdeg32=100.0*poldeg;
       if(inu == 32)pang32=pang;
     } // End loop over nu,  500
-
+    
     // 500 continue
+
+    // If we created a map file, close it
+    if((iwp==1) && (inu==3))
+      fclose(pfMap);
     alp20a=0.0;
     alp20b=0.0;
     alp33a=0.0;

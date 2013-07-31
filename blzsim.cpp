@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <iostream>
 #include <cmath>
 #include <ctime>
 #include <cstdio>
@@ -9,13 +10,17 @@
 #include "blzsim.h"
 #include "blzsiminputreader.h"
 
-static const char FORMAT1[] = "%4d i %5d j %5d inu %5d flux %10.2f flec %12.4E\n";
+static const char FORMAT1[] = "%4d i %5d j %5d inu %5d ecflux %12.4E delta %12.4E\n";
 static const char FORMAT2[] = "j %5d imax %5d\n";
 static const char FORMAT3_1[] = "md%6d inu%5d fsync(inu)%15.3f\n";
 static const char FORMAT3_2[] = "md%6d inu%5d fsynmd(inu,md)%15.2f\n";
-static const char FORMAT3_3[] = "md%6d inu%5d fsscmd(inu,md)%10.5f\n";
+static const char FORMAT3_3[] = "md%6d inu%5d fsscmd(inu,md)%12.5E\n";
 static const char FORMAT14001[] = "%5d i%5d j%5d md%6d inu%5d %s%10.4f\n";
 static const char FORMAT14005[] = "%5d i%5d j%5d md%6d inu%5d %s%10.4f %s%10.4f\n";
+static const char FORMAT_ARRAY_INT[] = "%7d %8d\n"; // format 14006 in temz.f
+static const char FORMAT_ARRAY_FLOAT[] = "%7d %12.4E\n"; // format 14007 in temz.f
+static const char FORMAT_EDIST[] = "%5s %7d %7d %2d %8d %12.4E %12.4E %12.4E %12.4E %12.4E %12.5E\n"; // format 14008 in temz.f
+static const char FORMAT_STRING_FLOAT[] = "%10s %12.4E\n"; // format 14009 in temz.f
 
 const double SMALL_FMDALL = 1e-30;
 
@@ -1138,6 +1143,15 @@ int BlzSim::getIwp(int it)
   return iwp;
 }
 
+void writeedist(FILE* fp, double* arr, int nsize)
+{
+  fprintf(fp, "%10s\n", "edist");
+  int i;
+  for(i=0; i<nsize; i++) {
+    fprintf(fp, "%12.5f\n",arr[i]);
+  }
+}
+
 void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 {
   // This is where a most of the code ported from the "main" Fortran program will go, mostly as-is.
@@ -1154,7 +1168,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   const int D451=451;
 
   bool bOutputFilesCreated = false;
-  int  nTestOut = 1;
+  int  nTestOut = 6; // Max 7
   FILE* pfSpec = NULL; // 3 ctemzspec.txt
   FILE* pfLc = NULL; // 4 ctemzlc.txt
   FILE* pfPol = NULL; // 5 ctemzpol.txt
@@ -1332,9 +1346,9 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   // Time step in observer's frame in days
   double dtfact = (1.0-common.betd*clos)/common.betd;
   double dtime = 1190.0*zsize*dtfact*common.zred1;
-  int itlast = ndays/dtime; // time "index" of the last timestep (quit when it is >= itlast)
+  int itlast = BlzMath::toFortranInt(ndays/dtime); // time "index" of the last timestep (quit when it is >= itlast)
   BlzLog::warnScalar("itlast", itlast);
-  int mdrang = 0.5*(1.0/dtfact+1.0);
+  int mdrang = BlzMath::toFortranInt(0.5*(1.0/dtfact+1.0));
   //int ip0 = randObj.rand(0) * 5000;
   int ip0 = 100;
   // Distance of shock from axis and apex of conical jet
@@ -1353,7 +1367,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   double zdist;
   // Area filling factor of hot dust, from IR luminosity. 1.05E8 = 1E45/(parsec**2)
   double filld = 1.05e8*inp.ldust/(5.67e-5*2.0*PI*PI*inp.dtrad*inp.dtdist*::pow(inp.tdust,4));
-  const int NENDZRAT = NEND/ZRAT;
+  const int NENDZRAT = BlzMath::toFortranInt(NEND/ZRAT);
 
   for(id=1; id<=ICELLS+(NENDZRAT); id++) { // do 333 id=1,(icells+nend/zrat)
     zdist = inp.zdist0+(id-NENDZRAT)*zsize+zshock;
@@ -1403,19 +1417,38 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 
   double tinc = dtime;
   psdsim(NDIM, -inp.psdslp, -inp.psdslp, 1.0, tinc, spsdx); 
-  
+  if(nTestOut==6) {
+    int ni;
+    for(ni=1; ni<=NDIM; ni++) {
+      fprintf(pfTestOut, FORMAT_ARRAY_FLOAT, ni, spsdx[ni-1]);
+    }
+    //fclose(pfTestOut);
+    //exit(0);
+  }
   double psdsum = 0.0;
   double psdsig = 0.0;
   int ip;
   //int ipulse = dstart+100+ip0;
   double spexp=1.0/(0.5*expon+1.0);
 
+  if(nTestOut==6) {
+    fprintf(pfTestOut, FORMAT_STRING_FLOAT, "spexp", spexp);
+  }
+
   for(ip=1; ip<=NDIM; ip++) {   // do 4997 ip=1,ndim
     // Normalize spsd by standard deviation
     psdsig = psdsig + spsdx[ip-1]*spsdx[ip-1]/(ANDIM-1.0);
   } // 4997 continue
 
+  if(nTestOut==6) {
+    fprintf(pfTestOut, FORMAT_STRING_FLOAT, "psdsig^2", psdsig);
+  }
+
   psdsig = sqrt(psdsig);
+
+  if(nTestOut==6) {
+    fprintf(pfTestOut, FORMAT_STRING_FLOAT, "psdsig", psdsig);
+  }
 
   for(ip=1; ip<=NDIM; ip++) { // do 4998 ip=1,ndim
     // Next section is only for testing purposes. If using it, comment out call psdsim() above
@@ -1445,8 +1478,14 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     // Normalize spsd by standard deviation and take exponential of result
     // to get amplitude of flux variation
     spsd[ip-1] = exp(amppsd*spsdx[ip-1]/psdsig);
+    if(nTestOut==6) {
+      fprintf(pfTestOut, FORMAT_ARRAY_FLOAT, ip, spsd[ip-1]);
+    }
     // Need to scale n0 and B by a different factor to get the desired amplitude
     spsd[ip-1] = ::pow(spsd[ip-1], spexp);
+    if(nTestOut==6) {
+      fprintf(pfTestOut, FORMAT_ARRAY_FLOAT, ip, spsd[ip-1]);
+    }
     // Average of 10 time steps to smooth variations so that discreteness
     // of columns of cells does not cause artificial spikes of flux
     if(ip > 9)
@@ -1454,7 +1493,16 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
                         spsd[ip-1-3]+spsd[ip-1-4]+spsd[ip-1-5]+spsd[ip-1-6]+
                         spsd[ip-1-7]+spsd[ip-1-8]+spsd[ip-1-9]);
     psdsum = psdsum+amppsd*spsd[ip-1]/(double)ANDIM;
+    if(nTestOut==6) {
+      fprintf(pfTestOut, FORMAT_STRING_FLOAT, "psdsum", psdsum);
+      fprintf(pfTestOut, FORMAT_STRING_FLOAT, "spsd", spsd[ip-1]);
+    }
   } //4998 continue
+
+  if(nTestOut==6) {
+    fclose(pfTestOut);
+    exit(0);
+  }
 
   // no 4999 here like in temz.f (it is effectively all commented out)
 
@@ -1585,7 +1633,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     } // 6131 continue
 
     // Compute B field components downstream of Mach disk shock
-    int idelay = dstart-MDMD+md-idelmd;
+    int idelay = BlzMath::toFortranInt(dstart-MDMD+md-idelmd);
     //if((idelay<1) || (idelay>(NDIM-ip0)))
     // ,  write(6,9299)idelay,i,jcells,md,idelmd,ip0,MDMAX,dstart,
     // ,  zshock,delobs,gamd,betd,clos
@@ -1671,8 +1719,16 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
           enofe[i-1][j-1][ie-1] = 0.0;
       }
       common.edist[ie-1] = enofe[i-1][j-1][ie-1]; // 5123
+      if((nTestOut==7) && (md>100000)) {
+        double delt_local = (ie == 1 ? delt : 0.0);
+        fprintf(pfTestOut, FORMAT_EDIST, "5123", i, j, ie, md, delt_local, tlfact, n0[i-1][j-1], n0mean, etac, common.edist[ie-1]);
+      }
     } // for(ie=1; ie<=D44; ie++) 124 continue
     
+    if(nTestOut==7) {
+      continue; // we've outputed edist, just move on
+    }
+
     common.bperpp = common.bfld;
     common.nuhi = 1;
 
@@ -1685,7 +1741,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       ssabs = 1.02e4*(sen+2.0)*akapnu(restnu)*common.bperpp/(nu[inu-1]*nu[inu-1]);
       sstau = ssabs*CM_PER_PARSEC*inp.rsize*svmd;
       fsync[inu-1]=ajnu(restnu)*common.bperpp*inp.rsize*svmd*(EMFACT*CM_PER_PARSEC);
-      if(nTestOut==3) fprintf(pfTestOut, FORMAT3_1, md, inu, fsync[inu-1]);
+      //if(nTestOut==3) fprintf(pfTestOut, FORMAT3_1, md, inu, fsync[inu-1]);
       if(fsync[inu-1] > 0.0) 
         common.nuhi=inu;
       if(sstau >= 0.01) {
@@ -1695,7 +1751,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         if((sstau>0.01) && (sstau<=5.0))
           fsync[inu-1]= srcfn*(1.0-exp(-sstau));
       } // 126
-      if(nTestOut==3) fprintf(pfTestOut, FORMAT3_1, md, inu, fsync[inu-1]);
+      //if(nTestOut==3) fprintf(pfTestOut, FORMAT3_1, md, inu, fsync[inu-1]);
       // Now estimate synchrotron emission seen by other cells
       // Need to add a lower frequency to get spectral index of nu(1)
       if(inu <= 1) {
@@ -1715,7 +1771,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       fsyn1 = fsynmd[inu-1][md-1];
       absrb1 = absorb[inu-1][md-1];
       common.ssseed[inu-1] = fsync[inu-1];
-      if(nTestOut==3) fprintf(pfTestOut, FORMAT3_2, md, inu, fsynmd[inu-1][md-1]);
+      //if(nTestOut==3) fprintf(pfTestOut, FORMAT3_2, md, inu, fsynmd[inu-1][md-1]);
     } // for(inu=1; inu<=40; inu++)  125
 
     for(inu=41; inu<=D68; inu++) { // 128
@@ -1732,6 +1788,10 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     common.betd = betamd;
     common.gamd = gammd;
     double fssc1 = ssc(fq1/dopref)*dopref2/dtfact;
+    //time_t starttime;
+    //time(&starttime);
+    //cout << "% do 129 Time start: " << ctime(&starttime) << " md=" << md << endl;
+
     for(inu=7; inu<=D68; inu++) { // 129  why inu 7?
       restnu = nu[inu-1];
       fsscmd[inu-1][md-1] = ssc(restnu/dopref)*dopref2/dtfact;
@@ -1742,7 +1802,17 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       fssc1 = fsscmd[inu-1][md-1];
       if(nTestOut==3) fprintf(pfTestOut, FORMAT3_3, md, inu, fsscmd[inu-1][md-1]);
     } // 129 continue
+
+    //time_t endtime;
+    //time(&endtime);
+    //cout << "% do 129 Time end: " << ctime(&endtime) << endl;
+
   } // for(md=1; md<=MDMAX-1; md++) 130 continue
+
+    if((nTestOut==3) || (nTestOut==7)) {
+      fclose(pfTestOut);
+      exit(0);
+    }
 
   //
   //     *** End Mach disk set-up ***
@@ -1774,7 +1844,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 
       ididg[j-1] = 0;
       zcell[i-1][j-1] = zshock - (rcell[j-1]-inp.rsize)/tanz;
-      int idelay = 0.5+dstart+it-1+((zrf-zcell[i-1][j-1])+(xrf-xcell[j-1])*betadd*slos/(1.0-betadd*clos))/zsize;
+      int idelay = BlzMath::toFortranInt(0.5+dstart+it-1+((zrf-zcell[i-1][j-1])+(xrf-xcell[j-1])*betadd*slos/(1.0-betadd*clos))/zsize);
       // if(idelay.le.0.or.idelay.gt.(NDIM-ip0))
       //,  write(5,9222)idelay,dstart,j,md,ip0,zshock,zrf,zcell(i,j),
       //,  xrf,xcell(j),betadd,zsize // need to put this back in once we create the file ("temzpol.txt") earlier in loop
@@ -2016,6 +2086,10 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
           } // if((eterm1>=0.0) && (eterm2>=0.0)) { // go to 5124
 
           common.edist[ie-1] = enofe[i-1][j-1][ie-1]; // 5124
+          if((nTestOut==7) && (it==1)) {
+            double delt_local = (ie == 1 ? delt : 0.0);
+            fprintf(pfTestOut, FORMAT_EDIST, "5124", i, j, ie, delt_local, tlfact, n0[i-1][j-1], n0mean, etac, common.edist[ie-1]);
+          }
         } // for(ie=1; ie<=D44; ie++)   1124 continue
     
         common.bperpp = common.bfld;
@@ -2181,7 +2255,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       deltmd[j-1] = 1.0/(gamamr[j-1]*(1.0-betamr[j-1]*cosmd));
       // Determine time step of Mach disk seed photons from light-travel delay
       double delcor = deltmd[j-1]/dopref;
-      int mdmid = MDMD-(((zrf-zcl)*clos+(xrf-xcell[j-1])*slos)+dmd[j-1])/(dtfact*zsize);
+      int mdmid = BlzMath::toFortranInt(MDMD-(((zrf-zcl)*clos+(xrf-xcell[j-1])*slos)+dmd[j-1])/(dtfact*zsize));
       int md1 = mdmid-mdrang;
       if(md1 < 1) md1 = 1;
       int md2 = mdmid+mdrang;
@@ -2291,7 +2365,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 
       // 150 continue
       // Calculate energy distribution in the cell
-      id = (zcell[i-1][j-1]-zshock)/zsize+NZID;
+      id = BlzMath::toFortranInt((zcell[i-1][j-1]-zshock)/zsize+NZID);
       if(id < 1) id = 1;
 
       zdist = inp.zdist0+(id-NENDZRAT)*zsize+zshock;
@@ -2352,6 +2426,10 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
             enofe[i-1][j-1][ie-1] = 0.0;
         }
         common.edist[ie-1] = enofe[i-1][j-1][ie-1]; // 5089
+        if((nTestOut==7) && (it==1)) {
+          double delt_local = (ie == 1 ? delt : 0.0);
+          fprintf(pfTestOut, FORMAT_EDIST, "5089", i, j, ie, delt_local, tlfact, n0[i-1][j-1], n0mean, etac, common.edist[ie-1]);
+        }
       } // for(ie=1; ie<=D44; ie++)  90 continue
 
       delt = zsize*3.26*SEC_PER_YEAR/(gammad[i-1][j-1]*betad[i-1][j-1]);
@@ -2437,7 +2515,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 
         flsync[i-1][j-1][inu-1] = fsync2[inu-1]*(volc/zsize)*common.zred1/(1.0e18*AMJY*inp.dgpc*inp.dgpc)*FGEOM;
         flux[i-1][j-1][inu-1] = flsync[i-1][j-1][inu-1];
-        if(nTestOut==1) fprintf(pfTestOut, FORMAT1, 92, i, j, inu, flux[i-1][j-1][inu-1], 0.0);
         common.betd = betad[i-1][j-1];
         common.gamd = gammad[i-1][j-1];
         if(inu == 1) // looks like Fortran calculates polarization angle once - for the first frequency
@@ -2456,7 +2533,9 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
           spxssc = 0.0001;
           common.betd = betad[0][JCELLS-1];
           common.gamd = gammad[0][JCELLS-1];
-          ecflux = ecdust(restnu)*3.086*volc*common.zred1*delta[i-1][j-1]*delta[i-1][j-1]/(inp.dgpc*inp.dgpc)*FGEOM;
+          double ecdust_local = ecdust(restnu);
+          ecflux = ecdust_local*3.086*volc*common.zred1*delta[i-1][j-1]*delta[i-1][j-1]/(inp.dgpc*inp.dgpc)*FGEOM;
+          if((nTestOut==1) && (it==1)) fprintf(pfTestOut, FORMAT1, 92, i, j, inu, ecdust_local, delta[i-1][j-1]);
           sscflx = ssc(restnu)*3.086*volc*common.zred1*delta[i-1][j-1]*delta[i-1][j-1]/(inp.dgpc*inp.dgpc)*FGEOM;
           double taupp = 0.0;
           if(nu[inu-1] >= 1.0e22) { // go to 99
@@ -2464,7 +2543,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
             // Expression for anumin includes typical interaction angle
             anumin = (1.24e20/(nu[inu-1]*common.zred1))*1.24e20*::pow(2.0*gammad[i-1][j-1], 2);
             alnumn = log10(anumin);
-            inumin = (alnumn-10.0)*4+1;
+            inumin = BlzMath::toFortranInt((alnumn-10.0)*4+1);
             if(inumin <= 40) {  // go to 99
               if(anumin > nu[inumin-1])
                 anumin = nu[inumin-1];
@@ -2499,7 +2578,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
           flssc[i-1][j-1][inu-1] = sscflx;
           flcomp[i-1][j-1][inu-1] = ecflux+sscflx;
           flux[i-1][j-1][inu-1] = flsync[i-1][j-1][inu-1]+flcomp[i-1][j-1][inu-1];
-          if(nTestOut==1) fprintf(pfTestOut, FORMAT1, 99, i, j, inu, flux[i-1][j-1][inu-1], flec[i-1][j-1][inu-1]);
+          if((nTestOut==1) && (it==1)) fprintf(pfTestOut, FORMAT1, 99, i, j, inu, ecflux, delta);
           if((emeold>0.0) && (ecflux>0.0))
             spxec = log10(emeold/ecflux)/log10(nu[inu-1]/nu[inu-2]);
           if((emsold>0.0) && (sscflx>0.0))
@@ -2526,9 +2605,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       i = i+1;
       istart = i;
 
-      ////////////////////////////////////////////////////////////////////////
-      // ***Initial set-up of downstream cells; skip after 1st time step
-      //
       // Start loop over downstream cells
       for(j=1; j<=JCELLS-1; j++) { // do 200 j=1,(JCELLS-1)
 
@@ -2546,7 +2622,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
             zcell[i-1][j-1] = (i-1)*zsize+zshock-(rcell[j-1]-inp.rsize)/tanz;
             // Set up physical parameters of downstream cells at first time step
             // Cells farther downstream contain plasma ejected earlier
-            idelay = 0.5+dstart+it-1+((zrf-zcell[i-1][j-1])+(xrf-xcell[j-1])*betadd*slos/(1.0-betadd*clos))/zsize;
+            idelay = BlzMath::toFortranInt(0.5+dstart+it-1+((zrf-zcell[i-1][j-1])+(xrf-xcell[j-1])*betadd*slos/(1.0-betadd*clos))/zsize);
 
             if((idelay<1) || (idelay>(NDIM-ip0))) {
               //,  write(5,9223)idelay,dstart,j,md,ip0,zshock,zrf,zcell(i,j),
@@ -2784,7 +2860,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
           deltmd[j-1] = 1.0/(gamamr[j-1]*(1.0-betamr[j-1]*cosmd));
           // Determine time step of Mach disk seed photons from light-travel delay
           double delcor = deltmd[j-1]/dopref;
-          int mdmid = MDMD-(((zrf-zcl)*clos+(xrf-xcell[j-1])*slos)+dmd[j-1])/(dtfact*zsize);
+          int mdmid = BlzMath::toFortranInt(MDMD-(((zrf-zcl)*clos+(xrf-xcell[j-1])*slos)+dmd[j-1])/(dtfact*zsize));
           int md1 = mdmid-mdrang;
           if(md1 < 1)
             md1 = 1;
@@ -2892,7 +2968,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
           } //for(inu=2; inu<=common.nuhi; inu++) 1149 continue
 
           // 1150 continue
-          id = (zcell[i-1][j-1]-zshock)/zsize+NZID;
+          id = BlzMath::toFortranInt((zcell[i-1][j-1]-zshock)/zsize+NZID);
           if(id < 1)
             id = 1;
 
@@ -2959,7 +3035,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
             // iend is the last slice of cells with energetic electrons
             iend = i;
             // Calculate energy distribution for the cell
-            id = (zcell[i-1][j-1]-zshock)/zsize+NEND;
+            id = BlzMath::toFortranInt((zcell[i-1][j-1]-zshock)/zsize+NEND);
             if(id < 1) id=1;
             delt = zsize*SEC_PER_YEAR*3.26/(gammad[i-1][j-1]*betad[i-1][j-1]);
             glow = gammin[i-2][j-1]/(1.0+tlfact*gammin[i-2][j-1]*delt);
@@ -3005,6 +3081,10 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
               } // if(tloss > t1) go to 188
 
               common.edist[ie-1] = enofe[i-1][j-1][ie-1]; // 188
+              if((nTestOut==7) && (it==1)) {
+                double delt_local = (ie == 1 ? delt : 0.0);
+                fprintf(pfTestOut, FORMAT_EDIST, "188", i, j, ie, delt_local, tlfact, n0[i-1][j-1], n0mean, eta, common.edist[ie-1]);
+              }
             } // for(ie=1; ie<=D44: ie++)  190 continue
 
             gammax[i-1][j-1] = gammax[i-2][j-1]/(1.0+tlfact*delt*gammax[i-2][j-1]);
@@ -3096,7 +3176,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
               // 192 continue
               flsync[i-1][j-1][inu-1] = fsync2[inu-1]*(volc/zsize)*common.zred1/(1.0e18*AMJY*inp.dgpc*inp.dgpc)*FGEOM;
               flux[i-1][j-1][inu-1] = flsync[i-1][j-1][inu-1];
-              if(nTestOut==1) fprintf(pfTestOut, FORMAT1, 192, i, j, inu, flux[i-1][j-1][inu-1], 0.0);
               common.betd = betad[i-1][j-1];
               common.gamd = gammad[i-1][j-1];
               if(inu == 1)
@@ -3115,7 +3194,9 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
                 spxssc = 0.0001;
                 common.betd = betad[0][JCELLS-1];
                 common.gamd = gammad[0][JCELLS-1];
-                ecflux = ecdust(restnu)*3.086*volc*common.zred1*delta[i-1][j-1]*delta[i-1][j-1]/(inp.dgpc*inp.dgpc)*FGEOM;
+                double ecdust_local = ecdust(restnu);
+                ecflux = ecdust_local*3.086*volc*common.zred1*delta[i-1][j-1]*delta[i-1][j-1]/(inp.dgpc*inp.dgpc)*FGEOM;
+                if((nTestOut==1) && (it==1)) fprintf(pfTestOut, FORMAT1, 192, i, j, inu, ecdust_local, delta[i-1][j-1]);
                 sscflx = ssc(restnu)*3.086*volc*common.zred1*delta[i-1][j-1]*delta[i-1][j-1]/(inp.dgpc*inp.dgpc)*FGEOM;
                 double taupp = 0.0;
                 if(nu[inu-1] >= 1.0e22) { // go to 199
@@ -3123,7 +3204,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
                   // Expression for anumin includes typical interaction angle
                   anumin = (1.24e20/(nu[inu-1]*common.zred1))*1.24e20*::pow(2.0*gammad[i-1][j-1], 2);
                   alnumn = log10(anumin);
-                  inumin = (alnumn-10.0)*4+1;
+                  inumin = BlzMath::toFortranInt((alnumn-10.0)*4+1);
                   if(inumin <= 40) {  // go to 199
                     if(anumin > nu[inumin-1])
                       anumin = nu[inumin-1];
@@ -3159,7 +3240,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
                 flssc[i-1][j-1][inu-1] = sscflx;
                 flcomp[i-1][j-1][inu-1] = ecflux+sscflx;
                 flux[i-1][j-1][inu-1] = flsync[i-1][j-1][inu-1]+flcomp[i-1][j-1][inu-1];
-                if(nTestOut==1) fprintf(pfTestOut, FORMAT1, 199, i, j, inu, flux[i-1][j-1][inu-1], flec[i-1][j-1][inu-1]);
+                if((nTestOut==1) && (it==1)) fprintf(pfTestOut, FORMAT1, 199, i, j, inu, ecflux, delta[i-1][j-1]);
                 if((emeold>0.0) && (ecflux>0.0))
                   spxec = log10(emeold/ecflux)/log10(nu[inu-1]/nu[inu-2]);
                 if((emsold>0.0) && (sscflx>0.0))

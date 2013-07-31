@@ -77,7 +77,7 @@ c      common/ci/i,j
       common/cinput/daysToSimulate
       ! Added by me (MSV, June 2012) for test mode ("generates" the same sequence of rand numbers every time)
       common/cfixedrand/fixedRandFlag, fixedRandFileOpened, fixedRandData, fixedRandCounter
-      nTestOut = 1
+      nTestOut = 6
       ! Parse the command line options and their arguments
       daysToSimulate = 0.4 ! Default value
       fixedRandFlag = 0
@@ -329,15 +329,29 @@ c     Set up variation of energy density according to PSD; see Done et al.,
 c       1992, ApJ, 400, 138, eq. B1
       tinc=dtime
       call psdsim(ndim,-psdslp,-psdslp,1.0,tinc,spsdx)
+      if(nTestOut.eq.6) then
+      do ni = 1,ndim
+         write(9,14007) ni,spsdx(ni)
+      end do
+      endif
       psdsum=0.0
       psdsig=0.0
       ipulse=dstart+100+ip0
       spexp=1.0/(0.5*expon+1.0)
+      if(nTestOut.eq.6) then
+         write(9,14009) 'spexp',spexp
+      end if
       do 4997 ip=1,ndim
 c     Normalize spsd by standard deviation
       psdsig=psdsig+spsdx(ip)*spsdx(ip)/(andim-1.0)
  4997 continue
+      if(nTestOut.eq.6) then
+         write(9,14009) 'psdsig^2',psdsig
+      end if
       psdsig=sqrt(psdsig)
+      if(nTestOut.eq.6) then
+         write(9,14009) 'psdsig',psdsig
+      end if
       do 4998 ip=1,ndim
 cccc  Next section is only for testing purposes
 cccc   If using it, comment out call psdsim() above
@@ -363,17 +377,31 @@ cccc
 c     Normalize spsd by standard deviation and take exponential of result
 c       to get amplitude of flux variation
       spsd(ip)=exp(amppsd*spsdx(ip)/psdsig)
+      if(nTestOut.eq.6) then
+         write(9,14007) ip,spsd(ip)
+      end if
 c     Need to scale n0 and B by a different factor to get the desired amplitude
       spsd(ip)=spsd(ip)**(spexp)
+      if(nTestOut.eq.6) then
+         write(9,14007) ip,spsd(ip)
+      end if
 c     Average of 10 time steps to smooth variations so that discreteness
 c       of columns of cells does not cause artificial spikes of flux
       if(ip.gt.9)spsd(ip)=0.1*(spsd(ip)+spsd(ip-1)+spsd(ip-2)+
      ,  spsd(ip-3)+spsd(ip-4)+spsd(ip-5)+spsd(ip-6)+
      ,  spsd(ip-7)+spsd(ip-8)+spsd(ip-9))
       psdsum=psdsum+amppsd*spsd(ip)/andim
+      if(nTestOut.eq.6) then
+         write(9,14009) 'psdsum',psdsum
+         write(9,14009) 'spsd',spsd(ip)
+      end if
  4998 continue
-      write(6,9992)nend,ip0,dstart,zsize,zshock,clos,slos,
-     ,   gammdd,delobs,dtfact,psdsig,psdsum
+      if(nTestOut.eq.6) then
+         close(9)
+         call exit(0)
+      end if 
+      !write(6,9992)nend,ip0,dstart,zsize,zshock,clos,slos,
+      !     ,   gammdd,delobs,dtfact,psdsig,psdsum
 c      do 4999 ip=1,ndim
 c      write(8,9345)ip,spsd(ip)
 c 4999 continue
@@ -574,11 +602,19 @@ c     Divide by delt since integral is over time
       enofe(i,j,ie)=enofe(i,j,ie)/delt
       if(enofe(i,j,ie).lt.0.0)enofe(i,j,ie)=0.0
  5123 edist(ie)=enofe(i,j,ie)
+      if((nTestOut.eq.7).and.(md>100000)) then
+         delt_local = 0.0
+         if(ie.eq.1) delt_local=delt
+         write(9,14008) '5123',i,j,ie,md,delt_local,tlfact,n0(i,j),n0mean,etac,edist(ie)
+      end if
 c      aled=0.0
 c      if(ie.gt.1.and.edist(ie).gt.0.0)aled=
 c     ,  alog10(edist(ie)/edist(ie-1))/dlog10(ggam(ie)/ggam(ie-1))
 c      write(6,9994)md,ie,bfield(j),uphmd,ggam(ie),edist(ie),aled
   124 continue
+      if(nTestOut.eq.7) then
+         cycle
+      end if
       bperpp=bfld
       nuhi=1
       do 125 inu=1,40
@@ -590,7 +626,7 @@ c     Synchrotron mean intensity for SSC calculation inside Mach disk
       ssabs=1.02e4*(sen+2.0)*akapnu(restnu)*bperpp/nu(inu)**2
       sstau=ssabs*parsec*rsize*svmd
       fsync(inu)=ajnu(restnu)*bperpp*rsize*svmd*(emfact*parsec)
-      if(nTestOut.eq.3) write(9, 9217) md, inu, fsync(inu)
+      !if(nTestOut.eq.3) write(9, 9217) md, inu, fsync(inu)
       if(fsync(inu).gt.0.0)nuhi=inu
       if(sstau.lt.0.01)go to 126
       srcfn=fsync(inu)/sstau
@@ -598,7 +634,7 @@ c     Synchrotron mean intensity for SSC calculation inside Mach disk
       if(sstau.gt.0.01.and.sstau.le.5.0)fsync(inu)=
      ,  srcfn*(1.0-exp(-sstau))
   126 continue
-      if(nTestOut.eq.3) write(9, 9217) md, inu, fsync(inu)
+      !if(nTestOut.eq.3) write(9, 9217) md, inu, fsync(inu)
 c     Now estimate synchrotron emission seen by other cells
 c     Need to add a lower frequency to get spectral index of nu(1)
       if(inu.gt.1)go to 127
@@ -623,7 +659,7 @@ c     ,   absorb(inu,md),alphmd(inu,md),bperpp,dopref
       fsyn1=fsynmd(inu,md)
       absrb1=absorb(inu,md)
       ssseed(inu)=fsync(inu)
-      if(nTestOut.eq.3) write(9, 9216) md, inu, fsynmd(inu,md)
+      !if(nTestOut.eq.3) write(9, 9216) md, inu, fsynmd(inu,md)
   125 continue
       do 128 inu=41,68
       snu(inu)=nu(inu)
@@ -655,6 +691,11 @@ c     ,  restnu,ssseed(inu),fsynmd(inu,md),fsscmd(inu,md)
 c
 c     *** End Mach disk set-up ***
 c
+      if((nTestOut.eq.3).or.(nTestOut.eq.7)) then
+         close(9)
+         call exit(0)
+      end if
+
 c     After initial set-up, time loop starts here
     9 i=1
       ncells=0
@@ -888,6 +929,11 @@ c     Divide by delt since integral is over time
       enofe(i,j,ie)=enofe(i,j,ie)/delt
       if(enofe(i,j,ie).lt.0.0)enofe(i,j,ie)=0.0
  5124 edist(ie)=enofe(i,j,ie)
+      if((nTestOut.eq.7).and.(it.eq.1)) then
+         delt_local = 0.0
+         if(ie.eq.1) delt_local=delt
+         write(9,14008) '5124',i,j,ie,delt_local,tlfact,n0(i,j),n0mean,etac,edist(ie)
+      end if
  1124 continue
       bperpp=bfld
       nuhi=1
@@ -1206,6 +1252,11 @@ c     Divide by delt since integral is over time
       enofe(i,j,ie)=enofe(i,j,ie)/delt
       if(enofe(i,j,ie).lt.0.0)enofe(i,j,ie)=0.0
  5089 edist(ie)=enofe(i,j,ie)
+      if((nTestOut.eq.7).and.(it.eq.1)) then
+         delt_local = 0.0
+         if(ie.eq.1) delt_local=delt
+         write(9,14008) '5089',i,j,ie,delt_local,tlfact,n0(i,j),n0mean,etac,edist(ie)
+      end if
    90 continue
       delt=zsize*3.26*yr/(gammad(i,j)*betad(i,j))
       gammax(i,j)=gmax0(i,j)/(1.0d0+tlfact*delt*gmax0(i,j))
@@ -1280,7 +1331,6 @@ c      if(tauexp.le.15.0)fsync2(inu)=fsync2(inu)/exp(tauexp)
 c xxxxxxx
 c      if(inu.eq.20)write(6,9994)i,j,nu(inu),flsync(i,j,inu),specin,
 c     ,  bperp(j),delta(i,j),ggam(43),edist(43)
-      if(nTestOut.eq.1) write(9, 9218) 92, i, j, inu, flux(i,j,inu), 0.0
       betd=betad(i,j)
       gamd=gammad(i,j)
       if(inu.eq.1)call polcalc(bfield(j),bx(i,j),by(i,j),bz(i,j),
@@ -1301,8 +1351,10 @@ c     ,  bperp(j),delta(i,j),ggam(40),ggam(43),edist(40),edist(43)
       spxssc=0.0001
       betd=betad(1,jcells)
       gamd=gammad(1,jcells)
-      ecflux=ecdust(restnu)*3.086*volc*zred1*delta(i,j)**2/dgpc**2*
+      ecdust_local = ecdust(restnu)
+      ecflux=ecdust_local*3.086*volc*zred1*delta(i,j)**2/dgpc**2*
      ,   fgeom
+      if((nTestOut.eq.1.).and.(it.eq.1)) write(9, 9218) 92, i, j, inu, ecdust_local, delta(i,j)
 c      if(inu.eq.29)write(6,9973)i,j,ecflux,delta(i,j),dusti(1),
 c     ,  dusti(22),ggam(1),edist(1),ggam(44),edist(44)
  9973 format('EC ',2i6,1p8e11.3)
@@ -1342,7 +1394,7 @@ c     ,   phots(inumin),nu(inumin+10),phots(inumin+10)
       flssc(i,j,inu)=sscflx
       flcomp(i,j,inu)=ecflux+sscflx
       flux(i,j,inu)=flsync(i,j,inu)+flcomp(i,j,inu)
-      if(nTestOut.eq.1) write(9, 9218) 99, i, j, inu, flux(i,j,inu), flec(i,j,inu)
+      if((nTestOut.eq.1.).and.(it.eq.1)) write(9, 9218) 99, i, j, inu, ecflux, delta(i,j)
       if(emeold.gt.0.0.and.ecflux.gt.0.0)spxec=
      ,  alog10(emeold/ecflux)/alog10(nu(inu)/nu(inu-1))
       if(emsold.gt.0.0.and.sscflx.gt.0.0)spxssc=
@@ -1724,6 +1776,7 @@ c     Only calculate up to Klein-Nishina limit of gmin
      ,  ((snu(inu)/snu(inu-1))**(1.0-aaa)-1.0)
  1148 continue
  1149 continue
+
  1150 continue
       id=(zcell(i,j)-zshock)/zsize+nzid
       if(id.lt.1)id=1
@@ -1818,6 +1871,11 @@ c      test2=eterm2**(sen-1.0)
 c      if(i.eq.2)write(8,9994)j,ie,ggam(ie),enofe(i,j,ie),tloss,
 c     ,  tlfact,t1,t2
   188 edist(ie)=enofe(i,j,ie)
+      if((nTestOut.eq.7).and.(it.eq.1)) then
+         delt_local = 0.0
+         if(ie.eq.1) delt_local=delt
+         write(9,14008) '188',i,j,ie,delt_local,tlfact,n0(i,j),n0mean,eta,edist(ie)
+      end if
 c     if(j.eq.10)write(5,9994)i,j,ggam(ie),edist(ie)
   190 continue
       gammax(i,j)=gammax(i-1,j)/(1.0d0+tlfact*delt*gammax(i-1,j))
@@ -1892,7 +1950,6 @@ c     Attenuation from downstream cells along l.o.s. IF significant
 c xxxxxxx
 c      if(inu.eq.20)write(6,9994)i,j,nu(inu),flsync(i,j,inu),specin,
 c     ,  bperp(j),delta(i,j),ggam(43),edist(43)
-      if(nTestOut.eq.1) write(9, 9218) 192, i, j, inu, flux(i,j,inu), 0.0
       betd=betad(i,j)
       gamd=gammad(i,j)
       if(inu.eq.1)call polcalc(bfield(j),bx(i,j),by(i,j),bz(i,j),
@@ -1911,8 +1968,10 @@ c     ,    pu(i,j,inu),fpol(i,j,inu),(chipol*rad)
       spxssc=0.0001
       betd=betad(1,jcells)
       gamd=gammad(1,jcells)
-      ecflux=ecdust(restnu)*3.086*volc*zred1*delta(i,j)**2/dgpc**2*
+      ecdust_local = ecdust(restnu)
+      ecflux=ecdust_local*3.086*volc*zred1*delta(i,j)**2/dgpc**2*
      ,   fgeom
+      if((nTestOut.eq.1.).and.(it.eq.1)) write(9, 9218) 192, i, j, inu, ecdust_local, delta(i,j)
 c      iwrite=0
 c      if(inu.eq.32)iwrite=1
 c      if(inu.eq.29)write(6,9973)i,j,ecflux,delta(i,j),dusti(1),
@@ -1951,7 +2010,7 @@ c     Expression for anumin includes typical interaction angle
       flssc(i,j,inu)=sscflx
       flcomp(i,j,inu)=ecflux+sscflx
       flux(i,j,inu)=flsync(i,j,inu)+flcomp(i,j,inu)
-      if(nTestOut.eq.1) write(9, 9218) 199, i, j, inu, flux(i,j,inu), flec(i,j,inu)
+      if((nTestOut.eq.1.).and.(it.eq.1)) write(9, 9218) 199, i, j, inu, ecflux, delta(i,j)
       if(emeold.gt.0.0.and.ecflux.gt.0.0)spxec=
      ,  alog10(emeold/ecflux)/alog10(nu(inu)/nu(inu-1))
       if(emsold.gt.0.0.and.sscflx.gt.0.0)spxssc=
@@ -2180,10 +2239,10 @@ c     Move cells in time array to make room for next time step
  8889 format(/)
  9111 format(a10/i3/f5.3/f5.3/f4.2/f4.2/f5.3/f3.1/e7.1/f5.3/f7.1/
      ,f5.1/f6.1/d9.5/d9.5/d6.1/d6.1/d6.2/f6.1/f4.1/f3.1/f3.1/f3.1/e7.2)
- 9215 format('md',i6,' inu',i5, ' fsscmd(inu,md)',f10.5)
+ 9215 format('md',i6,' inu',i5, ' fsscmd(inu,md)',es12.5)
  9216 format('md',i6,' inu',i5, ' fsynmd(inu,md)',f15.2)
  9217 format('md',i6,' inu',i5, ' fsync(inu)',f15.3)
- 9218 format(i4,' i ', i5, ' j ', i5, ' inu ', i5, ' flux ', f10.2, ' flec ', 1p12e12.4)
+ 9218 format(i4,' i ', i5, ' j ', i5, ' inu ', i5, ' ecflux ', es12.4,' delta ', es12.4)
  9219 format('j ', i5, ' imax ', i5)
  9220 format('ncells ', i8, ' j ', i5)
  9221 format('1908 ncells ', i8, ' j ', i5, ' i ', i5)
@@ -2217,6 +2276,10 @@ c     Move cells in time array to make room for next time step
  9999 format(10f10.3)
 14001 format(i5,' i',i5,' j',i5,' md',i6,' inu',i5,' ',a,f10.4)
 14005 format(i5,' i',i5,' j',i5,' md',i6,' inu',i5,' ',a,f10.4,' ',a,f10.4)
+14006 format(i7,' ',i8)
+14007 format(i7,' ',es12.4)
+14008 format(a5,' ',i7,' ',i7,' ',i2,' ',i8,' ',es12.4,' ',es12.4,' ',es12.4,' ',es12.4,' ',es12.4,' ',es12.5)
+14009 format(a10,' ',es12.4)
       close (4, status='keep')
       close (3, status='keep')
       close (9, status='keep')

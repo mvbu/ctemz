@@ -80,6 +80,23 @@ class BlzMath {
     return lowDiff < highDiff ? low : high;
 	}
 
+  static const double FORTRAN_UNITY_THRESHOLD = .99999;
+
+  // Fortran int() cast seems to round the number up if it's very close.
+  // Example: if id is an int, then id = 40.99999999 results in id being 41.
+  // But in C++ it seems that int id = 40.99999999 results in id being 40. 
+  // So this function is to be used wherever there is a cast/assignment of a float
+  // to an integer in Fortran
+  template<class T>
+    static int toFortranInt(const T input) {
+    // input assumed positive. will have to handle negative values later, though
+    double remainder = input - (int)input;
+    if(remainder >= FORTRAN_UNITY_THRESHOLD)
+      return ceil(input);
+    else
+      return input;
+  }
+
  private:
   BlzMath();
   ~BlzMath();

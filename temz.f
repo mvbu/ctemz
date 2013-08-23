@@ -77,7 +77,7 @@ c      common/ci/i,j
       common/cinput/daysToSimulate
       ! Added by me (MSV, June 2012) for test mode ("generates" the same sequence of rand numbers every time)
       common/cfixedrand/fixedRandFlag, fixedRandFileOpened, fixedRandData, fixedRandCounter
-      nTestOut = 6
+      nTestOut = 0
       ! Parse the command line options and their arguments
       daysToSimulate = 0.4 ! Default value
       fixedRandFlag = 0
@@ -444,6 +444,12 @@ c     nouter(j) = approx. no. of cells between cell of interest and observer
   998 continue
       jzero=j+1
   999 continue
+      
+      if(nTestOut.eq.2) then
+         close(9)
+         call exit(0)
+      end if
+
       xcell(jcells)=0.0
       ycell(jcells)=0.0
       rcell(jcells)=0.0
@@ -602,7 +608,7 @@ c     Divide by delt since integral is over time
       enofe(i,j,ie)=enofe(i,j,ie)/delt
       if(enofe(i,j,ie).lt.0.0)enofe(i,j,ie)=0.0
  5123 edist(ie)=enofe(i,j,ie)
-      if((nTestOut.eq.7).and.(md>100000)) then
+      if((nTestOut.eq.7).and.(md>110000)) then
          delt_local = 0.0
          if(ie.eq.1) delt_local=delt
          write(9,14008) '5123',i,j,ie,md,delt_local,tlfact,n0(i,j),n0mean,etac,edist(ie)
@@ -1045,7 +1051,7 @@ c
    88 continue
       do 100 j=1,jcells-1
       ncells=ncells+1
-      if(nTestOut.eq.2) write(9,9220) ncells, j
+      !if(nTestOut.eq.2) write(9,9220) ncells, j
       emisco=0.0
       ecflux=0.0
       zcell(i,j)=zshock-(rcell(j)-rsize)/tanz
@@ -1432,7 +1438,7 @@ c     iend, to be computed, is the last slice of cells with energetic electrons
       do 200 i=istart,imax(j)
       icelmx(j)=i
       ncells=ncells+1
-      if(nTestOut.eq.2) write(9,9221) ncells, j, i 
+      !if(nTestOut.eq.2) write(9,9221) ncells, j, i 
       if(it.gt.1)go to 110
 c
 c     *** Initial set-up of downstream cells; skip after 1st time step
@@ -2278,7 +2284,7 @@ c     Move cells in time array to make room for next time step
 14005 format(i5,' i',i5,' j',i5,' md',i6,' inu',i5,' ',a,f10.4,' ',a,f10.4)
 14006 format(i7,' ',i8)
 14007 format(i7,' ',es12.4)
-14008 format(a5,' ',i7,' ',i7,' ',i2,' ',i8,' ',es12.4,' ',es12.4,' ',es12.4,' ',es12.4,' ',es12.4,' ',es12.5)
+14008 format(a5,' ',i7,' ',i7,' ',i2,' ',i8,' ',es12.4,' ',es12.4,' ',es12.3,' ',es12.3,' ',es12.4,' ',es12.5)
 14009 format(a10,' ',es12.4)
       close (4, status='keep')
       close (3, status='keep')

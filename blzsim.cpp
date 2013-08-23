@@ -19,7 +19,7 @@ static const char FORMAT14001[] = "%5d i%5d j%5d md%6d inu%5d %s%10.4f\n";
 static const char FORMAT14005[] = "%5d i%5d j%5d md%6d inu%5d %s%10.4f %s%10.4f\n";
 static const char FORMAT_ARRAY_INT[] = "%7d %8d\n"; // format 14006 in temz.f
 static const char FORMAT_ARRAY_FLOAT[] = "%7d %12.4E\n"; // format 14007 in temz.f
-static const char FORMAT_EDIST[] = "%5s %7d %7d %2d %8d %12.4E %12.4E %12.4E %12.4E %12.4E %12.5E\n"; // format 14008 in temz.f
+static const char FORMAT_EDIST[] = "%5s %7d %7d %2d %8d %12.4E %12.4E %12.3E %12.3E %12.4E %12.5E\n"; // format 14008 in temz.f
 static const char FORMAT_STRING_FLOAT[] = "%10s %12.4E\n"; // format 14009 in temz.f
 
 const double SMALL_FMDALL = 1e-30;
@@ -1168,7 +1168,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   const int D451=451;
 
   bool bOutputFilesCreated = false;
-  int  nTestOut = 6; // Max 7
+  int  nTestOut = 0; // Max 7
   FILE* pfSpec = NULL; // 3 ctemzspec.txt
   FILE* pfLc = NULL; // 4 ctemzlc.txt
   FILE* pfPol = NULL; // 5 ctemzpol.txt
@@ -1541,6 +1541,11 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     jzero = j + 1;
   } // for(nnn=1; nnn<=NEND-1; nnn++) 
 
+  if(nTestOut==2) {
+    fclose(pfTestOut);
+    exit(0);
+  }
+
   xcell[JCELLS-1] = 0.0;
   ycell[JCELLS-1] = 0.0;
   rcell[JCELLS-1] = 0.0;
@@ -1719,7 +1724,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
           enofe[i-1][j-1][ie-1] = 0.0;
       }
       common.edist[ie-1] = enofe[i-1][j-1][ie-1]; // 5123
-      if((nTestOut==7) && (md>100000)) {
+      if((nTestOut==7) && (md>110000)) {
         double delt_local = (ie == 1 ? delt : 0.0);
         fprintf(pfTestOut, FORMAT_EDIST, "5123", i, j, ie, md, delt_local, tlfact, n0[i-1][j-1], n0mean, etac, common.edist[ie-1]);
       }
@@ -2214,7 +2219,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 
     for(j=1; j<=(JCELLS-1); j++) { // do 100 j=1,JCELLS-1
       ncells++;
-      if(nTestOut==2) fprintf(pfTestOut, "ncells %8d j %5d\n", ncells, j);
+      //if(nTestOut==2) fprintf(pfTestOut, "ncells %8d j %5d\n", ncells, j);
       emisco = 0.0;
       ecflux = 0.0;
       zcell[i-1][j-1] = zshock-(rcell[j-1]-inp.rsize)/tanz;
@@ -2614,7 +2619,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         for(i=istart; i<=imax[j-1]; i++) { // do 200 i=istart,imax[j-1]
           icelmx[j-1] = i;
           ncells = ncells+1;
-          if(nTestOut==2) fprintf(pfTestOut, "1908 ncells %8d j %5d i %5d\n", ncells, j, i);
+          //if(nTestOut==2) fprintf(pfTestOut, "1908 ncells %8d j %5d i %5d\n", ncells, j, i);
           if(it <= 1) { // if(it.gt.1)go to 110
             //
             // *** Initial set-up of downstream cells; skip after 1st time step

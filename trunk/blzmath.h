@@ -97,6 +97,11 @@ class BlzMath {
       return input;
   }
 
+  // Given an (inclusive) range of indices, return nIntervals pairs of indices that divide
+  // the original range into approximately equal subranges;
+  static void getSubIntervals(const int minIndex, const int maxIndex, const int nIntervals,
+			      int output[][2]);
+
  private:
   BlzMath();
   ~BlzMath();

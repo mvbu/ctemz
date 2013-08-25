@@ -130,6 +130,28 @@ void BlzMath::vecRot(const double ax, const double ay, const double az, // a: un
   *vz = ax*(-cy*s+cs1*cx*cz)+ay*(cx*s+cs1*cy*cz)+az*(1.0+cs1*(cz*cz-1.0));
 }
 
+void BlzMath::getSubIntervals(const int minIndex, const int maxIndex, const int nIntervals,
+			      int output[][2])
+{
+  // output must have space for nIntervals entries
+  int range = maxIndex - minIndex;
+  int interval = (int)round((float)range/(float)nIntervals);
+  int index = minIndex;
+  int iInterval = 0;
+  bool bContinue = true;
+  while(index < maxIndex) {
+    output[iInterval][0] = index;
+    if(index != minIndex)
+      (output[iInterval][0])++;
+    index += interval;
+    if(((maxIndex-index) < interval) && (iInterval == nIntervals-1))
+      index = maxIndex;
+    output[iInterval][1] = index;
+    iInterval++;
+  }
+  
+}
+
 double BlzMath::mag(double x, double y, double z) {  return sqrt(magSquared(x,y,z)); }
 double BlzMath::magSquared(double x, double y, double z){ return x*x + y*y + z*z; }
 double BlzMath::mag(double x, double y) {  return sqrt(magSquared(x,y)); }

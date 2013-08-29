@@ -681,18 +681,30 @@ c       relative Doppler factor dopref
       betd=betamd
       gamd=gammd
       fssc1=ssc(fq1/dopref)*dopref**2/dtfact
+      do inu=7,68
+         restnu=nu(inu)
+         fsscmd(inu,md)=ssc(restnu/dopref)*dopref**2/dtfact
+      end do
       do 129 inu=7,68
       restnu=nu(inu)
-      fsscmd(inu,md)=ssc(restnu/dopref)*dopref**2/dtfact
       alfmdc(inu,md)=10.0
       if(fsscmd(inu,md).gt.0.0.and.fssc1.gt.0.0)
      ,alfmdc(inu,md)=-alog10(fsscmd(inu,md)/fssc1)/alog10(restnu/fq1)
       fq1=restnu
       fssc1=fsscmd(inu,md)
-      if(nTestOut.eq.3) write(9, 9215) md, inu, fsscmd(inu,md)
 c      write(6,9911)md,j,dopref,bperpp,n0(i,j),
 c     ,  restnu,ssseed(inu),fsynmd(inu,md),fsscmd(inu,md)
   129 continue
+      if(nTestOut.eq.3) then
+         do inu=7,68
+            write(9, 9215) md, inu, fsscmd(inu,md)
+         end do
+      end if
+      if((nTestOut.eq.3).and.(md.gt.9)) then
+         close(9)
+         call exit(0)
+      end if
+
   130 continue
 c
 c     *** End Mach disk set-up ***

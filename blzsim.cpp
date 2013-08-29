@@ -1793,13 +1793,14 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     common.betd = betamd;
     common.gamd = gammd;
     double fssc1 = ssc(fq1/dopref)*dopref2/dtfact;
-    //time_t starttime;
-    //time(&starttime);
-    //cout << "% do 129 Time start: " << ctime(&starttime) << " md=" << md << endl;
+
+    for(inu=7; inu<=D68; inu++) {
+      restnu = nu[inu-1];
+      fsscmd[inu-1][md-1] = ssc(restnu/dopref)*dopref2/dtfact;
+    }
 
     for(inu=7; inu<=D68; inu++) { // 129  why inu 7?
       restnu = nu[inu-1];
-      fsscmd[inu-1][md-1] = ssc(restnu/dopref)*dopref2/dtfact;
       alfmdc[inu-1][md-1] = 10.0;
       if((fsscmd[inu-1][md-1] > 0.0) && (fssc1 > 0.0))
         alfmdc[inu-1][md-1] = -log10(fsscmd[inu-1][md-1]/fssc1)/log10(restnu/fq1);
@@ -1808,9 +1809,15 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       if(nTestOut==3) fprintf(pfTestOut, FORMAT3_3, md, inu, fsscmd[inu-1][md-1]);
     } // 129 continue
 
-    //time_t endtime;
-    //time(&endtime);
-    //cout << "% do 129 Time end: " << ctime(&endtime) << endl;
+    if(nTestOut==3) {
+      for(inu=7; inu<=D68; inu++)
+        fprintf(pfTestOut, FORMAT3_3, md, inu, fsscmd[inu-1][md-1]);
+    }
+
+    if((nTestOut==3) && (md > 9)) {
+      fclose(pfTestOut);
+      exit(0);
+    }
 
   } // for(md=1; md<=MDMAX-1; md++) 130 continue
 

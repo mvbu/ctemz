@@ -18,9 +18,9 @@ static const char FORMAT3_3[] = "md%6d inu%5d fsscmd(inu,md)%12.5E\n";
 static const char FORMAT14001[] = "%5d i%5d j%5d md%6d inu%5d %s%10.4f\n";
 static const char FORMAT14005[] = "%5d i%5d j%5d md%6d inu%5d %s%10.4f %s%10.4f\n";
 static const char FORMAT_ARRAY_INT[] = "%7d %8d\n"; // format 14006 in temz.f
-static const char FORMAT_ARRAY_FLOAT[] = "%7d %12.4E\n"; // format 14007 in temz.f
-static const char FORMAT_EDIST[] = "%5s %7d %7d %2d %8d %12.4E %12.4E %12.3E %12.3E %12.4E %12.5E\n"; // format 14008 in temz.f
-static const char FORMAT_STRING_FLOAT[] = "%10s %12.4E\n"; // format 14009 in temz.f
+static const char FORMAT_ARRAY_FLOAT[] = "%7d %12.5E\n"; // format 14007 in temz.f
+static const char FORMAT_EDIST[] = "%5s %7d %7d %2d %8d %12.5E %12.5E %12.3E %12.3E %12.4E %12.5E\n"; // format 14008 in temz.f
+static const char FORMAT_STRING_FLOAT[] = "%10s %8d %12.5E\n"; // format 14009 in temz.f
 
 const double SMALL_FMDALL = 1e-30;
 
@@ -1417,14 +1417,14 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 
   double tinc = dtime;
   psdsim(NDIM, -inp.psdslp, -inp.psdslp, 1.0, tinc, spsdx); 
-  if(nTestOut==6) {
-    int ni;
-    for(ni=1; ni<=NDIM; ni++) {
-      fprintf(pfTestOut, FORMAT_ARRAY_FLOAT, ni, spsdx[ni-1]);
-    }
-    //fclose(pfTestOut);
-    //exit(0);
-  }
+  // if(nTestOut==6) {
+  //   int ni;
+  //   for(ni=1; ni<=NDIM; ni++) {
+  //     fprintf(pfTestOut, FORMAT_ARRAY_FLOAT, ni, spsdx[ni-1]);
+  //   }
+  //   fclose(pfTestOut);
+  //   exit(0);
+  // }
   double psdsum = 0.0;
   double psdsig = 0.0;
   int ip;
@@ -1432,7 +1432,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   double spexp=1.0/(0.5*expon+1.0);
 
   if(nTestOut==6) {
-    fprintf(pfTestOut, FORMAT_STRING_FLOAT, "spexp", spexp);
+    fprintf(pfTestOut, FORMAT_STRING_FLOAT, "spexp", 0, spexp);
   }
 
   for(ip=1; ip<=NDIM; ip++) {   // do 4997 ip=1,ndim
@@ -1441,14 +1441,16 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   } // 4997 continue
 
   if(nTestOut==6) {
-    fprintf(pfTestOut, FORMAT_STRING_FLOAT, "psdsig^2", psdsig);
+    fprintf(pfTestOut, FORMAT_STRING_FLOAT, "psdsig^2", 0, psdsig);
   }
 
   psdsig = sqrt(psdsig);
 
   if(nTestOut==6) {
-    fprintf(pfTestOut, FORMAT_STRING_FLOAT, "psdsig", psdsig);
+    fprintf(pfTestOut, FORMAT_STRING_FLOAT, "psdsig", 0, psdsig);
   }
+
+  const int IPLIM=129000; // just for limiting test output
 
   for(ip=1; ip<=NDIM; ip++) { // do 4998 ip=1,ndim
     // Next section is only for testing purposes. If using it, comment out call psdsim() above
@@ -1478,12 +1480,12 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     // Normalize spsd by standard deviation and take exponential of result
     // to get amplitude of flux variation
     spsd[ip-1] = exp(amppsd*spsdx[ip-1]/psdsig);
-    if(nTestOut==6) {
+    if((nTestOut==6) && (ip>IPLIM)) {
       fprintf(pfTestOut, FORMAT_ARRAY_FLOAT, ip, spsd[ip-1]);
     }
     // Need to scale n0 and B by a different factor to get the desired amplitude
     spsd[ip-1] = ::pow(spsd[ip-1], spexp);
-    if(nTestOut==6) {
+    if((nTestOut==6) && (ip>IPLIM)) {
       fprintf(pfTestOut, FORMAT_ARRAY_FLOAT, ip, spsd[ip-1]);
     }
     // Average of 10 time steps to smooth variations so that discreteness
@@ -1493,9 +1495,9 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
                         spsd[ip-1-3]+spsd[ip-1-4]+spsd[ip-1-5]+spsd[ip-1-6]+
                         spsd[ip-1-7]+spsd[ip-1-8]+spsd[ip-1-9]);
     psdsum = psdsum+amppsd*spsd[ip-1]/(double)ANDIM;
-    if(nTestOut==6) {
-      fprintf(pfTestOut, FORMAT_STRING_FLOAT, "psdsum", psdsum);
-      fprintf(pfTestOut, FORMAT_STRING_FLOAT, "spsd", spsd[ip-1]);
+    if((nTestOut==6) && (ip>IPLIM)) {
+      fprintf(pfTestOut, FORMAT_STRING_FLOAT, "psdsum", ip, psdsum);
+      fprintf(pfTestOut, FORMAT_STRING_FLOAT, "spsd", ip, spsd[ip-1]);
     }
   } //4998 continue
 
@@ -1702,7 +1704,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         egam[i-1][j-1][ie-1] = gminmd*::pow(10.0, gmratl*(ie-12));
       if(ie < 12)
         egam[i-1][j-1][ie-1] = glow*::pow(10.0, gmratm*(ie-1));
-
+      double powTerm1=0.0, powTerm2=0.0;
       common.ggam[ie-1] = egam[i-1][j-1][ie-1];
       t2 = (gmax0[i-1][j-1] - common.ggam[ie-1])/(tlfact*common.ggam[ie-1]*gmax0[i-1][j-1]);
       enofe[i-1][j-1][ie-1] = 0.0;
@@ -1710,12 +1712,14 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       eterm2 =1.0 - common.ggam[ie-1]*t2*tlfact;
       if(eterm2>=0.0) { // goto 5123
         if(ie>=12) {
+          powTerm1 =  (1.0 - ::pow(eterm2, sen-1.0));
           enofe[i-1][j-1][ie-1] = n0[i-1][j-1]/((sen-1.0)*tlfact*::pow(common.ggam[ie-1],sen+1.0))
-            * (1.0 - ::pow(eterm2, sen-1.0));
+            * powTerm1;
         }
         if(ie<12) {
+          powTerm2 = (::pow(eterm1, sen-1.0) - ::pow(eterm2, sen-1.0));
           enofe[i-1][j-1][ie-1] = n0[i-1][j-1]/((sen-1.0)*tlfact*::pow(common.ggam[ie-1], sen+1.0))*
-            (::pow(eterm1, sen-1.0) - ::pow(eterm2, sen-1.0));
+            powTerm2;
         }
         // Divide by delt since integral is over time
         delt = zsize*SEC_PER_YEAR*3.26/(gammad[i-1][j-1]*betad[i-1][j-1]);
@@ -1724,9 +1728,8 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
           enofe[i-1][j-1][ie-1] = 0.0;
       }
       common.edist[ie-1] = enofe[i-1][j-1][ie-1]; // 5123
-      if((nTestOut==7) && (md>110000)) {
-        double delt_local = (ie == 1 ? delt : 0.0);
-        fprintf(pfTestOut, FORMAT_EDIST, "5123", i, j, ie, md, delt_local, tlfact, n0[i-1][j-1], n0mean, etac, common.edist[ie-1]);
+      if((nTestOut==7) && (md>119998)) {
+        fprintf(pfTestOut, FORMAT_EDIST, "5123", i, j, ie, md, powTerm1, powTerm2, n0[i-1][j-1], n0mean, etac, common.edist[ie-1]);
       }
     } // for(ie=1; ie<=D44; ie++) 124 continue
     

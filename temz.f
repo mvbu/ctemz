@@ -329,29 +329,32 @@ c     Set up variation of energy density according to PSD; see Done et al.,
 c       1992, ApJ, 400, 138, eq. B1
       tinc=dtime
       call psdsim(ndim,-psdslp,-psdslp,1.0,tinc,spsdx)
-      if(nTestOut.eq.6) then
-      do ni = 1,ndim
-         write(9,14007) ni,spsdx(ni)
-      end do
-      endif
+      !if(nTestOut.eq.6) then
+      !do ni = 1,ndim
+      !   write(9,14007) ni,spsdx(ni)
+      !end do
+      !close(9)
+      !call exit(0)
+      !endif
       psdsum=0.0
       psdsig=0.0
       ipulse=dstart+100+ip0
       spexp=1.0/(0.5*expon+1.0)
       if(nTestOut.eq.6) then
-         write(9,14009) 'spexp',spexp
+         write(9,14009) 'spexp',0,spexp
       end if
       do 4997 ip=1,ndim
 c     Normalize spsd by standard deviation
       psdsig=psdsig+spsdx(ip)*spsdx(ip)/(andim-1.0)
  4997 continue
       if(nTestOut.eq.6) then
-         write(9,14009) 'psdsig^2',psdsig
+         write(9,14009) 'psdsig^2',0,psdsig
       end if
       psdsig=sqrt(psdsig)
       if(nTestOut.eq.6) then
-         write(9,14009) 'psdsig',psdsig
+         write(9,14009) 'psdsig',0,psdsig
       end if
+      IPLIM=129000
       do 4998 ip=1,ndim
 cccc  Next section is only for testing purposes
 cccc   If using it, comment out call psdsim() above
@@ -377,12 +380,12 @@ cccc
 c     Normalize spsd by standard deviation and take exponential of result
 c       to get amplitude of flux variation
       spsd(ip)=exp(amppsd*spsdx(ip)/psdsig)
-      if(nTestOut.eq.6) then
+      if((nTestOut.eq.6).and.(ip.gt.IPLIM)) then
          write(9,14007) ip,spsd(ip)
       end if
 c     Need to scale n0 and B by a different factor to get the desired amplitude
       spsd(ip)=spsd(ip)**(spexp)
-      if(nTestOut.eq.6) then
+      if((nTestOut.eq.6).and.(ip.gt.IPLIM)) then
          write(9,14007) ip,spsd(ip)
       end if
 c     Average of 10 time steps to smooth variations so that discreteness
@@ -391,9 +394,9 @@ c       of columns of cells does not cause artificial spikes of flux
      ,  spsd(ip-3)+spsd(ip-4)+spsd(ip-5)+spsd(ip-6)+
      ,  spsd(ip-7)+spsd(ip-8)+spsd(ip-9))
       psdsum=psdsum+amppsd*spsd(ip)/andim
-      if(nTestOut.eq.6) then
-         write(9,14009) 'psdsum',psdsum
-         write(9,14009) 'spsd',spsd(ip)
+      if((nTestOut.eq.6).and.(ip.gt.IPLIM)) then
+         write(9,14009) 'psdsum',ip,psdsum
+         write(9,14009) 'spsd',ip,spsd(ip)
       end if
  4998 continue
       if(nTestOut.eq.6) then
@@ -597,21 +600,26 @@ c     ,  tlfact,bmdtot(mdi),delt,gamb,glow
       enofe(i,j,ie)=0.0
       eterm1=ggam(ie)/gminmd
       eterm2=1.0d0-ggam(ie)*t2*tlfact
+      powTerm1=0.0
+      powTerm2=0.0
       if(eterm2.lt.0.0)go to 5123
-      if(ie.ge.12)enofe(i,j,ie)=n0(i,j)/((sen-1.0)*tlfact*
-     ,  ggam(ie)**(sen+1.0))*(1.0d0-eterm2**(sen-1.0))
-      if(ie.lt.12)enofe(i,j,ie)=n0(i,j)/((sen-1.0)*tlfact*
-     ,  ggam(ie)**(sen+1.0))*(eterm1**(sen-1.0)-
-     ,  eterm2**(sen-1.0))
+      if(ie.ge.12) then 
+         powTerm1 = 1.0d0-eterm2**(sen-1.0)
+         enofe(i,j,ie)=n0(i,j)/((sen-1.0)*tlfact*
+     ,        ggam(ie)**(sen+1.0))*powTerm1
+      endif
+      if(ie.lt.12) then 
+         powTerm2 = (eterm1**(sen-1.0)-eterm2**(sen-1.0))
+         enofe(i,j,ie)=n0(i,j)/((sen-1.0)*tlfact*
+     ,        ggam(ie)**(sen+1.0))*powTerm2
+      endif
 c     Divide by delt since integral is over time
       delt=zsize*yr*3.26/(gammad(i,j)*betad(i,j))
       enofe(i,j,ie)=enofe(i,j,ie)/delt
       if(enofe(i,j,ie).lt.0.0)enofe(i,j,ie)=0.0
  5123 edist(ie)=enofe(i,j,ie)
-      if((nTestOut.eq.7).and.(md>110000)) then
-         delt_local = 0.0
-         if(ie.eq.1) delt_local=delt
-         write(9,14008) '5123',i,j,ie,md,delt_local,tlfact,n0(i,j),n0mean,etac,edist(ie)
+      if((nTestOut.eq.7).and.(md>119998)) then
+         write(9,14008) '5123',i,j,ie,md,powTerm1,powTerm2,n0(i,j),n0mean,etac,edist(ie)
       end if
 c      aled=0.0
 c      if(ie.gt.1.and.edist(ie).gt.0.0)aled=
@@ -891,7 +899,7 @@ c     Set field of plasma in central cell, which is a Mach disk
       bmdz(md)=bz(i,j)
       bmdtot(md)=bfld
 c     Calculate the initial maximum electron energy in the Mach disk
-      ball2=bux*bux+buy*buy+buz*buz
+c      ball2=bux*bux+buy*buy+buz*buz
 c     Next line relates this to direction of upstream B field relative to shock
 c      gmax0(i,j)=gmaxmx*buz*buz/ball2
 c      if(gmax0(i,j).lt.gmaxmn)gmax0(i,j)=gmaxmn
@@ -2295,9 +2303,9 @@ c     Move cells in time array to make room for next time step
 14001 format(i5,' i',i5,' j',i5,' md',i6,' inu',i5,' ',a,f10.4)
 14005 format(i5,' i',i5,' j',i5,' md',i6,' inu',i5,' ',a,f10.4,' ',a,f10.4)
 14006 format(i7,' ',i8)
-14007 format(i7,' ',es12.4)
-14008 format(a5,' ',i7,' ',i7,' ',i2,' ',i8,' ',es12.4,' ',es12.4,' ',es12.3,' ',es12.3,' ',es12.4,' ',es12.5)
-14009 format(a10,' ',es12.4)
+14007 format(i7,' ',es12.5)
+14008 format(a5,' ',i7,' ',i7,' ',i2,' ',i8,' ',es12.5,' ',es12.5,' ',es12.3,' ',es12.3,' ',es12.4,' ',es12.5)
+14009 format(a10,' ',i8,' ',es12.5)
       close (4, status='keep')
       close (3, status='keep')
       close (9, status='keep')

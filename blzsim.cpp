@@ -615,48 +615,42 @@ double BlzSim::ssc(const double anuf)
   // mainly the use of nuhi instead of BlzCommon::CDIST_SIZE. For expediency of porting, 
   // this C++ is likewise a copy of ecdust() above. At some point will consolidate
   // all this common code.
-  double* gam = common.ggam;
-  double* edist = common.edist;
   double* dnu = common.snu; // Note: this is different from ecdust()
   double* di = common.ssseed; // Note: this is different from ecdust()
   double retVal = 0.0, gran = 0.0;
   double xsecc=0.0; // , xsecx=0.0; // xsecx used only in write statements that have not been ported here
 
-  // prevent underflows
-  if(di[common.nuhi-1] < 1.0e-25)
-    common.nuhi--;
-
   // Set the highest frequency of seed photons for scattering
   // This block is here in the same spot as in the Fortran, but seems like it could eventually be moved
   // to after all the ef and gam checks. TODO: check if this is possible and move it. -msv May2013
   int nhi = BlzSimCommon::CSSC_SIZE, nn;
-  common.nuhi = BlzSimCommon::CSSC_SIZE;
+  int nuhi = BlzSimCommon::CSSC_SIZE;
 
   for(nn=20; nn<=nhi; nn++) {
-    if((dnu[nn-1] >= anuf) || (di[nn-1]<=1.0e-30)) { //  go to 2010
-      common.nuhi = nn - 1;
+    if((common.snu[nn-1] >= anuf) || (common.ssseed[nn-1]<=1.0e-30)) {
+      nuhi = nn - 1;
       break; // we have our value of nuhi: jump out of the loop
     }
   }
 
-  double g1=gam[0];
+  double g1=common.ggam[0];
   double vala;
   int ie, ie1=1;
   double ef = HOMC2*anuf;
   double ef1 = ef + 1.0;
 
-  if(ef1 <= gam[0]) {
-    g1 = gam[0];
+  if(ef1 <= common.ggam[0]) {
+    g1 = common.ggam[0];
   }
-  else if(ef1 >= gam[BlzSimCommon::CDIST_SIZE-1]) {
+  else if(ef1 >= common.ggam[BlzSimCommon::CDIST_SIZE-1]) {
     return 0.0;
   }
-  else if(gam[BlzSimCommon::CDIST_SIZE-1]/gam[0] < 1.01) {
+  else if(common.ggam[BlzSimCommon::CDIST_SIZE-1]/common.ggam[0] < 1.01) {
     return 0.0;
   }
   else {
     for(ie=2; ie<=BlzSimCommon::CDIST_SIZE; ie++) {
-      if(gam[ie-1] > ef1)
+      if(common.ggam[ie-1] > ef1)
         break;
     }
     // Fortran sets ie=CDIST_SIZE here if the above "break" is never hit, but that should be unnecessary since
@@ -666,7 +660,7 @@ double BlzSim::ssc(const double anuf)
   }
 
   do {
-    if(gam[ie1]/gam[ie1-1] > 1.0002)
+    if(common.ggam[ie1]/common.ggam[ie1-1] > 1.0002)
       break;
     ie1++;
     if(ie1 >= BlzSimCommon::CDIST_SIZE-1)
@@ -674,17 +668,17 @@ double BlzSim::ssc(const double anuf)
   } while(ie1 < BlzSimCommon::CDIST_SIZE-1);
   
   double S0 = S0_SSC;
-  vala = S0*edist[ie1-1]/g1;
+  vala = S0*common.edist[ie1-1]/g1;
 
   //
   // Top-level loop to integrate over electron Lorentz factors (gam)
   //
   for(ie=ie1; ie<=BlzSimCommon::CDIST_SIZE-1; ie++) {
-    double g2 = gam[ie], die;
-    double valb = S0 * edist[ie]/g2;
+    double g2 = common.ggam[ie], die;
+    double valb = S0 * common.edist[ie]/g2;
     double val1=0.0, val2=0.0, gran1=0.0, addit=0.0;
     // Set up loop 1 to integrate over incident photon frequency anui
-    double anumax=min(anuf,dnu[common.nuhi-1]);
+    double anumax=min(anuf,dnu[nuhi-1]);
     double di1=di[0];
     int id=2;
     double anumin = anuf/((2.0*g1)*(g1-ef)*(1.0-common.cscat*sqrt(1.0-1.0/(g1*g1))));
@@ -694,24 +688,24 @@ double BlzSim::ssc(const double anuf)
         anumin = dnu[0];
       }
       else {
-        for(id=2; id<=common.nuhi; id++) {
+        for(id=2; id<=nuhi; id++) {
           if(anumin <= dnu[id-1])
             break;
         }
         // if (anumin <= dnu[id-1]) is satisfied before id=common.nuhi, then id will be set
         // to that number. Otherwise it will get to common.nuhi (e.g. 16). The Fortran
-        // code explicitly sets id to common.nuhi in this case, but I don't see why - id will already
-        // have the value common.nuhi
+        // code explicitly sets id to nuhi in this case, but I don't see why - id will already
+        // have the value nuhi
         di1 = 0.0;
         if((di[id-1]>=1.0e-25) && (di[id-2]>=1.0e-25)) {
           double a = log10(di[id-1]/di[id-2])/log10(dnu[id-1]/dnu[id-2]);
           di1 = di[id-1]*::pow(anumin/dnu[id-1], a);
         }
       }
-      int ide = common.nuhi;
-      if(anumax < dnu[common.nuhi-1]) {
+      int ide = nuhi;
+      if(anumax < dnu[nuhi-1]) {
         int idd;
-        for(idd=id; idd<=common.nuhi; idd++) {
+        for(idd=id; idd<=nuhi; idd++) {
           if(anumax <= dnu[idd-1])
              break;
         }
@@ -720,7 +714,7 @@ double BlzSim::ssc(const double anuf)
         ide = idd;
       }
       else {
-        die = di[common.nuhi-1];
+        die = di[nuhi-1];
       }
 
       // 9 continue
@@ -786,7 +780,7 @@ double BlzSim::ssc(const double anuf)
     // 601 continue
     double ratg = g2/g1;
     double ratgl = log10(ratg);
-    valb = S0 * edist[ie]/g2;
+    valb = S0 * common.edist[ie]/g2;
     val1 = 0.0;
     val2 = 0.0;
     double gran2 = 0.0;
@@ -795,7 +789,7 @@ double BlzSim::ssc(const double anuf)
     //
     // Set up loop 2 to integrate over incident photon frequency anui
     //
-    anumax=min(anuf,dnu[common.nuhi-1]);
+    anumax=min(anuf,dnu[nuhi-1]);
     di1=di[0];
     id=2;
     anumin = anuf/((2.0*g2)*(g2-ef)*(1.0-common.cscat*sqrt(1.0-1.0/(g2*g2))));
@@ -806,14 +800,14 @@ double BlzSim::ssc(const double anuf)
         anumin = dnu[0];
       }
       else {
-        for(id=2; id<=common.nuhi; id++) {
+        for(id=2; id<=nuhi; id++) {
           if(anumin <= dnu[id-1])
             break;
         }
-        // if (anumin <= dnu[id-1]) is satisfied before id=common.nuhi, then id will be set
-        // to that number. Otherwise it will get to common.nuhi (e.g. 16). The Fortran
-        // code explicitly sets id to common.nuhi in this case, but I don't see why - id will already
-        // have the value common.nuhi
+        // if (anumin <= dnu[id-1]) is satisfied before id=nuhi, then id will be set
+        // to that number. Otherwise it will get to nuhi (e.g. 16). The Fortran
+        // code explicitly sets id to nuhi in this case, but I don't see why - id will already
+        // have the value nuhi
         di1 = 0.0;
         addit = 0.0; // this doesn't occur in the 1st loop?
         if((di[id-1]>=1.0e-25) && (di[id-2]>=1.0e-25)) {
@@ -821,10 +815,10 @@ double BlzSim::ssc(const double anuf)
             di1 = di[id-1]*::pow(anumin/dnu[id-1], a);
         }
       }
-      int ide = common.nuhi;
-      if(anumax < dnu[common.nuhi-1]) {
+      int ide = nuhi;
+      if(anumax < dnu[nuhi-1]) {
         int idd;
-        for(idd=id; idd<=common.nuhi; idd++) {
+        for(idd=id; idd<=nuhi; idd++) {
           if(anumax <= dnu[idd-1])
              break;
         }
@@ -833,7 +827,7 @@ double BlzSim::ssc(const double anuf)
         ide = idd;
       }
       else {
-        die = di[common.nuhi-1];
+        die = di[nuhi-1];
       }
       double anui1 = anumin;
       xx = 1.0-ef/g2;
@@ -1799,7 +1793,8 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 
     for(inu=7; inu<=D68; inu++) {
       restnu = nu[inu-1];
-      fsscmd[inu-1][md-1] = ssc(restnu/dopref)*dopref2/dtfact;
+      double anuf = restnu/dopref;
+      fsscmd[inu-1][md-1] = ssc(anuf)*dopref2/dtfact;
     }
 
     for(inu=7; inu<=D68; inu++) { // 129  why inu 7?

@@ -4,6 +4,8 @@
 #include <ctime>
 #include <cstdio>
 #include <string>
+#include <omp.h>
+#include "blzutil.h"
 #include "blzlog.h"
 #include "blzmath.h"
 #include "blzrand.h"
@@ -692,8 +694,8 @@ double BlzSim::ssc(const double anuf)
           if(anumin <= dnu[id-1])
             break;
         }
-        // if (anumin <= dnu[id-1]) is satisfied before id=common.nuhi, then id will be set
-        // to that number. Otherwise it will get to common.nuhi (e.g. 16). The Fortran
+        // if (anumin <= dnu[id-1]) is satisfied before id=nuhi, then id will be set
+        // to that number. Otherwise it will get to nuhi (e.g. 16). The Fortran
         // code explicitly sets id to nuhi in this case, but I don't see why - id will already
         // have the value nuhi
         di1 = 0.0;
@@ -1148,6 +1150,8 @@ void writeedist(FILE* fp, double* arr, int nsize)
 
 void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 {
+  const int NUM_THREADS = BlzUtil::getNumProcessors();
+  BlzLog::warnScalar("BlzSim::run() getNumProcessors() = ", NUM_THREADS);
   // This is where a most of the code ported from the "main" Fortran program will go, mostly as-is.
   // Then hopefully will have time to make it more modular after it is ported.
   const int D68=68;
@@ -1790,11 +1794,21 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
     common.betd = betamd;
     common.gamd = gammd;
     double fssc1 = ssc(fq1/dopref)*dopref2/dtfact;
+    int tid;
+    omp_set_num_threads(NUM_THREADS);
+    int threadIntervals[NUM_THREADS][2];
+    BlzMath::getSubIntervals(7, D68, NUM_THREADS, threadIntervals);
 
-    for(inu=7; inu<=D68; inu++) {
-      restnu = nu[inu-1];
-      double anuf = restnu/dopref;
-      fsscmd[inu-1][md-1] = ssc(anuf)*dopref2/dtfact;
+    #pragma omp parallel private(tid, inu, restnu)
+    {
+      // Each thread does a different range within (7,D68)
+      tid = omp_get_thread_num();
+      //printf("In thread %d with range %d to %d\n", tid, threadIntervals[tid][0], threadIntervals[tid][1]);
+      for(inu=threadIntervals[tid][0]; inu<=threadIntervals[tid][1]; inu++) { // 129  why inu 7?
+        restnu = nu[inu-1];
+        double anuf = restnu/dopref;
+        fsscmd[inu-1][md-1] = ssc(anuf)*dopref2/dtfact;
+      }
     }
 
     for(inu=7; inu<=D68; inu++) { // 129  why inu 7?

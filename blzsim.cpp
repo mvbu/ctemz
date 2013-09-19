@@ -1818,25 +1818,15 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         alfmdc[inu-1][md-1] = -log10(fsscmd[inu-1][md-1]/fssc1)/log10(restnu/fq1);
       fq1 = restnu;
       fssc1 = fsscmd[inu-1][md-1];
-      if(nTestOut==3) fprintf(pfTestOut, FORMAT3_3, md, inu, fsscmd[inu-1][md-1]);
+      //if(nTestOut==3) fprintf(pfTestOut, FORMAT3_3, md, inu, fsscmd[inu-1][md-1]);
     } // 129 continue
-
-    if(nTestOut==3) {
-      for(inu=7; inu<=D68; inu++)
-        fprintf(pfTestOut, FORMAT3_3, md, inu, fsscmd[inu-1][md-1]);
-    }
-
-    if((nTestOut==3) && (md > 9)) {
-      fclose(pfTestOut);
-      exit(0);
-    }
 
   } // for(md=1; md<=MDMAX-1; md++) 130 continue
 
-    if((nTestOut==3) || (nTestOut==7)) {
-      fclose(pfTestOut);
-      exit(0);
-    }
+  if(nTestOut==7) {
+    fclose(pfTestOut);
+    exit(0);
+  }
 
   //
   //     *** End Mach disk set-up ***
@@ -2182,16 +2172,32 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         common.betd = betamd;
         common.gamd = gammd;
         double fssc1 = ssc(fq1/dopref)*dopref2/dtfact;
-
+        int tid;
+        omp_set_num_threads(NUM_THREADS);
+        int threadIntervals[NUM_THREADS][2];
+        BlzMath::getSubIntervals(7, D68, NUM_THREADS, threadIntervals);
+        
+        #pragma omp parallel private(tid, inu, restnu)
+        {
+          // Each thread does a different range within (7,D68)
+          tid = omp_get_thread_num();
+          //printf("In thread %d with range %d to %d\n", tid, threadIntervals[tid][0], threadIntervals[tid][1]);
+          for(inu=threadIntervals[tid][0]; inu<=threadIntervals[tid][1]; inu++) { // 129  why inu 7?
+            restnu = nu[inu-1];
+            double anuf = restnu/dopref;
+            fsscmd[inu-1][md-1] = ssc(anuf)*dopref2/dtfact;
+          }
+        }
+        
         for(inu=7; inu<=D68; inu++) { // do 1129 inu=7,68
           restnu = nu[inu-1];
-          fsscmd[inu-1][md-1] = ssc(restnu/dopref)*dopref2/dtfact;
           alfmdc[inu-1][md-1] = 10.0;
           if((fsscmd[inu-1][md-1]>0.0) && (fssc1>0.0))
             alfmdc[inu-1][md-1] = -log10(fsscmd[inu-1][md-1]/fssc1)/log10(restnu/fq1);
           //  write(5,9996)restnu,fsscmd[inu-1][md-1],alfmdc[inu-1][md-1]
           fq1 = restnu;
           fssc1 = fsscmd[inu-1][md-1];
+          if(nTestOut==3) fprintf(pfTestOut, FORMAT3_3, j, inu, fsscmd[inu-1][md-1]);
         } // 1129 continue
 
         // Exit the for(j=1; j<=JCELLS; j++) loop
@@ -2231,6 +2237,11 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       }      
 
     } // for(j=1; j<=JCELLS; j++)  End loop over all cells in FIRST LAYER   80 continue
+
+    if(nTestOut==3) {
+      fclose(pfTestOut);
+      exit(0);
+    }
 
     // Start another loop over all cells in first layer to calculate the
     // electron energy distribution and the emission

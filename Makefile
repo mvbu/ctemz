@@ -83,8 +83,8 @@ randtest: randtest.f
 
 # Work in progress to Dropbox directory. Should then be synced to the remote Dropbox by Dropbox daemon.
 dropbox:
-	cp *.cpp *.f *.h temz*.txt ctemz*.txt Makefile ~/Dropbox/dev/jet
+	cp -p *.cpp *.f *.h temz*.txt ctemz*.txt Makefile ~/Dropbox/dev/jet
 
 # Copy the CVS repository to Dropbox directory. Should then be synced to the remote Dropbox by Dropbox daemon.
 cvsbackup:
-	cp -f -r ~/CVSROOT ~/Dropbox/dev
+	cp -p -f -r ~/CVSROOT ~/Dropbox/dev

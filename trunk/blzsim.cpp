@@ -23,6 +23,7 @@ static const char FORMAT_ARRAY_INT[] = "%7d %8d\n"; // format 14006 in temz.f
 static const char FORMAT_ARRAY_FLOAT[] = "%7d %12.5E\n"; // format 14007 in temz.f
 static const char FORMAT_EDIST[] = "%5s %7d %7d %2d %8d %12.5E %12.5E %12.3E %12.3E %12.4E %12.5E\n"; // format 14008 in temz.f
 static const char FORMAT_STRING_FLOAT[] = "%10s %8d %12.5E\n"; // format 14009 in temz.f
+static const char FORMAT_STRING_INT_FLOAT6_FLOAT7[] = "%10s %7d %12.6E %12.7E\n";
 
 const double SMALL_FMDALL = 1e-30;
 
@@ -1166,7 +1167,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   const int D451=451;
 
   bool bOutputFilesCreated = false;
-  int  nTestOut = 0; // Max 7
+  int  nTestOut = 0; // Max 8
   FILE* pfSpec = NULL; // 3 ctemzspec.txt
   FILE* pfLc = NULL; // 4 ctemzlc.txt
   FILE* pfPol = NULL; // 5 ctemzpol.txt
@@ -2470,7 +2471,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       delt = zsize*3.26*SEC_PER_YEAR/(gammad[i-1][j-1]*betad[i-1][j-1]);
       gammax[i-1][j-1] = gmax0[i-1][j-1]/(1.0+tlfact*delt*gmax0[i-1][j-1]);
       gammin[i-1][j-1] = inp.gmin/(1.0+tlfact*delt*inp.gmin);
-      double emold = 0.0, chipol = 0.0;
 
       // Start loop over observed frequencies
       int ithin = 0;
@@ -2488,142 +2488,171 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
           common.dusti[inu-1] = common.dusti[inu-1]*::pow(tdel/tdelr[id-1],3.0)*(1.0-exp(hnukt))/(1.0-exp(hnuktr));
       } // 93 continue
 
-      double spxec, spxssc, anumin, alnumn, emeold, emsold;
-      int inumin, iinu;
+      common.betd = betad[i-1][j-1];  // don't know if this even matters
+      common.gamd = gammad[i-1][j-1]; // polcalc() uses this
+      double chipol = polcalc(bfield[j-1],bx[i-1][j-1],by[i-1][j-1],bz[i-1][j-1],clos,slos);
 
-      for(inu=1; inu<=D68; inu++)  { // do 95 inu=1,68
-        restnu = nu[inu-1]*common.zred1/delta[i-1][j-1];
-        common.snu[inu-1] = nu[inu-1];
-        double specin = 0.0001;
-        emisco = 0.0;
-        fsync2[inu-1] = 0.0;
-        ssabs = 0.0;
-        ecflux = 0.0;
-        double sscflx = 0.0;
-        double fsnoab = 0.0;
-        flsync[i-1][j-1][inu-1] = 0.0;
-        flcomp[i-1][j-1][inu-1] = 0.0;
-        flec[i-1][j-1][inu-1] = 0.0;
-        flssc[i-1][j-1][inu-1] = 0.0;
-        flux[i-1][j-1][inu-1] = 0.0;
+      int tid;
+      int threadIntervals[NUM_THREADS][2];
+      BlzMath::getSubIntervals(1, D68, NUM_THREADS, threadIntervals);
 
-        if(inu <= D44) { // 92
-          emisco = ajnu(restnu)*bperp[j-1]*delta[i-1][j-1]*delta[i-1][j-1];
-          fsync2[inu-1] = emisco*zsize*(EMFACT*CM_PER_PARSEC);
-          fsnoab = fsync2[inu-1];
+      #pragma omp parallel private(tid, inu)
+      {
+	tid = omp_get_thread_num();
+	printf("In thread %d with range %d to %d\n", tid, threadIntervals[tid][0], threadIntervals[tid][1]);
+	for(inu=threadIntervals[tid][0]; inu<=threadIntervals[tid][1]; inu++) { // do 95 inu=1,68
+	  double emold = 0.0;
+	  double anumin, alnumn;
+	  int inumin, iinu;
+	  double restnu = nu[inu-1]*common.zred1/delta[i-1][j-1];
+	  common.snu[inu-1] = nu[inu-1];
+	  double specin = 0.0001;
+	  double emisco = 0.0;
+	  fsync2[inu-1] = 0.0;
+	  double ssabs = 0.0;
+	  double ecflux = 0.0;
+	  double sscflx = 0.0;
+	  double fsnoab = 0.0;
+	  flsync[i-1][j-1][inu-1] = 0.0;
+	  flcomp[i-1][j-1][inu-1] = 0.0;
+	  flec[i-1][j-1][inu-1] = 0.0;
+	  flssc[i-1][j-1][inu-1] = 0.0;
+	  flux[i-1][j-1][inu-1] = 0.0;
 
-          if(inu != 1) { // go to 91
-            if((emold>0.0) && (fsync2[inu-1]>0.0))
-              specin = log10(emold/fsync2[inu-1])/log10(nu[inu-1]/nu[inu-2]);
-          } // 91 continue
+	  if(inu <= D44) { // 92
+	    emisco = ajnu(restnu)*bperp[j-1]*delta[i-1][j-1]*delta[i-1][j-1];
+	    fsync2[inu-1] = emisco*zsize*(EMFACT*CM_PER_PARSEC);
+	    fsnoab = fsync2[inu-1];
 
-          if(ithin != 1) { // go to 92
-            ssabs = 1.02e4*(sen+2.0)*akapnu(restnu)*bperp[j-1]/(nu[inu-1]*nu[inu-1])/delta[i-1][j-1];
-            ssabs = ssabs*CM_PER_PARSEC*zsize*delta[i-1][j-1];
-            //  Attenuate Mach disk emission from synchrotron absorption on way to cell
-            double ssabsm = ssabs*dmd[j-1]/zsize;
-            if(ssabsm >= 10.0)
-              common.ssseed[inu-1] = 0.0;
-            if((ssabsm<10.0) && (ssabsm > 0.1))
-              common.ssseed[inu-1]= common.ssseed[inu-1]/exp(ssabsm);
-            //  Return to absorption within cell
-            // Use rsize instead of zsize because of aberration
-            ssabs = ssabs*inp.rsize/zsize;
-            if(ssabs<=(0.1/ancol))
-              ithin = 1;
-            srcfn = fsync2[inu-1]/ssabs;
-            if(ssabs>5.0)
-              fsync2[inu-1] = srcfn;
-            if((ssabs>0.1) && (ssabs<=5.0))
-              fsync2[inu-1] = srcfn*(1.0-exp(-ssabs));
-            double tauexp = nouter[j-1]*ssabs;
-            if((rcell[j-1]>(0.98*rbound)) && (xcell[j-1]>=0.0))
-              tauexp = 0.0;
-            if(thlos==0.0)
-              tauexp = nouter[j-1]*ssabs;
-            // if(tauexp.gt.15.0)fsync2[inu-1] = 0.0;
-            // if(tauexp.le.15.0)fsync2[inu-1]=fsync2[inu-1]/exp(tauexp)
-            specin = inp.alpha;
-          } // if(thin != 1)
+	    if(inu != 1) { // go to 91
+	      // For parallelization, we can't simply use emold (=fsync[inu-2]) because it might
+	      // not have been calculated yet. We'll have to take the slight hit of calculating it
+	      // fresh, even if another thread might have already calculated it. Once we've parallelized
+	      // this loop (do 95), the thread can check if it's the first frequency in the range that
+	      // this thread is working on. Only then do we need to (re)calculated emold. 
+	      double previousRestnu = nu[inu-2]*common.zred1/delta[i-1][j-1]; // previous frequency, but same cell
+	      double previousEmisco = ajnu(previousRestnu)*bperp[j-1]*delta[i-1][j-1]*delta[i-1][j-1];
+	      emold = previousEmisco*zsize*(EMFACT*CM_PER_PARSEC);
+	      if((emold>0.0) && (fsync2[inu-1]>0.0))
+		specin = log10(emold/fsync2[inu-1])/log10(nu[inu-1]/nu[inu-2]);
+	    } // 91 continue
+
+	    if(ithin != 1) { // go to 92
+	      ssabs = 1.02e4*(sen+2.0)*akapnu(restnu)*bperp[j-1]/(nu[inu-1]*nu[inu-1])/delta[i-1][j-1];
+	      ssabs = ssabs*CM_PER_PARSEC*zsize*delta[i-1][j-1];
+	      //  Attenuate Mach disk emission from synchrotron absorption on way to cell
+	      double ssabsm = ssabs*dmd[j-1]/zsize;
+	      if(ssabsm >= 10.0)
+		common.ssseed[inu-1] = 0.0;
+	      if((ssabsm<10.0) && (ssabsm > 0.1))
+		common.ssseed[inu-1]= common.ssseed[inu-1]/exp(ssabsm);
+	      //  Return to absorption within cell
+	      // Use rsize instead of zsize because of aberration
+	      ssabs = ssabs*inp.rsize/zsize;
+	      if(ssabs<=(0.1/ancol))
+		ithin = 1;
+	      srcfn = fsync2[inu-1]/ssabs;
+	      if(ssabs>5.0)
+		fsync2[inu-1] = srcfn;
+	      if((ssabs>0.1) && (ssabs<=5.0))
+		fsync2[inu-1] = srcfn*(1.0-exp(-ssabs));
+	      double tauexp = nouter[j-1]*ssabs;
+	      if((rcell[j-1]>(0.98*rbound)) && (xcell[j-1]>=0.0))
+		tauexp = 0.0;
+	      if(thlos==0.0)
+		tauexp = nouter[j-1]*ssabs;
+	      // if(tauexp.gt.15.0)fsync2[inu-1] = 0.0;
+	      // if(tauexp.le.15.0)fsync2[inu-1]=fsync2[inu-1]/exp(tauexp)
+	      specin = inp.alpha;
+	    } // if(thin != 1)
         
-        } // if(inu <= D44) 92 continue
+	  } // if(inu <= D44) 92 continue
 
-        flsync[i-1][j-1][inu-1] = fsync2[inu-1]*(volc/zsize)*common.zred1/(1.0e18*AMJY*inp.dgpc*inp.dgpc)*FGEOM;
-        flux[i-1][j-1][inu-1] = flsync[i-1][j-1][inu-1];
-        common.betd = betad[i-1][j-1];
-        common.gamd = gammad[i-1][j-1];
-        if(inu == 1) // looks like Fortran calculates polarization angle once - for the first frequency
-          chipol = polcalc(bfield[j-1],bx[i-1][j-1],by[i-1][j-1],bz[i-1][j-1],clos,slos);
-        if(specin < inp.alpha)
-          specin = inp.alpha;
-        double poldeg = (specin+1.0)/(specin+5.0/3.0);
-        if(ssabs > 1.0) {
-          poldeg = 3.0/(12.0*specin+19);
-        }
-        fpol[i-1][j-1][inu-1] = poldeg*flsync[i-1][j-1][inu-1];
-        pq[i-1][j-1][inu-1] = fpol[i-1][j-1][inu-1]*cos(2.0*chipol);
-        pu[i-1][j-1][inu-1] = fpol[i-1][j-1][inu-1]*sin(2.0*chipol);
-        if(restnu >= 1.0e14) {
-          spxec = 0.0001;
-          spxssc = 0.0001;
-          common.betd = betad[0][JCELLS-1];
-          common.gamd = gammad[0][JCELLS-1];
-          double ecdust_local = ecdust(restnu);
-          ecflux = ecdust_local*3.086*volc*common.zred1*delta[i-1][j-1]*delta[i-1][j-1]/(inp.dgpc*inp.dgpc)*FGEOM;
-          if((nTestOut==1) && (it==1)) fprintf(pfTestOut, FORMAT1, 92, i, j, inu, ecdust_local, delta[i-1][j-1]);
-          sscflx = ssc(restnu)*3.086*volc*common.zred1*delta[i-1][j-1]*delta[i-1][j-1]/(inp.dgpc*inp.dgpc)*FGEOM;
-          double taupp = 0.0;
-          if(nu[inu-1] >= 1.0e22) { // go to 99
-            // Pair production opacity calculation
-            // Expression for anumin includes typical interaction angle
-            anumin = (1.24e20/(nu[inu-1]*common.zred1))*1.24e20*::pow(2.0*gammad[i-1][j-1], 2);
-            alnumn = log10(anumin);
-            inumin = BlzMath::toFortranInt((alnumn-10.0)*4+1);
-            if(inumin <= 40) {  // go to 99
-              if(anumin > nu[inumin-1])
-                anumin = nu[inumin-1];
+	  flsync[i-1][j-1][inu-1] = fsync2[inu-1]*(volc/zsize)*common.zred1/(1.0e18*AMJY*inp.dgpc*inp.dgpc)*FGEOM;
+	  flux[i-1][j-1][inu-1] = flsync[i-1][j-1][inu-1];
+	  if(specin < inp.alpha)
+	    specin = inp.alpha;
+	  double poldeg = (specin+1.0)/(specin+5.0/3.0);
+	  if(ssabs > 1.0) {
+	    poldeg = 3.0/(12.0*specin+19);
+	  }
+	  fpol[i-1][j-1][inu-1] = poldeg*flsync[i-1][j-1][inu-1];
+	  pq[i-1][j-1][inu-1] = fpol[i-1][j-1][inu-1]*cos(2.0*chipol);
+	  pu[i-1][j-1][inu-1] = fpol[i-1][j-1][inu-1]*sin(2.0*chipol);
+	  if(restnu >= 1.0e14) {
+	    //spxec = 0.0001;
+	    //spxssc = 0.0001;
+	    //common.betd = betad[0][JCELLS-1]; // don't see where these two lines matter...
+	    //common.gamd = gammad[0][JCELLS-1]; ..and they're bad for parallelization, to boot, so commenting out for now
+	    double ecdust_local = ecdust(restnu);
+	    ecflux = ecdust_local*3.086*volc*common.zred1*delta[i-1][j-1]*delta[i-1][j-1]/(inp.dgpc*inp.dgpc)*FGEOM;
+	    if((nTestOut==1) && (it==1)) fprintf(pfTestOut, FORMAT1, 92, i, j, inu, ecdust_local, delta[i-1][j-1]);
+	    sscflx = ssc(restnu)*3.086*volc*common.zred1*delta[i-1][j-1]*delta[i-1][j-1]/(inp.dgpc*inp.dgpc)*FGEOM;
+	    double taupp = 0.0;
+	    if(nu[inu-1] >= 1.0e22) { // go to 99
+	      // Pair production opacity calculation
+	      // Expression for anumin includes typical interaction angle
+	      anumin = (1.24e20/(nu[inu-1]*common.zred1))*1.24e20*::pow(2.0*gammad[i-1][j-1], 2);
+	      alnumn = log10(anumin);
+	      inumin = BlzMath::toFortranInt((alnumn-10.0)*4+1);
+	      if(inumin <= 40) {  // go to 99
+		if(anumin > nu[inumin-1])
+		  anumin = nu[inumin-1];
 
-              for(iinu=inumin; iinu<=40; iinu++) { // do 97 iinu=inumin,40;
-                double bp = sqrt(1.0-anumin/nu[iinu-1]);
-                if(bp <= 0.0)
-                  bp=0.001;
-                double xsecp1 = 1.25e-25*(1.0-bp*bp)*((3.0-::pow(bp,4))*log((1.0+bp)/(1.0-bp))-2.0*bp*(2.0-bp*bp));
-                bp = sqrt(1.0-anumin/nu[iinu]);
-                if(bp <= 0.0)
-                  bp=0.001;
-                double xsecp2 = 1.25e-25*(1.0-bp*bp)*((3.0-::pow(bp,4))*log((1.0+bp)/(1.0-bp))-2.0*bp*(2.0-bp*bp));
-                taupp = taupp+0.5*(phots[iinu-1]*xsecp1+phots[iinu]*xsecp2)*(nu[iinu]-nu[iinu-1])*nouter[j-1]*zsize*CM_PER_PARSEC;
-              } // 97 continue
+		for(iinu=inumin; iinu<=40; iinu++) { // do 97 iinu=inumin,40;
+		  double bp = sqrt(1.0-anumin/nu[iinu-1]);
+		  if(bp <= 0.0)
+		    bp=0.001;
+		  double xsecp1 = 1.25e-25*(1.0-bp*bp)*((3.0-::pow(bp,4))*log((1.0+bp)/(1.0-bp))-2.0*bp*(2.0-bp*bp));
+		  bp = sqrt(1.0-anumin/nu[iinu]);
+		  if(bp <= 0.0)
+		    bp=0.001;
+		  double xsecp2 = 1.25e-25*(1.0-bp*bp)*((3.0-::pow(bp,4))*log((1.0+bp)/(1.0-bp))-2.0*bp*(2.0-bp*bp));
+		  taupp = taupp+0.5*(phots[iinu-1]*xsecp1+phots[iinu]*xsecp2)*(nu[iinu]-nu[iinu-1])*nouter[j-1]*zsize*CM_PER_PARSEC;
+		} // 97 continue
 
-              if(taupp >= 0.1) { // go to 99
-                if(taupp >= 10.0) {
-                  ecflux = ecflux/exp(taupp);
-                  sscflx = sscflx/exp(taupp);
-                }
-                else {
-                  ecflux = 0.0;
-                  sscflx = 0.0;
-                }
-              }
-            } // if(inumin <= 40)
-          } // if(nu[inu-1] >= 1.0e22)
+		if(taupp >= 0.1) { // go to 99
+		  if(taupp >= 10.0) {
+		    ecflux = ecflux/exp(taupp);
+		    sscflx = sscflx/exp(taupp);
+		  }
+		  else {
+		    ecflux = 0.0;
+		    sscflx = 0.0;
+		  }
+		}
+	      } // if(inumin <= 40)
+	    } // if(nu[inu-1] >= 1.0e22)
 
-          // 99
-          flec[i-1][j-1][inu-1] = ecflux;
-          flssc[i-1][j-1][inu-1] = sscflx;
-          flcomp[i-1][j-1][inu-1] = ecflux+sscflx;
-          flux[i-1][j-1][inu-1] = flsync[i-1][j-1][inu-1]+flcomp[i-1][j-1][inu-1];
-          if((nTestOut==1) && (it==1)) fprintf(pfTestOut, FORMAT1, 99, i, j, inu, ecflux, delta);
-          if((emeold>0.0) && (ecflux>0.0))
-            spxec = log10(emeold/ecflux)/log10(nu[inu-1]/nu[inu-2]);
-          if((emsold>0.0) && (sscflx>0.0))
-            spxssc = log10(emsold/sscflx)/log10(nu[inu-1]/nu[inu-2]);
-        } // if(restnu >= 1.0e14) 94 continue
+	    // 99
+	    flec[i-1][j-1][inu-1] = ecflux;
+	    flssc[i-1][j-1][inu-1] = sscflx;
+	    flcomp[i-1][j-1][inu-1] = ecflux+sscflx;
+	    flux[i-1][j-1][inu-1] = flsync[i-1][j-1][inu-1]+flcomp[i-1][j-1][inu-1];
+	    if((nTestOut==1) && (it==1)) fprintf(pfTestOut, FORMAT1, 99, i, j, inu, ecflux, delta);
+	    /*
+	      if((emeold>0.0) && (ecflux>0.0))
+	      spxec = log10(emeold/ecflux)/log10(nu[inu-1]/nu[inu-2]);
+	      if((emsold>0.0) && (sscflx>0.0))
+	      spxssc = log10(emsold/sscflx)/log10(nu[inu-1]/nu[inu-2]);
+	    */
+	  } // if(restnu >= 1.0e14) 94 continue
 
-        emold = fsnoab;
-        emeold = ecflux;
-        emsold = sscflx;
-      } // for(inu=1; inu<=D68; inu++)  95 continue
+	    //emold = fsnoab; // changed so that each loop just calculates fsync2[inu-2] if it needs it, so no need to store it.
+	    //emeold = ecflux;
+	    //emsold = sscflx;
+	} // for(inu=1; inu<=D68; inu++)  95 continue
+      } // #pragma parallel
+
+      if(nTestOut==8) {
+	for(inu=1; inu<=D68; inu++) {
+	  double restnu =  nu[inu-1]*common.zred1/delta[i-1][j-1];
+	  fprintf(pfTestOut, FORMAT_STRING_INT_FLOAT6_FLOAT7, "ecflux", inu, restnu, flec[i-1][j-1][inu-1]);
+	  fprintf(pfTestOut, FORMAT_STRING_INT_FLOAT6_FLOAT7, "sscflx", inu, restnu, flssc[i-1][j-1][inu-1]);
+	}
+	fclose(pfTestOut);
+	exit(0);
+      }
 
       // 96 continue Fortran has this line here, but there's no reference to it (!)
       icelmx[j-1] = 1;

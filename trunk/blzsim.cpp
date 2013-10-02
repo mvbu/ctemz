@@ -2499,7 +2499,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
       #pragma omp parallel private(tid, inu)
       {
 	tid = omp_get_thread_num();
-	printf("In thread %d with range %d to %d\n", tid, threadIntervals[tid][0], threadIntervals[tid][1]);
 	for(inu=threadIntervals[tid][0]; inu<=threadIntervals[tid][1]; inu++) { // do 95 inu=1,68
 	  double emold = 0.0;
 	  double anumin, alnumn;
@@ -2643,16 +2642,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 	    //emsold = sscflx;
 	} // for(inu=1; inu<=D68; inu++)  95 continue
       } // #pragma parallel
-
-      if(nTestOut==8) {
-	for(inu=1; inu<=D68; inu++) {
-	  double restnu =  nu[inu-1]*common.zred1/delta[i-1][j-1];
-	  fprintf(pfTestOut, FORMAT_STRING_INT_FLOAT6_FLOAT7, "ecflux", inu, restnu, flec[i-1][j-1][inu-1]);
-	  fprintf(pfTestOut, FORMAT_STRING_INT_FLOAT6_FLOAT7, "sscflx", inu, restnu, flssc[i-1][j-1][inu-1]);
-	}
-	fclose(pfTestOut);
-	exit(0);
-      }
 
       // 96 continue Fortran has this line here, but there's no reference to it (!)
       icelmx[j-1] = 1;
@@ -3178,20 +3167,24 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
                 common.dusti[inu-1] = common.dusti[inu-1]*::pow(tdel/tdelr[id-1],3.0)*(1.0-exp(hnukt))/(1.0-exp(hnuktr));
             }  // 193
 
-            double chipol = 0.0;
-            double spxec, spxssc, anumin, alnumn, tauexp;
-            int inumin;
+	    common.betd = betad[i-1][j-1];  // don't know if this even matters
+	    common.gamd = gammad[i-1][j-1]; // polcalc() uses this
+	    double chipol = polcalc(bfield[j-1],bx[i-1][j-1],by[i-1][j-1],bz[i-1][j-1],clos,slos);
 
             for(inu=1; inu<=D68; inu++) { // do 195 inu=1,68
-              double specin = 0.0001;
-              restnu = nu[inu-1]*common.zred1/delta[i-1][j-1];
+	      double emold = 0.0;
+	      double anumin, alnumn;
+	      int inumin, iinu;
+              double restnu = nu[inu-1]*common.zred1/delta[i-1][j-1];
               common.snu[inu-1] = nu[inu-1];
-              emisco = 0.0;
+              double specin = 0.0001;
+              double emisco = 0.0;
               fsync2[inu-1] = 0.0;
-              ssabs = 0.0;
-              ecflux = 0.0;
+              double ssabs = 0.0;
+              double ecflux = 0.0;
               double sscflx = 0.0;
               double fsnoab = 0.0;
+	      double srcfn = 0.0;
 
               if(inu <= D44) { // go to 192
                 emisco = ajnu(restnu)*bperp[j-1]*delta[i-1][j-1]*delta[i-1][j-1];
@@ -3199,8 +3192,16 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
                 fsnoab = fsync2[inu-1];
 
                 if(inu != 1) {  // go to 191
-                  if((emold>0.0) && (fsync2[inu-1]>0.0))
-                    specin = log10(emold/fsync2[inu-1])/log10(nu[inu-1]/nu[inu-2]);
+		  // For parallelization, we can't simply use emold (=fsync[inu-2]) because it might
+		  // not have been calculated yet. We'll have to take the slight hit of calculating it
+		  // fresh, even if another thread might have already calculated it. Once we've parallelized
+		  // this loop (do 195), the thread can check if it's the first frequency in the range that
+		  // this thread is working on. Only then do we need to (re)calculated emold. 
+		  double previousRestnu = nu[inu-2]*common.zred1/delta[i-1][j-1]; // previous frequency, but same cell
+		  double previousEmisco = ajnu(previousRestnu)*bperp[j-1]*delta[i-1][j-1]*delta[i-1][j-1];
+		  emold = previousEmisco*zsize*(EMFACT*CM_PER_PARSEC);
+		  if((emold>0.0) && (fsync2[inu-1]>0.0))
+		    specin = log10(emold/fsync2[inu-1])/log10(nu[inu-1]/nu[inu-2]);
                 } // 191 continue
 
                 if(ithin != 1){ // go to 192
@@ -3223,7 +3224,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
                   if((ssabs>0.1) && (ssabs<=5.0))
                     fsync2[inu-1] = srcfn*(1.0-exp(-ssabs));
                   // Attenuation from downstream cells along l.o.s. IF significant
-                  tauexp = (nouter[j-1] - i)*ssabs;
+                  double tauexp = (nouter[j-1] - i)*ssabs;
                   if((rcell[j-1] > (0.98*rbound)) && (xcell[j-1] <= 0.0))
                     tauexp = 0.0;
                   if(thlos == 0.0)
@@ -3240,10 +3241,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
               // 192 continue
               flsync[i-1][j-1][inu-1] = fsync2[inu-1]*(volc/zsize)*common.zred1/(1.0e18*AMJY*inp.dgpc*inp.dgpc)*FGEOM;
               flux[i-1][j-1][inu-1] = flsync[i-1][j-1][inu-1];
-              common.betd = betad[i-1][j-1];
-              common.gamd = gammad[i-1][j-1];
-              if(inu == 1)
-                chipol = polcalc(bfield[j-1],bx[i-1][j-1],by[i-1][j-1],bz[i-1][j-1],clos,slos);
               if(specin < inp.alpha)
                 specin = inp.alpha;
               double poldeg = (specin+1.0)/(specin+5.0/3.0);
@@ -3254,10 +3251,10 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
               pq[i-1][j-1][inu-1]=fpol[i-1][j-1][inu-1]*cos(2.0*chipol);
               pu[i-1][j-1][inu-1]=fpol[i-1][j-1][inu-1]*sin(2.0*chipol);
               if(restnu >= 1.0e14) {
-                spxec = 0.0001;
-                spxssc = 0.0001;
-                common.betd = betad[0][JCELLS-1];
-                common.gamd = gammad[0][JCELLS-1];
+                //spxec = 0.0001;
+                //spxssc = 0.0001;
+                //common.betd = betad[0][JCELLS-1];
+                //common.gamd = gammad[0][JCELLS-1];
                 double ecdust_local = ecdust(restnu);
                 ecflux = ecdust_local*3.086*volc*common.zred1*delta[i-1][j-1]*delta[i-1][j-1]/(inp.dgpc*inp.dgpc)*FGEOM;
                 if((nTestOut==1) && (it==1)) fprintf(pfTestOut, FORMAT1, 192, i, j, inu, ecdust_local, delta[i-1][j-1]);
@@ -3305,16 +3302,24 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
                 flcomp[i-1][j-1][inu-1] = ecflux+sscflx;
                 flux[i-1][j-1][inu-1] = flsync[i-1][j-1][inu-1]+flcomp[i-1][j-1][inu-1];
                 if((nTestOut==1) && (it==1)) fprintf(pfTestOut, FORMAT1, 199, i, j, inu, ecflux, delta[i-1][j-1]);
-                if((emeold>0.0) && (ecflux>0.0))
-                  spxec = log10(emeold/ecflux)/log10(nu[inu-1]/nu[inu-2]);
-                if((emsold>0.0) && (sscflx>0.0))
-                  spxssc = log10(emsold/sscflx)/log10(nu[inu-1]/nu[inu-2]);
+                // if((emeold>0.0) && (ecflux>0.0))
+                //   spxec = log10(emeold/ecflux)/log10(nu[inu-1]/nu[inu-2]);
+                // if((emsold>0.0) && (sscflx>0.0))
+                //   spxssc = log10(emsold/sscflx)/log10(nu[inu-1]/nu[inu-2]);
               } // if(restnu >= 1.0e14) 194 continue
 
-              emold = fsnoab;
-              emeold = ecflux;
-              emsold = sscflx;
+	      //emold = fsnoab; // changed so that each loop just calculates fsync2[inu-2] if it needs it, so no need to store it.
+	      //emeold = ecflux;
+	      //emsold = sscflx;
             } // for(inu=1; inu<=D68; inu++) 195 continue
+
+	    if(nTestOut==8) {
+	      for(inu=1; inu<=D68; inu++) {
+		double restnu =  nu[inu-1]*common.zred1/delta[i-1][j-1];
+		fprintf(pfTestOut, FORMAT_STRING_INT_FLOAT6_FLOAT7, "ecflux", inu, restnu, flec[i-1][j-1][inu-1]);
+		fprintf(pfTestOut, FORMAT_STRING_INT_FLOAT6_FLOAT7, "sscflx", inu, restnu, flssc[i-1][j-1][inu-1]);
+	      }
+	    }
 
           } // if(bSkipRestOfColumnCells)  196 continue
 
@@ -3322,6 +3327,10 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 
       } // for(j=1; j<=JCELLS-1; j++) 200 continue
 
+      if(nTestOut==8) {
+	fclose(pfTestOut);
+	exit(0);
+      }
 
     } // if(icells.eq.1)go to 2200   2200 continue
 

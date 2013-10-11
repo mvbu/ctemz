@@ -23,7 +23,7 @@ static const char FORMAT_ARRAY_INT[] = "%7d %8d\n"; // format 14006 in temz.f
 static const char FORMAT_ARRAY_FLOAT[] = "%7d %12.5E\n"; // format 14007 in temz.f
 static const char FORMAT_EDIST[] = "%5s %7d %7d %2d %8d %12.5E %12.5E %12.3E %12.3E %12.4E %12.5E\n"; // format 14008 in temz.f
 static const char FORMAT_STRING_FLOAT[] = "%10s %8d %12.5E\n"; // format 14009 in temz.f
-static const char FORMAT_STRING_INT_FLOAT6_FLOAT7[] = "%10s %7d %12.6E %12.7E\n";
+static const char FORMAT_STRING_3INT_FLOAT6_FLOAT8[] = "%10s %7d %7d %7d %12.6E %12.8E\n";
 
 const double SMALL_FMDALL = 1e-30;
 
@@ -3152,7 +3152,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
             emeold = 0.0;
             emsold = 0.0;
             // calculate flux in mJy from cell
-            int ithin = 0;
             for(inu=1; inu<=D22; inu++) { // do 193 inu=1,22
               common.dustnu[inu-1] = dustf[id-1][inu-1];
               double hnukt = 4.8e-11*common.dustnu[inu-1]/common.tdust;
@@ -3171,7 +3170,30 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 	    common.gamd = gammad[i-1][j-1]; // polcalc() uses this
 	    double chipol = polcalc(bfield[j-1],bx[i-1][j-1],by[i-1][j-1],bz[i-1][j-1],clos,slos);
 
-            for(inu=1; inu<=D68; inu++) { // do 195 inu=1,68
+	    int inuIthin = 0;
+
+            for(inu=1; inu<=D68; inu++) {
+	      // Figure out which freq that ithin would be set to 1, since the parallelization of the 195 loop 
+	      // means that we are no longer processing the frequencies starting from inu=1.
+	      ssabs = 1.02e4*(sen+2.0)*akapnu(restnu)*bperp[j-1]/(nu[inu-1]*nu[inu-1])/delta[i-1][j-1];
+	      ssabs = ssabs*CM_PER_PARSEC*zsize;
+	      ssabs = ssabs*inp.rsize/zsize;
+	      if(ssabs <=(0.1/ancol)) {
+		inuIthin = inu;
+		break;
+	      }
+	      // if this works, we can get rid of ithin (msv Oct 2013)
+	    }
+
+	    int tid;
+	    int threadIntervals[NUM_THREADS][2];
+	    BlzMath::getSubIntervals(1, D68, NUM_THREADS, threadIntervals);
+
+            #pragma omp parallel private(tid, inu)
+            {
+	    tid = omp_get_thread_num();
+	    printf("In thread %d with range %d to %d\n", tid, threadIntervals[tid][0], threadIntervals[tid][1]);
+	    for(inu=threadIntervals[tid][0]; inu<=threadIntervals[tid][1]; inu++) { // do 195 inu=1,68
 	      double emold = 0.0;
 	      double anumin, alnumn;
 	      int inumin, iinu;
@@ -3204,7 +3226,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 		    specin = log10(emold/fsync2[inu-1])/log10(nu[inu-1]/nu[inu-2]);
                 } // 191 continue
 
-                if(ithin != 1){ // go to 192
+                if(inu <= inuIthin){ // go to 192
                   ssabs = 1.02e4*(sen+2.0)*akapnu(restnu)*bperp[j-1]/(nu[inu-1]*nu[inu-1])/delta[i-1][j-1];
                   ssabs = ssabs*CM_PER_PARSEC*zsize;
                   // Attenuate Mach disk emission from synchrotron absorption on way to cell
@@ -3216,8 +3238,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
                   // Return to absorption within cell
                   // Use rsize instead of zsize because of aberration
                   ssabs = ssabs*inp.rsize/zsize;
-                  if(ssabs <=(0.1/ancol))
-                    ithin = 1;
                   srcfn = fsync2[inu-1]/ssabs;
                   if(ssabs > 5.0)
                     fsync2[inu-1] = srcfn;
@@ -3234,7 +3254,16 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
                   else 
                     fsync2[inu-1] = fsync2[inu-1]/exp(tauexp);
                   specin = inp.alpha;
-                } 
+		  // if(nTestOut==8) {
+		  //   if((inu==10)) {
+		  //     fprintf(pfTestOut, FORMAT_STRING_3INT_FLOAT6_FLOAT8, "ssabs", i, j, inu, 0.0, ssabs);
+		  //     fprintf(pfTestOut, FORMAT_STRING_3INT_FLOAT6_FLOAT8, "srcfn", i, j, inu, 0.0, srcfn);
+		  //     fprintf(pfTestOut, FORMAT_STRING_3INT_FLOAT6_FLOAT8, "ssabsm", i, j, inu, 0.0, ssabsm);
+		  //     fprintf(pfTestOut, FORMAT_STRING_3INT_FLOAT6_FLOAT8, "tauexp", i, j, inu, 0.0, tauexp);
+		  //     fprintf(pfTestOut, FORMAT_STRING_3INT_FLOAT6_FLOAT8, "fsync(inu)", i, j, inu, 0.0, fsync[inu-1]);
+		  //   }
+		  // }
+		} // if(inu <= inuIthin) 
 
               } // 192 continue
 
@@ -3312,12 +3341,14 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
 	      //emeold = ecflux;
 	      //emsold = sscflx;
             } // for(inu=1; inu<=D68; inu++) 195 continue
+	    } // #pragma parallel
 
 	    if(nTestOut==8) {
 	      for(inu=1; inu<=D68; inu++) {
 		double restnu =  nu[inu-1]*common.zred1/delta[i-1][j-1];
-		fprintf(pfTestOut, FORMAT_STRING_INT_FLOAT6_FLOAT7, "ecflux", inu, restnu, flec[i-1][j-1][inu-1]);
-		fprintf(pfTestOut, FORMAT_STRING_INT_FLOAT6_FLOAT7, "sscflx", inu, restnu, flssc[i-1][j-1][inu-1]);
+		//fprintf(pfTestOut, FORMAT_STRING_3INT_FLOAT6_FLOAT8, "flec", i, j, inu, restnu, flec[i-1][j-1][inu-1]);
+		//fprintf(pfTestOut, FORMAT_STRING_3INT_FLOAT6_FLOAT8, "flssc", i, j, inu, restnu, flssc[i-1][j-1][inu-1]);
+		fprintf(pfTestOut, FORMAT_STRING_3INT_FLOAT6_FLOAT8, "flsync", i, j, inu, restnu, flsync[i-1][j-1][inu-1]);
 	      }
 	    }
 
@@ -3326,11 +3357,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         } // for(i-istart; i<=imax[j-1]; i++) 200 continue
 
       } // for(j=1; j<=JCELLS-1; j++) 200 continue
-
-      if(nTestOut==8) {
-	fclose(pfTestOut);
-	exit(0);
-      }
 
     } // if(icells.eq.1)go to 2200   2200 continue
 

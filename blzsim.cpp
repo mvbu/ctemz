@@ -1149,10 +1149,12 @@ void writeedist(FILE* fp, double* arr, int nsize)
   }
 }
 
-void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
+// Max nTestOut is 8. Default is 0 (i.e. no test output)
+void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, int nTestOut)
 {
   const int NUM_THREADS = BlzUtil::getNumProcessors();
   BlzLog::warnScalar("BlzSim::run() getNumProcessors() = ", NUM_THREADS);
+  BlzLog::warnScalar("BlzSim::run() nTestOut = ", nTestOut);
   // This is where a most of the code ported from the "main" Fortran program will go, mostly as-is.
   // Then hopefully will have time to make it more modular after it is ported.
   const int D68=68;
@@ -1167,7 +1169,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
   const int D451=451;
 
   bool bOutputFilesCreated = false;
-  int  nTestOut = 0; // Max 8
   FILE* pfSpec = NULL; // 3 ctemzspec.txt
   FILE* pfLc = NULL; // 4 ctemzlc.txt
   FILE* pfPol = NULL; // 5 ctemzpol.txt
@@ -2182,7 +2183,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
         {
           // Each thread does a different range within (7,D68)
           tid = omp_get_thread_num();
-          //printf("In thread %d with range %d to %d\n", tid, threadIntervals[tid][0], threadIntervals[tid][1]);
           for(inu=threadIntervals[tid][0]; inu<=threadIntervals[tid][1]; inu++) { // 129  why inu 7?
             restnu = nu[inu-1];
             double anuf = restnu/dopref;
@@ -3192,7 +3192,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode)
             #pragma omp parallel private(tid, inu)
             {
 	    tid = omp_get_thread_num();
-	    printf("In thread %d with range %d to %d\n", tid, threadIntervals[tid][0], threadIntervals[tid][1]);
 	    for(inu=threadIntervals[tid][0]; inu<=threadIntervals[tid][1]; inu++) { // do 195 inu=1,68
 	      double emold = 0.0;
 	      double anumin, alnumn;

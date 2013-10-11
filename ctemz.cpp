@@ -39,7 +39,7 @@ int main (int argc, char* argv[])  {
   pDays = daysDefault;
   pSpec = specDefault;
   pTestOut = testOutDefault;
-  bool bTestMode = parseArgs(argc, argv, &pLogLevel, &pDays, &pSpec, &pInputFile);
+  bool bTestMode = parseArgs(argc, argv, &pLogLevel, &pDays, &pSpec, &pInputFile, &pTestOut);
   setLogLevel(pLogLevel);
   double days = atof(pDays);
   double spec = atof(pSpec); // not used yet
@@ -54,7 +54,7 @@ int main (int argc, char* argv[])  {
   BlzSimInput inp;
   BlzSimInputReader inputReader(inputFile);
   inputReader.read(inp);
-  pSim->run(inp, days, bTestMode);
+  pSim->run(inp, days, bTestMode, nTestOut);
   result = 0;
   delete pSim;
 
@@ -75,7 +75,7 @@ bool parseArgs(int argc, char* argv[],
                ) {
   int c;
   bool retVal = false;
-  while ((c = getopt (argc, argv, "l:d:i:t:n")) != -1)
+  while ((c = getopt (argc, argv, "l:d:i:tn:")) != -1)
     switch (c) {
     case 'l':
       cout << "% Log level: " << optarg << endl;
@@ -91,7 +91,7 @@ bool parseArgs(int argc, char* argv[],
       break;
     case 'n':
       cout << "% nTestOut: " << optarg << endl;
-      *pDays = optarg;
+      *pTestOut = optarg;
       break;
     case 't':
       cout << "% Test mode ON " << endl;

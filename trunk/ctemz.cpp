@@ -12,7 +12,8 @@ bool parseArgs(int argc, char* argv[],
                char** pLogLevel,
                char** pDays, 
                char** pSpec, 
-               char** pInputFile
+               char** pInputFile,
+               char** pTestOut
                );
 
 /**
@@ -27,19 +28,22 @@ int main (int argc, char* argv[])  {
     return result;
   }
 
-  char *pLogLevel, *pDays, *pSpec, *pInputFile;
+  char *pLogLevel, *pDays, *pSpec, *pInputFile, *pTestOut;
   char logLevelDefault[10] = "warn";
   char inputFileDefault[128] = "temzinp.txt";
   char daysDefault[10] = ".4";
   char specDefault[10] = "1";
+  char testOutDefault[10] = "0";
   pLogLevel = logLevelDefault;
   pInputFile =  inputFileDefault;
   pDays = daysDefault;
   pSpec = specDefault;
+  pTestOut = testOutDefault;
   bool bTestMode = parseArgs(argc, argv, &pLogLevel, &pDays, &pSpec, &pInputFile);
   setLogLevel(pLogLevel);
   double days = atof(pDays);
   double spec = atof(pSpec); // not used yet
+  int nTestOut = atof(pTestOut);
 
   time_t starttime;
   time(&starttime);
@@ -66,11 +70,12 @@ bool parseArgs(int argc, char* argv[],
                char** pLogLevel,
                char** pDays, 
                char** pSpec, 
-               char** pInputFile
+               char** pInputFile,
+               char** pTestOut
                ) {
   int c;
   bool retVal = false;
-  while ((c = getopt (argc, argv, "l:d:i:t")) != -1)
+  while ((c = getopt (argc, argv, "l:d:i:t:n")) != -1)
     switch (c) {
     case 'l':
       cout << "% Log level: " << optarg << endl;
@@ -83,6 +88,10 @@ bool parseArgs(int argc, char* argv[],
     case 'i':
       cout << "% Spectrum output interval: " << optarg << endl;
       *pSpec = optarg;
+      break;
+    case 'n':
+      cout << "% nTestOut: " << optarg << endl;
+      *pDays = optarg;
       break;
     case 't':
       cout << "% Test mode ON " << endl;

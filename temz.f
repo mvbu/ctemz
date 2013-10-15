@@ -74,7 +74,7 @@ c      common/ci/i,j
       common/cseed/dustnu,dusti,csang
       common/cang/cosz,sinz
       common/crite/iwrite
-      common/cinput/daysToSimulate
+      common/cinput/daysToSimulate,nTestOut
       ! Added by me (MSV, June 2012) for test mode ("generates" the same sequence of rand numbers every time)
       common/cfixedrand/fixedRandFlag, fixedRandFileOpened, fixedRandData, fixedRandCounter
       nTestOut = 0
@@ -3458,7 +3458,7 @@ c     Subroutine to round to nearest integer
 c     Subroutine to parse the command line parameters and set internal variables
 c     accordingly
       function parseArgs(dummy)
-      common/cinput/daysToSimulate
+      common/cinput/daysToSimulate,nTestOut
       common/cfixedrand/fixedRandFlag, fixedRandFileOpened, fixedRandData, fixedRandCounter
       real*4 daysToSimulate
       integer fixedRandFlag
@@ -3478,12 +3478,16 @@ c     accordingly
             call get_command_argument(i+1, arg)
             read(arg, '(i5)' ) days
             daysToSimulate = real(days)
+         case ('-n')
+            call get_command_argument(i+1, arg)
+            read(arg, '(i5)' ) nTestOut
          case ('-t')
             fixedRandFlag = 1 ! Use "fixed" set of random numbers
             write(*,*) '% Test mode ON'
          end select
       end do
       
+      write(*,*) '% nTestOut:', nTestOut
       write(*,*) '% Days to simulate:', daysToSimulate
 
       parseArgs = 0

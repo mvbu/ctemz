@@ -2524,15 +2524,15 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, int nTestOut)
 	    fsync2[inu-1] = emisco*zsize*(EMFACT*CM_PER_PARSEC);
 	    fsnoab = fsync2[inu-1];
 
-	    if(inu != 1) { // go to 91
-	      // For parallelization, we can't simply use emold (=fsync[inu-2]) because it might
-	      // not have been calculated yet. We'll have to take the slight hit of calculating it
-	      // fresh, even if another thread might have already calculated it. Once we've parallelized
-	      // this loop (do 95), the thread can check if it's the first frequency in the range that
-	      // this thread is working on. Only then do we need to (re)calculated emold. 
+	    if(inu == threadIntervals[tid][0]) {
+	      // If inu is the first value in the inu range of this thread, then we have no previous value of emold, so
+	      // we will calculate it (even if some other thread might have already calculated it)
 	      double previousRestnu = nu[inu-2]*common.zred1/delta[i-1][j-1]; // previous frequency, but same cell
 	      double previousEmisco = ajnu(previousRestnu)*bperp[j-1]*delta[i-1][j-1]*delta[i-1][j-1];
 	      emold = previousEmisco*zsize*(EMFACT*CM_PER_PARSEC);
+	    }
+
+	    if(inu != 1) { // go to 91
 	      if((emold>0.0) && (fsync2[inu-1]>0.0))
 		specin = log10(emold/fsync2[inu-1])/log10(nu[inu-1]/nu[inu-2]);
 	    } // 91 continue
@@ -2638,11 +2638,19 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, int nTestOut)
 	    */
 	  } // if(restnu >= 1.0e14) 94 continue
 
-	    //emold = fsnoab; // changed so that each loop just calculates fsync2[inu-2] if it needs it, so no need to store it.
-	    //emeold = ecflux;
-	    //emsold = sscflx;
+	  emold = fsnoab; // store the value of fsync2 for this value of inu, for use with the next value of inu (i.e. inu+1)
+	  //emeold = ecflux;
+	  //emsold = sscflx;
 	} // for(inu=1; inu<=D68; inu++)  95 continue
       } // #pragma parallel
+
+      if(nTestOut==8) {
+	for(inu=1; inu<=D68; inu++) {
+	  double restnu =  nu[inu-1]*common.zred1/delta[i-1][j-1];
+	  fprintf(pfTestOut, FORMAT_STRING_3INT_FLOAT6_FLOAT8, "flec", i, j, inu, restnu, flec[i-1][j-1][inu-1]);
+	  fprintf(pfTestOut, FORMAT_STRING_3INT_FLOAT6_FLOAT8, "flssc", i, j, inu, restnu, flssc[i-1][j-1][inu-1]);
+	}
+      }
 
       // 96 continue Fortran has this line here, but there's no reference to it (!)
       icelmx[j-1] = 1;
@@ -3254,15 +3262,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, int nTestOut)
                   else 
                     fsync2[inu-1] = fsync2[inu-1]/exp(tauexp);
                   specin = inp.alpha;
-		  // if(nTestOut==8) {
-		  //   if((inu==10)) {
-		  //     fprintf(pfTestOut, FORMAT_STRING_3INT_FLOAT6_FLOAT8, "ssabs", i, j, inu, 0.0, ssabs);
-		  //     fprintf(pfTestOut, FORMAT_STRING_3INT_FLOAT6_FLOAT8, "srcfn", i, j, inu, 0.0, srcfn);
-		  //     fprintf(pfTestOut, FORMAT_STRING_3INT_FLOAT6_FLOAT8, "ssabsm", i, j, inu, 0.0, ssabsm);
-		  //     fprintf(pfTestOut, FORMAT_STRING_3INT_FLOAT6_FLOAT8, "tauexp", i, j, inu, 0.0, tauexp);
-		  //     fprintf(pfTestOut, FORMAT_STRING_3INT_FLOAT6_FLOAT8, "fsync(inu)", i, j, inu, 0.0, fsync[inu-1]);
-		  //   }
-		  // }
 		} // if(inu <= inuIthin) 
 
               } // 192 continue
@@ -3342,15 +3341,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, int nTestOut)
 	      //emsold = sscflx;
             } // for(inu=1; inu<=D68; inu++) 195 continue
 	    } // #pragma parallel
-
-	    if(nTestOut==8) {
-	      for(inu=1; inu<=D68; inu++) {
-		double restnu =  nu[inu-1]*common.zred1/delta[i-1][j-1];
-		//fprintf(pfTestOut, FORMAT_STRING_3INT_FLOAT6_FLOAT8, "flec", i, j, inu, restnu, flec[i-1][j-1][inu-1]);
-		//fprintf(pfTestOut, FORMAT_STRING_3INT_FLOAT6_FLOAT8, "flssc", i, j, inu, restnu, flssc[i-1][j-1][inu-1]);
-		fprintf(pfTestOut, FORMAT_STRING_3INT_FLOAT6_FLOAT8, "flsync", i, j, inu, restnu, flsync[i-1][j-1][inu-1]);
-	      }
-	    }
 
           } // if(bSkipRestOfColumnCells)  196 continue
 

@@ -2183,6 +2183,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, int nTestOut)
         {
           // Each thread does a different range within (7,D68)
           tid = omp_get_thread_num();
+          //printf("In thread %d with range %d to %d\n", tid, threadIntervals[tid][0], threadIntervals[tid][1]);
           for(inu=threadIntervals[tid][0]; inu<=threadIntervals[tid][1]; inu++) { // 129  why inu 7?
             restnu = nu[inu-1];
             double anuf = restnu/dopref;
@@ -3212,15 +3213,15 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, int nTestOut)
                 fsync2[inu-1] = emisco*zsize*(EMFACT*CM_PER_PARSEC);
                 fsnoab = fsync2[inu-1];
 
-                if(inu != 1) {  // go to 191
-		  // For parallelization, we can't simply use emold (=fsync[inu-2]) because it might
-		  // not have been calculated yet. We'll have to take the slight hit of calculating it
-		  // fresh, even if another thread might have already calculated it. Once we've parallelized
-		  // this loop (do 195), the thread can check if it's the first frequency in the range that
-		  // this thread is working on. Only then do we need to (re)calculated emold. 
+		if(inu == threadIntervals[tid][0]) {
+		  // If inu is the first value in the inu range of this thread, then we have no previous value of emold, so
+		  // we will calculate it (even if some other thread might have already calculated it)
 		  double previousRestnu = nu[inu-2]*common.zred1/delta[i-1][j-1]; // previous frequency, but same cell
 		  double previousEmisco = ajnu(previousRestnu)*bperp[j-1]*delta[i-1][j-1]*delta[i-1][j-1];
 		  emold = previousEmisco*zsize*(EMFACT*CM_PER_PARSEC);
+		}
+
+                if(inu != 1) {  // go to 191
 		  if((emold>0.0) && (fsync2[inu-1]>0.0))
 		    specin = log10(emold/fsync2[inu-1])/log10(nu[inu-1]/nu[inu-2]);
                 } // 191 continue
@@ -3336,7 +3337,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, int nTestOut)
                 //   spxssc = log10(emsold/sscflx)/log10(nu[inu-1]/nu[inu-2]);
               } // if(restnu >= 1.0e14) 194 continue
 
-	      //emold = fsnoab; // changed so that each loop just calculates fsync2[inu-2] if it needs it, so no need to store it.
+	      emold = fsnoab; // store the value of fsync2 for this value of inu, for use with the next value of inu (i.e. inu+1)
 	      //emeold = ecflux;
 	      //emsold = sscflx;
             } // for(inu=1; inu<=D68; inu++) 195 continue

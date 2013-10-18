@@ -2474,7 +2474,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, int nTestOut)
       gammin[i-1][j-1] = inp.gmin/(1.0+tlfact*delt*inp.gmin);
 
       // Start loop over observed frequencies
-      int ithin = 0;
       for(inu=1; inu<=D22; inu++) { // do 93 inu=1,22
         common.dustnu[inu-1] = dustf[id-1][inu-1];
         double hnukt = 4.8e-11*common.dustnu[inu-1]/common.tdust;
@@ -2492,6 +2491,21 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, int nTestOut)
       common.betd = betad[i-1][j-1];  // don't know if this even matters
       common.gamd = gammad[i-1][j-1]; // polcalc() uses this
       double chipol = polcalc(bfield[j-1],bx[i-1][j-1],by[i-1][j-1],bz[i-1][j-1],clos,slos);
+
+      int inuIthin = 0;
+
+      for(inu=1; inu<=D68; inu++) {
+	// Figure out which freq that ithin would be set to 1, since the parallelization of the 195 loop 
+	// means that we are no longer processing the frequencies starting from inu=1.
+	ssabs = 1.02e4*(sen+2.0)*akapnu(restnu)*bperp[j-1]/(nu[inu-1]*nu[inu-1])/delta[i-1][j-1];
+	ssabs = ssabs*CM_PER_PARSEC*zsize;
+	ssabs = ssabs*inp.rsize/zsize;
+	if(ssabs <=(0.1/ancol)) {
+	  inuIthin = inu;
+	  break;
+	}
+	// if this works, we can get rid of ithin (msv Oct 2013)
+      }
 
       int tid;
       int threadIntervals[NUM_THREADS][2];
@@ -2537,7 +2551,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, int nTestOut)
 		specin = log10(emold/fsync2[inu-1])/log10(nu[inu-1]/nu[inu-2]);
 	    } // 91 continue
 
-	    if(ithin != 1) { // go to 92
+	    if(inu <= inuIthin) { // go to 92
 	      ssabs = 1.02e4*(sen+2.0)*akapnu(restnu)*bperp[j-1]/(nu[inu-1]*nu[inu-1])/delta[i-1][j-1];
 	      ssabs = ssabs*CM_PER_PARSEC*zsize*delta[i-1][j-1];
 	      //  Attenuate Mach disk emission from synchrotron absorption on way to cell
@@ -2549,8 +2563,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, int nTestOut)
 	      //  Return to absorption within cell
 	      // Use rsize instead of zsize because of aberration
 	      ssabs = ssabs*inp.rsize/zsize;
-	      if(ssabs<=(0.1/ancol))
-		ithin = 1;
 	      srcfn = fsync2[inu-1]/ssabs;
 	      if(ssabs>5.0)
 		fsync2[inu-1] = srcfn;
@@ -2656,6 +2668,11 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, int nTestOut)
       icelmx[j-1] = 1;
 
     } // for(j=1; j<=(JCELLS-1); j++) 100 continue
+
+    if(nTestOut==8) {
+      fclose(pfTestOut);
+      exit(0);
+    }
 
     // 
     // End loop over first layer of cells

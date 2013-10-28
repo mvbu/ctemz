@@ -18,18 +18,18 @@ static const int BLZSIM_DIM262144 = 262144;
 // Can come up with a better way later.
 class BlzSimCommon {
  public:
-  static const int CDIST_SIZE = 44;
+  static const int CDIST_SIZE = 44; // The number of electron energies we are dealing with
   static const int CSEED_SIZE = 22;
-  static const int CSSC_SIZE = 68;
+  static const int CSSC_SIZE = 68;  // The number of (photon) frequencies we are dealing with
 
   double bdx, bdy, bdz, gamd, betd; // cvel
   double zred1, bfld, bperpp; // cparm
   double csth1, csth2, dcsth1, dcsth2, dsang, tdust; // cdust
   double cosz, sinz; // cang
-  // The first two entries in the next two lines are both referred to in the Fortran as dnu, di
+  // The first two entries in the next two lines are both referred to in the Fortran (ssc() or ecdust()) as dnu and di
   double snu[CSSC_SIZE], ssseed[CSSC_SIZE], cscat; // cssc 
-  int    nuhi; // cssc
   double dustnu[CSEED_SIZE],dusti[CSEED_SIZE], csang;    // cseed
+  int    nuhi; // cssc
   double ggam[CDIST_SIZE], edist[CDIST_SIZE]; // cdist
   double freq; // cfreq
   // this is not part of any physics, just used as flag for writing to a file. Can move somewhere else later

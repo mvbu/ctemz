@@ -13,6 +13,7 @@ bool parseArgs(int argc, char* argv[],
                char** pDays, 
                char** pSpec, 
                char** pInputFile,
+	       bool* pSingleThreadFlag,
                char** pTestOut
                );
 
@@ -34,12 +35,13 @@ int main (int argc, char* argv[])  {
   char daysDefault[10] = ".4";
   char specDefault[10] = "1";
   char testOutDefault[10] = "0";
+  bool bSingleThreadFlag = false;
   pLogLevel = logLevelDefault;
   pInputFile =  inputFileDefault;
   pDays = daysDefault;
   pSpec = specDefault;
   pTestOut = testOutDefault;
-  bool bTestMode = parseArgs(argc, argv, &pLogLevel, &pDays, &pSpec, &pInputFile, &pTestOut);
+  bool bTestMode = parseArgs(argc, argv, &pLogLevel, &pDays, &pSpec, &pInputFile, &bSingleThreadFlag, &pTestOut);
   setLogLevel(pLogLevel);
   double days = atof(pDays);
   double spec = atof(pSpec); // not used yet
@@ -54,7 +56,7 @@ int main (int argc, char* argv[])  {
   BlzSimInput inp;
   BlzSimInputReader inputReader(inputFile);
   inputReader.read(inp);
-  pSim->run(inp, days, bTestMode, nTestOut);
+  pSim->run(inp, days, bTestMode, bSingleThreadFlag, nTestOut);
   result = 0;
   delete pSim;
 
@@ -71,11 +73,14 @@ bool parseArgs(int argc, char* argv[],
                char** pDays, 
                char** pSpec, 
                char** pInputFile,
+	       bool* pSingleThreadFlag,
                char** pTestOut
                ) {
   int c;
   bool retVal = false;
-  while ((c = getopt (argc, argv, "l:d:i:tn:")) != -1)
+  *pSingleThreadFlag = false; 
+
+  while ((c = getopt (argc, argv, "l:d:i:tn:s")) != -1)
     switch (c) {
     case 'l':
       cout << "% Log level: " << optarg << endl;
@@ -92,6 +97,10 @@ bool parseArgs(int argc, char* argv[],
     case 'n':
       cout << "% nTestOut: " << optarg << endl;
       *pTestOut = optarg;
+      break;
+    case 's':
+      cout << "% Single thread  mode ON " << endl;
+      *pSingleThreadFlag = true;
       break;
     case 't':
       cout << "% Test mode ON " << endl;

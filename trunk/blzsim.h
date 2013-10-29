@@ -62,7 +62,7 @@ class BlzSim {
   // This is the main method of this class. Eventually, all other methods will be private.
   // Instantiate a BlzSim object, instantiate and initialize a BlzSimInput object, then pass it
   // to the run() method. ndays is number of days to simulate
-  void run(BlzSimInput& blzSimInput, double ndays=20.0, bool bTestMode = false, int nTestOut = 0);
+  void run(BlzSimInput& blzSimInput, double ndays=20.0, bool bTestMode = false, bool bSingleThreaded = false, int nTestOut = 0);
 
   // Most of these methods will eventually become private or protected.
 

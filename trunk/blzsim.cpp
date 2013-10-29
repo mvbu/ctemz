@@ -1150,10 +1150,11 @@ void writeedist(FILE* fp, double* arr, int nsize)
 }
 
 // Max nTestOut is 8. Default is 0 (i.e. no test output)
-void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, int nTestOut)
+void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThreaded, int nTestOut)
 {
-  const int NUM_THREADS = BlzUtil::getNumProcessors();
-  BlzLog::warnScalar("BlzSim::run() getNumProcessors() = ", NUM_THREADS);
+  int nThreads = bSingleThreaded ? 1 : BlzUtil::getNumProcessors();
+  const int NUM_THREADS = nThreads;
+  BlzLog::warnScalar("BlzSim::run() NUM_THREADS = ", NUM_THREADS);
   BlzLog::warnScalar("BlzSim::run() nTestOut = ", nTestOut);
   // This is where a most of the code ported from the "main" Fortran program will go, mostly as-is.
   // Then hopefully will have time to make it more modular after it is ported.

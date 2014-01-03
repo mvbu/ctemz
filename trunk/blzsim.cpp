@@ -11,6 +11,7 @@
 #include "blzrand.h"
 #include "blzsim.h"
 #include "blzsiminputreader.h"
+#include "blztimer.h"
 
 static const char FORMAT1[] = "%4d i %5d j %5d inu %5d ecflux %12.4E delta %12.4E\n";
 static const char FORMAT2[] = "j %5d imax %5d\n";
@@ -1156,6 +1157,9 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThr
   const int NUM_THREADS = nThreads;
   BlzLog::warnScalar("BlzSim::run() NUM_THREADS = ", NUM_THREADS);
   BlzLog::warnScalar("BlzSim::run() nTestOut = ", nTestOut);
+  // Create object to see how much time ssc() takes to execute
+  BlzTimer sscTimer(NUM_THREADS);
+  BlzTimer parallelTimer(1);
   // This is where a most of the code ported from the "main" Fortran program will go, mostly as-is.
   // Then hopefully will have time to make it more modular after it is ported.
   const int D68=68;
@@ -1246,7 +1250,12 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThr
   // Initialize the random number generator. If bTestMode is true, the BlzRand::rand() method will get
   // numbers from a text file instead of actually generating new random numbers
   initRandFromTime(bTestMode);
-  
+
+  // Do some execution timing. For now, we want to time how long the setup takes (pre-timeloop), and the timeloop itself.
+  time_t tSetupStart, tSetupEnd, tTimeloopStart, tTimeloopEnd;
+  time(&tSetupStart);
+  cout << "% Setup time start: " << ctime(&tSetupStart);
+
   const int ICELLS = 400; //  Can lower this for testing, but Marscher currently has this at 400. #cells along the axial direction. Needs to be increased to 200 eventually
   const int NEND = inp.nend; // NEND cells along each side of the hexagon
   const int JCELLS = 3*NEND*(NEND-1)+1; // JCELLS cells along the transverse direction (perp to axial dir)
@@ -1801,18 +1810,23 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThr
     omp_set_num_threads(NUM_THREADS);
     int threadIntervals[NUM_THREADS][2];
     BlzMath::getSubIntervals(7, D68, NUM_THREADS, threadIntervals);
+    parallelTimer.start();
 
     #pragma omp parallel private(tid, inu, restnu)
     {
       // Each thread does a different range within (7,D68)
       tid = omp_get_thread_num();
-      //printf("In thread %d with range %d to %d\n", tid, threadIntervals[tid][0], threadIntervals[tid][1]);
+      //if(nTestOut==3) fprintf(pfTestOut,"In thread %d with range %d to %d\n", tid, threadIntervals[tid][0], threadIntervals[tid][1]);
       for(inu=threadIntervals[tid][0]; inu<=threadIntervals[tid][1]; inu++) { // 129  why inu 7?
         restnu = nu[inu-1];
         double anuf = restnu/dopref;
+        sscTimer.start(tid);
         fsscmd[inu-1][md-1] = ssc(anuf)*dopref2/dtfact;
+        sscTimer.end(tid);
       }
-    }
+    } // end pragma parallel
+
+    parallelTimer.end();
 
     for(inu=7; inu<=D68; inu++) { // 129  why inu 7?
       restnu = nu[inu-1];
@@ -1821,15 +1835,26 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThr
         alfmdc[inu-1][md-1] = -log10(fsscmd[inu-1][md-1]/fssc1)/log10(restnu/fq1);
       fq1 = restnu;
       fssc1 = fsscmd[inu-1][md-1];
-      //if(nTestOut==3) fprintf(pfTestOut, FORMAT3_3, md, inu, fsscmd[inu-1][md-1]);
+      if(nTestOut==3) fprintf(pfTestOut, FORMAT3_3, md, inu, fsscmd[inu-1][md-1]);
     } // 129 continue
+
+    if((nTestOut==3) && (md > 1))
+      break;
 
   } // for(md=1; md<=MDMAX-1; md++) 130 continue
 
-  if(nTestOut==7) {
-    fclose(pfTestOut);
-    exit(0);
+  if(nTestOut==3) {     
+    cout << "% Setup parallel time: " << parallelTimer.getTotalTime() << " sec" << endl;
+    cout << "% Setup ssc() time: " << sscTimer.getTotalTime() << " sec" << endl;
+    cout << "% ssc() timer detail: " << sscTimer.toString() << endl;
+    fclose(pfTestOut); 
+    exit(0); 
   }
+
+  time(&tSetupEnd);
+  cout << "% Setup time end: " << ctime(&tSetupEnd);
+  cout << "% Setup time: " << (tSetupEnd-tSetupStart)/60. << " min" << endl;
+  if(nTestOut==7) { fclose(pfTestOut); exit(0); }
 
   //
   //     *** End Mach disk set-up ***
@@ -1839,6 +1864,10 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThr
   // This is the top-level time loop. 
   //
   // Toward the end of the loop, it is compared to itlast and if they are equal, we break out of this loop
+  time(&tTimeloopStart);
+  cout << "% Timeloop time start: " << ctime(&tTimeloopStart);
+  sscTimer.reset();
+
   while(true) {
 
     i = 1;
@@ -2174,7 +2203,10 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThr
         fq1 = 0.98*nu[6];
         common.betd = betamd;
         common.gamd = gammd;
-        double fssc1 = ssc(fq1/dopref)*dopref2/dtfact;
+        double fssc1;
+        sscTimer.start(0);
+        fssc1 = ssc(fq1/dopref)*dopref2/dtfact;
+        sscTimer.end(0);
         int tid;
         omp_set_num_threads(NUM_THREADS);
         int threadIntervals[NUM_THREADS][2];
@@ -2188,7 +2220,9 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThr
           for(inu=threadIntervals[tid][0]; inu<=threadIntervals[tid][1]; inu++) { // 129  why inu 7?
             restnu = nu[inu-1];
             double anuf = restnu/dopref;
+            sscTimer.start(tid);
             fsscmd[inu-1][md-1] = ssc(anuf)*dopref2/dtfact;
+            sscTimer.end(tid);
           }
         }
         
@@ -2600,7 +2634,9 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThr
 	    double ecdust_local = ecdust(restnu);
 	    ecflux = ecdust_local*3.086*volc*common.zred1*delta[i-1][j-1]*delta[i-1][j-1]/(inp.dgpc*inp.dgpc)*FGEOM;
 	    if((nTestOut==1) && (it==1)) fprintf(pfTestOut, FORMAT1, 92, i, j, inu, ecdust_local, delta[i-1][j-1]);
+	    sscTimer.start(tid);
 	    sscflx = ssc(restnu)*3.086*volc*common.zred1*delta[i-1][j-1]*delta[i-1][j-1]/(inp.dgpc*inp.dgpc)*FGEOM;
+	    sscTimer.end(tid);
 	    double taupp = 0.0;
 	    if(nu[inu-1] >= 1.0e22) { // go to 99
 	      // Pair production opacity calculation
@@ -3304,7 +3340,9 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThr
                 double ecdust_local = ecdust(restnu);
                 ecflux = ecdust_local*3.086*volc*common.zred1*delta[i-1][j-1]*delta[i-1][j-1]/(inp.dgpc*inp.dgpc)*FGEOM;
                 if((nTestOut==1) && (it==1)) fprintf(pfTestOut, FORMAT1, 192, i, j, inu, ecdust_local, delta[i-1][j-1]);
+                sscTimer.start(tid);
                 sscflx = ssc(restnu)*3.086*volc*common.zred1*delta[i-1][j-1]*delta[i-1][j-1]/(inp.dgpc*inp.dgpc)*FGEOM;
+                sscTimer.end(tid);
                 double taupp = 0.0;
                 if(nu[inu-1] >= 1.0e22) { // go to 199
                   // Pair production opacity calculation
@@ -3597,6 +3635,10 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThr
     // Loop should be terminated by the if(it==itlast) check above
   } // while(true) Top-level time loop
 
+  time(&tTimeloopEnd);
+  cout << "% Timeloop time end: " << ctime(&tTimeloopEnd);
+  cout << "% Timeloop time: " << (tTimeloopEnd-tTimeloopStart)/60. << " min" << endl;
+  cout << "% Timeloop ssc() time: " << sscTimer.getTotalTime()/60. << " min" << endl;
   BlzLog::warn("Done with top level time loop");
   BlzLog::warn("Closing output files...");
   fclose(pfSpec);

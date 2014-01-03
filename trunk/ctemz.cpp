@@ -49,7 +49,7 @@ int main (int argc, char* argv[])  {
 
   time_t starttime;
   time(&starttime);
-  cout << "% Time start: " << ctime(&starttime) << endl;
+  cout << "% Time start: " << ctime(&starttime);
   BlzSim* pSim = new BlzSim();
   // Get the input parameters from the input file
   const string inputFile(pInputFile);
@@ -62,7 +62,7 @@ int main (int argc, char* argv[])  {
 
   time_t endtime;
   time(&endtime);
-  cout << "% Time end: " << ctime(&endtime) << endl;
+  cout << "% Time end: " << ctime(&endtime);
   
   return result;
 }

@@ -1173,6 +1173,10 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThr
   const int D130000PADDED=131000;
   const int D451=451;
 
+  // calculate and store starting points for each thread in the loops that deal with frequencies 1 to 68, or 7 to 68
+  int threadIntervals[NUM_THREADS][2];
+  BlzMath::getSubIntervals(7, D68, NUM_THREADS, threadIntervals);
+
   bool bOutputFilesCreated = false;
   FILE* pfSpec = NULL; // 3 ctemzspec.txt
   FILE* pfLc = NULL; // 4 ctemzlc.txt
@@ -1808,8 +1812,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThr
     double fssc1 = ssc(fq1/dopref)*dopref2/dtfact;
     int tid;
     omp_set_num_threads(NUM_THREADS);
-    int threadIntervals[NUM_THREADS][2];
-    BlzMath::getSubIntervals(7, D68, NUM_THREADS, threadIntervals);
     parallelTimer.start();
 
     #pragma omp parallel private(tid, inu, restnu)
@@ -2209,8 +2211,6 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThr
         sscTimer.end(0);
         int tid;
         omp_set_num_threads(NUM_THREADS);
-        int threadIntervals[NUM_THREADS][2];
-        BlzMath::getSubIntervals(7, D68, NUM_THREADS, threadIntervals);
         
         #pragma omp parallel private(tid, inu, restnu)
         {
@@ -2543,7 +2543,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThr
       }
 
       int tid;
-      int threadIntervals[NUM_THREADS][2];
+      // Recalculate the intervals starting at 1 instead of 7
       BlzMath::getSubIntervals(1, D68, NUM_THREADS, threadIntervals);
 
       #pragma omp parallel private(tid, inu)
@@ -3249,7 +3249,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThr
             }
 
             int tid;
-            int threadIntervals[NUM_THREADS][2];
+            // Recalculate the intervals starting at 1 instead of 7. This may be redundant since we already did this for the do 95 loop
             BlzMath::getSubIntervals(1, D68, NUM_THREADS, threadIntervals);
 
             #pragma omp parallel private(tid, inu)

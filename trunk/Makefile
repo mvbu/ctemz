@@ -8,14 +8,16 @@ LOCAL_LIB_DIR=${HOME}/.local/lib
 LOCAL_INC_DIR=${HOME}/.local/include
 MPI_LIB_DIR=/usr/lib64/openmpi/lib
 MPI_INC_DIR=/usr/include/openmpi-x86_64
-COMMON_OBJFILES = blzutil.o blzlog.o blzrand.o blzmath.o blzsiminputreader.o
+COMMON_OBJFILES = blztimer.o blzutil.o blzlog.o blzrand.o blzmath.o blzsiminputreader.o
 CTEMZ_OBJFILES = $(COMMON_OBJFILES) ctemz.o
 CTEST_OBJFILES = $(COMMON_OBJFILES) ctest.o
 CECDUST_OBJFILES = $(COMMON_OBJFILES) cecdust.o
-CSSC_OBJFILES = $(COMMON_OBJFILES) cssc.o
+CSSC_OBJFILES = $(COMMON_OBJFILES) blzsim.o cssc.o
+CSSCTEST_OBJFILES = $(COMMON_OBJFILES) blzsim.o cssctest.o
 SCRATCH_OBJFILES = scratch.o blzutil.o
 MPITEST_OBJFILES = mpitest.o
-GOMPTEST_OBJFILES = gomptest.o
+GOMPTEST_OBJFILES = blztimer.o blzmath.o gomptest.o
+BLZUTILTEST_OBJFILES = blzutiltest.o blzutil.o
 SERTEST_OBJFILES = sertest.o
 COMMON_HEADER_FILES = blzlog.h blzrand.h blzmath.h blzsim.h blzsiminput.h blzsiminputreader.h
 
@@ -45,6 +47,9 @@ cecdust: $(CECDUST_OBJFILES)
 cssc: $(CSSC_OBJFILES) 
 	$(CC) -o cssc $(CSSC_OBJFILES) -L$(LOCAL_LIB_DIR)
 
+cssctest: $(CSSCTEST_OBJFILES) 
+	$(CC) -o cssctest $(CSSCTEST_OBJFILES) -L$(LOCAL_LIB_DIR)
+
 scratch: $(SCRATCH_OBJFILES) 
 	$(CC) -o scratch $(SCRATCH_OBJFILES) -L$(LOCAL_LIB_DIR)
 
@@ -53,6 +58,9 @@ mpitest: $(MPITEST_OBJFILES)
 
 gomptest: $(GOMPTEST_OBJFILES) 
 	$(CC) -o gomptest $(GOMPTEST_OBJFILES) -L$(LOCAL_LIB_DIR)
+
+blzutiltest: $(BLZUTILTEST_OBJFILES) 
+	$(CC) -o blzutiltest $(BLZUTILTEST_OBJFILES) -L$(LOCAL_LIB_DIR)
 
 sertest: $(SERTEST_OBJFILES) 
 	$(CC) -o sertest $(SERTEST_OBJFILES) -L$(LOCAL_LIB_DIR)

@@ -1,0 +1,13 @@
+#summary A quick path to compile and execute the program
+
+= Introduction =
+
+ctemz is a C++ port of the Professor Alan Marscher (Boston University) temz code (one file: temz.f) written in Fortran. Both programs model the synchrotron and inverse Compton emissions from blazars (see his [http://arxiv.org/abs/1311.7665 paper]). The temz.f file in CVS is basically his temz.f file from around January 2013 with modifications that I've made to add some purely administrative features such as "fixed" random numbers from a file (described below) and command line arguments.
+
+= Quick Start =
+
+Code should compile and run on a Linux system. After checking out the source code onto your computer:
+
+  * cd to directory containing the code (example: cd ~/ctemz/trunk)
+  * type "make ctemz"
+  * Execute the program by typing "./ctemz -d 1"  The "1" means to simulate 1 day.

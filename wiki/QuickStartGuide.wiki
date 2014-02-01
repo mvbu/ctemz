@@ -2,7 +2,7 @@
 
 = Introduction =
 
-ctemz is a C++ port of the Professor Alan Marscher (Boston University) temz code (one file: temz.f) written in Fortran. Both programs model the synchrotron and inverse Compton emissions from blazars (see his [http://arxiv.org/abs/1311.7665 paper]). The temz.f file in CVS is basically his temz.f file from around January 2013 with modifications that I've made to add some purely administrative features such as "fixed" random numbers from a file (described below) and command line arguments.
+ctemz is a C++ port of the Professor Alan Marscher (Boston University) temz code (one file: temz.f) written in Fortran. Both programs model the synchrotron and inverse Compton emissions from blazars (see his [http://arxiv.org/abs/1311.7665 paper]). The temz.f file in this repository is basically his temz.f file from around January 2013 with modifications that I've made to add some purely administrative features such as "fixed" random numbers from a file (described below) and command line arguments.
 
 = Quick Start =
 

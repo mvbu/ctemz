@@ -14,7 +14,7 @@ This is the highest level of the {{{ctemz}}} executable. It contains the {{{main
   delete pSim;
 }}}
 
-=BlzSim==
+=BlzSim=
 
 This class in in the files {{{blzsim.cpp}}} and {{{blzsim.h}}}.
 

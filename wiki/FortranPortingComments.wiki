@@ -1,3 +1,5 @@
+#summary Comments on the original "source" Fortran and relation to C++ and the porting process
+
 = Fortran Version =
 
 As of the genesis of this Google Code project (February 2014), the {{{ctemz}}} code in this repository is a C++ port of the {{{temz.f}}} code as it existed in January 2013. Some purely administrative changes were made to {{{temz.f}}} as described below.

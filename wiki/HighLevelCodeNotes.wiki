@@ -1,0 +1,24 @@
+#summary Description of C++ classes and code structure
+
+={{{ctemz.cpp}}} =
+This is the highest level of the {{{ctemz}}} executable. It contains the {{{main()}}} function which parses the command-line arguments, instantiates a {{{BlzSim}}} object and calls its {{{run()}}} method. The following code excerpt summarizes what {{{ctemz.cpp:main()}}} does:
+
+{{{
+  BlzSim* pSim = new BlzSim();
+  // Get the input parameters from the input file
+  const string inputFile(pInputFile);
+  BlzSimInput inp;
+  BlzSimInputReader inputReader(inputFile);
+  inputReader.read(inp);
+  pSim->run(inp, days, bTestMode, bSingleThreadFlag, nTestOut);
+  delete pSim;
+}}}
+
+=BlzSim==
+
+This class in in the files {{{blzsim.cpp}}} and {{{blzsim.h}}}.
+
+The meat of {{{ctemz}}} simulation is in here. The {{{run()}}} method calls all the other modules to load the input parameters from a file (current named {{{temzinp.txt}}}), set up the simulation, execute the time loop, and output the results to a set of files.  The {{{run()}}} method is declared as such:
+{{{
+void run(BlzSimInput& blzSimInput, double ndays=20.0, bool bTestMode = false, bool bSingleThreaded = false, int nTestOut = 0);
+}}}

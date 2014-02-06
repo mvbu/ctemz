@@ -19,7 +19,8 @@ This class defined in the files {{{blzsim.cpp}}} and {{{blzsim.h}}}.
 
 The meat of {{{ctemz}}} simulation is in here. The {{{run()}}} method calls all the other modules to load the input parameters from a file (current named {{{temzinp.txt}}}), set up the simulation, execute the time loop, and output the results to a set of files.  The {{{run()}}} method is declared as such:
 {{{
-void run(BlzSimInput& blzSimInput, double ndays=20.0, bool bTestMode = false, bool bSingleThreaded = false, int nTestOut = 0);
+void run(BlzSimInput& blzSimInput, double ndays=20.0, bool bTestMode = false, 
+         bool bSingleThreaded = false, int nTestOut = 0);
 }}}
 
 This method is extremely long because it is a fairly direct translation of the Fortran {{{temz.f}}} program, which is primarily one long main program with a few things broken out into separate functions/subroutines. 

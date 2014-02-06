@@ -14,7 +14,7 @@ This is the highest level of the {{{ctemz}}} executable. It contains the {{{main
   delete pSim;
 }}}
 
-=BlzSim class=
+={{{BlzSim}}}=
 This class defined in the files {{{blzsim.cpp}}} and {{{blzsim.h}}}.
 
 The meat of {{{ctemz}}} simulation is in here. The {{{run()}}} method calls all the other modules to load the input parameters from a file (current named {{{temzinp.txt}}}), set up the simulation, execute the time loop, and output the results to a set of files.  The {{{run()}}} method is declared as such:

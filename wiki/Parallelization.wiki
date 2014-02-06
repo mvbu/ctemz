@@ -1,0 +1,14 @@
+#summary Multi-threading using the OpenMP library.
+
+= OpenMP implementation =
+
+OpenMP is a library to facilitate multi-threading in C++ and Fortran programs. {{{g++}}} and {{{gdb}}} have built in support for it, so it is fairly easy to incorporate into a program that is multi-thread-ready.
+
+In short, implementing OpenMP amounts to adding '#pragma omp' statements to the code, around the loop to be parallelized.
+
+= Changes to C++ =
+
+To parallelize certain (frequency) loops in the code, the code inside that loop had to be "fixed" so that it could be executed by multiple processors/threads simultaneously without corrupting data. The issues fell into two main categories:
+
+  * *Shared variables:* Some variables had to be made local and the associated adjustments had to be made so that memory would not get garbled as more than one thread tried to modify the same memory location at the same time.
+  * *Dependency on consecutive execution:* Basically, the code as originally written (i.e. the single-threaded code) relied on the frequencies being processed in consecutive order (lowest to highest). Some changes had to be made to these frequency loops so that a given frequency was processed correctly regardless of which frequency that thread had processed just before it.

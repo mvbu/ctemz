@@ -32,3 +32,13 @@ istance, torus x-section rad., zdist0, vdm (vol. of Mach disk/cell vol.)
 1.0
 0.4e0 # defines volume of Mach disk relative to cell volume, which is calculated from the above params
 }}}
+
+(TODO: need to describe *all* the parameters above)
+
+=Output Files=
+
+The output files are as follows:
+  * {{{ctemzlc.txt}}} Light curve at each time step
+  * {{{ctemzspec.txt}}} Spectrum at each time step, for 68 frequencies
+  * {{{ctemzpol.txt}}} Polarization values for each time step
+  * {{{maps/ctemzmap[xxxx].txt}}} "Map" files used to create diagrams (TODO: not sure exactly what they do. Prof. Marscher would know)

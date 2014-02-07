@@ -8,10 +8,10 @@ ctemz is a C++ port of the Professor Alan Marscher (Boston University) temz code
 
 Code should compile and run on a Linux system. After checking out the source code onto your computer:
 
-  * cd to directory containing the code (example: cd ~/ctemz/trunk)
-  * make a "maps" directory (mkdir maps)
-  * Compile the ctemz executable (make ctemz)
-  * Execute the program by typing "./ctemz -d 1"  The "1" means to simulate 1 day.
+  * cd to directory containing the code (example: {{{cd ~/ctemz/trunk}}})
+  * make a "maps" directory ({{{mkdir maps}}})
+  * Compile the {{{ctemz}}} executable. The {{{Makefile}}} invokes {{{g++}}}  ({{{make ctemz}}})
+  * Execute the program by typing "{{{./ctemz -d 1}}}"  The "1" means to simulate 1 day.
 
 = Command Line Details =
 

@@ -25,4 +25,4 @@ void run(BlzSimInput& blzSimInput, double ndays=20.0, bool bTestMode = false,
 
 This method is extremely long because it is a fairly direct translation of the Fortran {{{temz.f}}} program, which is primarily one long main program with a few things broken out into separate functions/subroutines. 
 
-In the C++ program {{{ctemz}}}, a few functionalities have been moved into other classes or subroutines. For example, reading the simulation parameters from the input file {{{temzinp.txt}}} has been moved to a separate class {{{BlzSimInput}}}.
+In the C++ program {{{ctemz}}}, a few functionalities have been moved into other classes or subroutines. For example, reading the simulation parameters from the input file {{{temzinp.txt}}} has been moved to a separate class {{{BlzSimInputReader}}}.

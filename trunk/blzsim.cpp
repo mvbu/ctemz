@@ -1174,8 +1174,12 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThr
   const int D451=451;
 
   // calculate and store starting points for each thread in the loops that deal with frequencies 1 to 68, or 7 to 68
-  int threadIntervals[NUM_THREADS][2];
-  BlzMath::getSubIntervals(7, D68, NUM_THREADS, threadIntervals);
+  int threadIntervals7[NUM_THREADS][2];
+  BlzMath::getSubIntervals(7, D68, NUM_THREADS, threadIntervals7);
+  int threadIntervals1[NUM_THREADS][2];
+  BlzMath::getSubIntervals(1, D68, NUM_THREADS, threadIntervals1);
+  BlzIndexTracker indexTracker7(7, D68);
+  BlzIndexTracker indexTracker1(1, D68);
 
   bool bOutputFilesCreated = false;
   FILE* pfSpec = NULL; // 3 ctemzspec.txt
@@ -1187,7 +1191,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThr
   std::string lcFile("ctemzlc.txt");
   std::string mapFile("ctemzmap.txt"); // this will change once "it" value is known/set
   std::string polFile("ctemzpol.txt");
-  std::string testOutFile("ctestout.txt");
+  std::string testOutFile("ctestoutp.txt");
   std::string dpath("maps/");
   if(nTestOut>0) pfTestOut = fopen (testOutFile.c_str(),"w");
 
@@ -1814,21 +1818,22 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThr
     omp_set_num_threads(NUM_THREADS);
     parallelTimer.start();
 
-    #pragma omp parallel private(tid, inu, restnu)
+    #pragma omp parallel shared(indexTracker7), private(tid, inu, restnu)
     {
-      // Each thread does a different range within (7,D68)
       tid = omp_get_thread_num();
-      //if(nTestOut==3) fprintf(pfTestOut,"In thread %d with range %d to %d\n", tid, threadIntervals[tid][0], threadIntervals[tid][1]);
-      for(inu=threadIntervals[tid][0]; inu<=threadIntervals[tid][1]; inu++) { // 129  why inu 7?
+      int previousInu = threadIntervals7[tid][0]; // we never use the endpoint of each interval [tid][1]
+      while((inu = indexTracker7.getNextIndex(previousInu)) >= 0) { // 129
         restnu = nu[inu-1];
         double anuf = restnu/dopref;
         sscTimer.start(tid);
         fsscmd[inu-1][md-1] = ssc(anuf)*dopref2/dtfact;
         sscTimer.end(tid);
+        previousInu = inu;
       }
     } // end pragma parallel
 
     parallelTimer.end();
+    indexTracker7.reset(); // mark all indices as unused, so we can use this tracker later
 
     for(inu=7; inu<=D68; inu++) { // 129  why inu 7?
       restnu = nu[inu-1];
@@ -2212,20 +2217,22 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThr
         int tid;
         omp_set_num_threads(NUM_THREADS);
         
-        #pragma omp parallel private(tid, inu, restnu)
+        #pragma omp parallel shared(indexTracker7), private(tid, inu, restnu)
         {
-          // Each thread does a different range within (7,D68)
           tid = omp_get_thread_num();
-          //printf("In thread %d with range %d to %d\n", tid, threadIntervals[tid][0], threadIntervals[tid][1]);
-          for(inu=threadIntervals[tid][0]; inu<=threadIntervals[tid][1]; inu++) { // 129  why inu 7?
+          int previousInu = threadIntervals7[tid][0];
+          while((inu = indexTracker7.getNextIndex(previousInu)) >= 0) { // 1129
             restnu = nu[inu-1];
             double anuf = restnu/dopref;
             sscTimer.start(tid);
             fsscmd[inu-1][md-1] = ssc(anuf)*dopref2/dtfact;
             sscTimer.end(tid);
+            previousInu = inu;
           }
         }
-        
+
+        indexTracker7.reset();
+
         for(inu=7; inu<=D68; inu++) { // do 1129 inu=7,68
           restnu = nu[inu-1];
           alfmdc[inu-1][md-1] = 10.0;
@@ -2543,13 +2550,12 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThr
       }
 
       int tid;
-      // Recalculate the intervals starting at 1 instead of 7
-      BlzMath::getSubIntervals(1, D68, NUM_THREADS, threadIntervals);
 
-      #pragma omp parallel private(tid, inu)
+      #pragma omp parallel shared(indexTracker1), private(tid, inu)
       {
         tid = omp_get_thread_num();
-        for(inu=threadIntervals[tid][0]; inu<=threadIntervals[tid][1]; inu++) { // do 95 inu=1,68
+        int previousInu = threadIntervals1[tid][0];
+        while((inu = indexTracker1.getNextIndex(previousInu)) >=0 ) { // do 95, inu=1,68
           double emold = 0.0;
           double anumin, alnumn;
           int inumin, iinu;
@@ -2573,9 +2579,10 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThr
             fsync2[inu-1] = emisco*zsize*(EMFACT*CM_PER_PARSEC);
             fsnoab = fsync2[inu-1];
 
-            if(inu == threadIntervals[tid][0]) {
-              // If inu is the first value in the inu range of this thread, then we have no previous value of emold, so
-              // we will calculate it (even if some other thread might have already calculated it)
+            if(inu != previousInu+1) {
+              // We should get here most of the time. Unless inu happens to be the next consecutive frequency
+              // from the frequency that this thread just worked on, we don't have the correct value of emold.
+              // So we'll have to calculate it, even if some other thread might have already calculated it.
               double previousRestnu = nu[inu-2]*common.zred1/delta[i-1][j-1]; // previous frequency, but same cell
               double previousEmisco = ajnu(previousRestnu)*bperp[j-1]*delta[i-1][j-1]*delta[i-1][j-1];
               emold = previousEmisco*zsize*(EMFACT*CM_PER_PARSEC);
@@ -2690,8 +2697,12 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThr
           emold = fsnoab; // store the value of fsync2 for this value of inu, for use with the next value of inu (i.e. inu+1)
           //emeold = ecflux;
           //emsold = sscflx;
+
+          previousInu = inu;
         } // for(inu=1; inu<=D68; inu++)  95 continue
       } // #pragma parallel
+
+      indexTracker1.reset();
 
       if(nTestOut==8) {
         for(inu=1; inu<=D68; inu++) {
@@ -3249,13 +3260,12 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThr
             }
 
             int tid;
-            // Recalculate the intervals starting at 1 instead of 7. This may be redundant since we already did this for the do 95 loop
-            BlzMath::getSubIntervals(1, D68, NUM_THREADS, threadIntervals);
 
-            #pragma omp parallel private(tid, inu)
+            #pragma omp parallel shared(indexTracker1), private(tid, inu)
             {
               tid = omp_get_thread_num();
-              for(inu=threadIntervals[tid][0]; inu<=threadIntervals[tid][1]; inu++) { // do 195 inu=1,68
+              int previousInu = threadIntervals1[tid][0];
+              while((inu = indexTracker1.getNextIndex(previousInu)) >= 0) { // do 195 inu=1,68
                 double emold = 0.0;
                 double anumin, alnumn;
                 int inumin, iinu;
@@ -3275,9 +3285,10 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThr
                   fsync2[inu-1] = emisco*zsize*(EMFACT*CM_PER_PARSEC);
                   fsnoab = fsync2[inu-1];
 
-                  if(inu == threadIntervals[tid][0]) {
-                    // If inu is the first value in the inu range of this thread, then we have no previous value of emold, so
-                    // we will calculate it (even if some other thread might have already calculated it)
+                  if(inu != previousInu+1) {
+                    // We should get here most of the time. Unless inu happens to be the next consecutive frequency
+                    // from the frequency that this thread just worked on, we don't have the correct value of emold.
+                    // So we'll have to calculate it, even if some other thread might have already calculated it.
                     double previousRestnu = nu[inu-2]*common.zred1/delta[i-1][j-1]; // previous frequency, but same cell
                     double previousEmisco = ajnu(previousRestnu)*bperp[j-1]*delta[i-1][j-1]*delta[i-1][j-1];
                     emold = previousEmisco*zsize*(EMFACT*CM_PER_PARSEC);
@@ -3395,9 +3406,11 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThr
                 emold = fsnoab; // store the value of fsync2 for this value of inu, for use with the next value of inu (i.e. inu+1)
                 //emeold = ecflux;
                 //emsold = sscflx;
+                previousInu = inu;
               } // for(inu=1; inu<=D68; inu++) 195 continue
             } // #pragma parallel
 
+            indexTracker1.reset();
           } // if(bSkipRestOfColumnCells)  196 continue
 
         } // for(i-istart; i<=imax[j-1]; i++) 200 continue

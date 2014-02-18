@@ -15,7 +15,7 @@ To parallelize certain (frequency) loops in the code, the code inside that loop 
 
 == Specifics ==
 
-Note that the Fortran numerical labels from temz.f were transferred to C++ comments in ctemz to make it easier to find the corresponding code in each code base. Four loops labeled 129, 1129, 95 and 195 were modified in {{{BlzSim::run()}}} to facilitate parallelization. It is best to take a look at the changes made to [https://code.google.com/p/ctemz/source/list?path=/trunk/blzsim.cpp blzsim.cpp], starting with version [https://code.google.com/p/ctemz/source/detail?r=92&path=/trunk/blzsim.cpp r92].
+Note that the Fortran numerical labels from temz.f were transferred to C++ comments in ctemz to make it easier to find the corresponding code in each code base. Four loops labeled 129, 1129, 95 and 195 were modified in {{{BlzSim::run()}}} to facilitate parallelization. It is best to take a look at the changes made to [https://code.google.com/p/ctemz/source/list?path=/trunk/blzsim.cpp blzsim.cpp], starting with version [https://code.google.com/p/ctemz/source/detail?r=92&path=/trunk/blzsim.cpp r92] and going up to approximately version [https://code.google.com/p/ctemz/source/detail?r=115&path=/trunk/blzsim.cpp r115]
 
 = OpenMP usage details =
 

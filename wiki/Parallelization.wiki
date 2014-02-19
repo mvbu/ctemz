@@ -38,3 +38,11 @@ And when compiling, use the {{{-fopenmp}}} option, as is done in {{{Makefile}}}:
 }}}
 
 OpenMP support is also built into GNU Fortran, so integrating OpenMP into a Fortran program such as {{{temz.f}}} would be similar to what is described above. However, note that the same changes to {{{blzsim.cpp}}} to make it multi-thread-ready would have to be made to {{{temz.f}}}
+
+The Fortran equivalent of the above would be:
+
+{{{
+!$OMP PARALLEL SHARED(var1, var2), PRIVATE(var3, var4)
+      ! code or loop to parallelize goes here.
+!$OMP END PARALLEL
+}}}

@@ -1191,7 +1191,7 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThr
   std::string lcFile("ctemzlc.txt");
   std::string mapFile("ctemzmap.txt"); // this will change once "it" value is known/set
   std::string polFile("ctemzpol.txt");
-  std::string testOutFile("ctestoutp.txt");
+  std::string testOutFile("ctestout.txt");
   std::string dpath("maps/");
   if(nTestOut>0) pfTestOut = fopen (testOutFile.c_str(),"w");
 
@@ -2555,8 +2555,8 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThr
       {
         tid = omp_get_thread_num();
         int previousInu = threadIntervals1[tid][0];
+        double emold = 0.0;
         while((inu = indexTracker1.getNextIndex(previousInu)) >=0 ) { // do 95, inu=1,68
-          double emold = 0.0;
           double anumin, alnumn;
           int inumin, iinu;
           double restnu = nu[inu-1]*common.zred1/delta[i-1][j-1];
@@ -3265,8 +3265,8 @@ void BlzSim::run(BlzSimInput& inp, double ndays, bool bTestMode, bool bSingleThr
             {
               tid = omp_get_thread_num();
               int previousInu = threadIntervals1[tid][0];
+              double emold = 0.0;
               while((inu = indexTracker1.getNextIndex(previousInu)) >= 0) { // do 195 inu=1,68
-                double emold = 0.0;
                 double anumin, alnumn;
                 int inumin, iinu;
                 double restnu = nu[inu-1]*common.zred1/delta[i-1][j-1];
